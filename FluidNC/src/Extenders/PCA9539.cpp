@@ -7,11 +7,17 @@
 namespace Extenders {
     void PCA9539::claim(pinnum_t index) {
         Assert(index >= 0 && index < 16 * 4, "PCA9539 IO index should be [0-63]; %d is out of range", index);
-        Assert(!_claimed[index], "PCA9539 IO port %d is already used.", index);
-        _claimed[index] = true;
+
+        uint64_t mask = uint64_t(1) << index;
+        Assert((_claimed & mask) == 0, "PCA9539 IO port %d is already used.", index);
+
+        _claimed |= mask;
     }
 
-    void PCA9539::free(pinnum_t index) { _claimed[index] = false; }
+    void PCA9539::free(pinnum_t index) {
+        uint64_t mask = uint64_t(1) << index;
+        _claimed &= ~mask;
+    }
 
     uint8_t PCA9539::I2CGetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg) {
         auto err = bus->write(address, &reg, 1);
@@ -56,14 +62,18 @@ namespace Extenders {
         for (int i = 0; i < 4; ++i) {
             auto& data = _isrData[i];
 
-            if (!data._pin.undefined()) {
-                data._address   = uint8_t(0x74 + i);
-                data._i2cBus    = this->_i2cBus;
-                data._valueBase = reinterpret_cast<uint16_t*>(&_value) + i;
+            data._address   = uint8_t(0x74 + i);
+            data._i2cBus    = this->_i2cBus;
+            data._valueBase = reinterpret_cast<uint16_t*>(&_value) + i;
 
-                data.updateValueFromDevice();
-                data._pin.attachInterrupt(updatePCAState, CHANGE, &data);
+            // Update the value first by reading it:
+            data.updateValueFromDevice();
+
+            if (!data._pin.undefined()) {
+                // The interrupt pin is 'active low'. So if it falls, we're interested in the new value.
+                data._pin.attachInterrupt(updatePCAState, FALLING, &data);
             } else {
+                // Reset valueBase so we know it's not bound to an ISR:
                 data._valueBase = nullptr;
             }
         }
@@ -181,7 +191,7 @@ namespace Extenders {
         _isrData[device]._isrCallback[pinNumber] = callback;
         _isrData[device]._isrArgument[pinNumber] = arg;
         _isrData[device]._isrMode[pinNumber]     = mode;
-        _isrData[device]._hasISR                  = true;
+        _isrData[device]._hasISR                 = true;
     }
     void PCA9539::detachInterrupt(pinnum_t index) {
         int device    = index / 16;
