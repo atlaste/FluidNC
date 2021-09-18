@@ -5,6 +5,7 @@
 
 #include "../Configuration/Configurable.h"
 #include <Wire.h>
+#include <esp_attr.h>
 
 namespace Machine {
     class I2CBus : public Configuration::Configurable {
@@ -23,8 +24,8 @@ namespace Machine {
         void validate() const override;
         void group(Configuration::HandlerBase& handler) override;
 
-        int write(uint8_t address, const uint8_t* data, size_t count); // i2c_err_t ?? Or is it mapped? TODO FIXME!
-        int read(uint8_t address, uint8_t* data, size_t count);
+        int IRAM_ATTR write(uint8_t address, const uint8_t* data, size_t count);  // return i2c_err_t ?? Or is it mapped? TODO FIXME!
+        int IRAM_ATTR read(uint8_t address, uint8_t* data, size_t count);
 
         ~I2CBus() = default;
     };

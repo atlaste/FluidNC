@@ -11,6 +11,5 @@ namespace Pins {
     }
     void PinDetail::detachInterrupt() {
         Assert(false, "Interrupts are not supported by pin %d", _index);
-        ;
     }
 }

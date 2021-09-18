@@ -13,7 +13,7 @@
 
 namespace Pins {
     class ExtPinDetail : public PinDetail {
-        Extenders::PinExtenderDriver* _owner  = nullptr;
+        Extenders::PinExtenderDriver* _owner = nullptr;
         int                           _device;
 
         PinCapabilities _capabilities;
@@ -28,6 +28,10 @@ namespace Pins {
         void write(int high) override;
         void synchronousWrite(int high) override;
         int  read() override;
+
+        // ISR's:
+        void attachInterrupt(void (*callback)(void*), void* arg, int mode) override;
+        void detachInterrupt() override;
 
         void          setAttr(PinAttributes value) override;
         PinAttributes getAttr() const override;

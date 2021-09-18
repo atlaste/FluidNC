@@ -27,8 +27,8 @@ namespace Extenders {
 
         Machine::I2CBus* _i2cBus;
 
-        uint8_t I2CGetValue(uint8_t address, uint8_t reg);
-        void    I2CSetValue(uint8_t address, uint8_t reg, uint8_t value);
+        static uint8_t I2CGetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg);
+        static void    I2CSetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg, uint8_t value);
 
         // Registers:
         // 4x16 = 64 bits. Fits perfectly into an uint64.
@@ -41,6 +41,27 @@ namespace Extenders {
 
         // State:
         int _error;  // error code from I2C
+
+        struct ISRData {
+            ISRData() = default;
+
+            Pin              _pin;
+            Machine::I2CBus* _i2cBus    = nullptr;
+            uint16_t*        _valueBase = nullptr;
+            uint8_t          _address   = 0;
+
+            typedef void (*ISRCallback)(void*);
+
+            bool        _hasISR = false;
+            ISRCallback _isrCallback[16] = { 0 };
+            void*       _isrArgument[16] = { 0 };
+            int         _isrMode[16]     = { 0 };
+
+            void IRAM_ATTR updateValueFromDevice();
+        };
+
+        ISRData     _isrData[4];
+        static void updatePCAState(void* ptr);
 
     public:
         PCA9539() = default;
@@ -58,8 +79,11 @@ namespace Extenders {
         bool IRAM_ATTR readPin(pinnum_t index) override;
         void IRAM_ATTR flushWrites() override;
 
+        void attachInterrupt(pinnum_t index, void (*callback)(void*), void* arg, int mode) override;
+        void detachInterrupt(pinnum_t index) override;
+
         const char* name() const override;
 
-        ~PCA9539() = default;
+        ~PCA9539();
     };
 }

@@ -35,7 +35,8 @@ namespace Pins {
 
     int ExtPinDetail::read() {
         Assert(_owner != nullptr, "Cannot read from uninitialized pin");
-        return _owner->readPin(_index); }
+        return _owner->readPin(_index);
+    }
 
     void ExtPinDetail::setAttr(PinAttributes value) {
         // We setup the driver in setAttr. Before this time, the owner might not be valid.
@@ -66,6 +67,15 @@ namespace Pins {
     }
 
     PinAttributes ExtPinDetail::getAttr() const { return _attributes; }
+
+    void ExtPinDetail::attachInterrupt(void (*callback)(void*), void* arg, int mode) {
+        Assert(_owner != nullptr, "Cannot attach ISR on uninitialized pin");
+        _owner->attachInterrupt(_index, callback, arg, mode);
+    }
+    void ExtPinDetail::detachInterrupt() {
+        Assert(_owner != nullptr, "Cannot detach ISR on uninitialized pin");
+        _owner->detachInterrupt(_index);
+    }
 
     String ExtPinDetail::toString() {
         auto s = String("pinext") + int(_device) + String(".") + int(_index);

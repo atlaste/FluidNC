@@ -6,7 +6,7 @@
 #include "../Configuration/Configurable.h"
 #include "../Pins/PinAttributes.h"
 
-#include <esp_attr.h>  // IRAM_ATTR
+#include "../Platform.h"
 
 namespace Extenders {
     class PinExtenderDriver : public Configuration::Configurable {
@@ -20,6 +20,9 @@ namespace Extenders {
         virtual void IRAM_ATTR writePin(pinnum_t index, bool high)                = 0;
         virtual bool IRAM_ATTR readPin(pinnum_t index)                            = 0;
         virtual void IRAM_ATTR flushWrites()                                      = 0;
+
+        virtual void attachInterrupt(pinnum_t index, void (*callback)(void*), void* arg, int mode);
+        virtual void detachInterrupt(pinnum_t index);
 
         // Name is required for the configuration factory to work.
         virtual const char* name() const = 0;
