@@ -4,22 +4,20 @@
 #pragma once
 
 #include "../Configuration/Configurable.h"
-#include "../Configuration/GenericFactory.h"
-#include "PinExtender.h"
+#include "PinExtenderDriver.h"
 
 namespace Extenders {
-    class Extenders : public Configuration::Configurable {
+    class PinExtender : public Configuration::Configurable {
     public:
-        Extenders();
+        // Other configurations?
+        PinExtenderDriver* _driver;
 
-        PinExtender* _pinDrivers[16];
+        PinExtender();
 
         void validate() const override;
         void group(Configuration::HandlerBase& handler) override;
         void init();
 
-        ~Extenders();
+        ~PinExtender();
     };
-
-    using PinExtenderFactory = Configuration::GenericFactory<PinExtenderDriver>;
 }
