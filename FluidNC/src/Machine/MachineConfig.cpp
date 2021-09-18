@@ -35,12 +35,14 @@ namespace Machine {
         handler.section("stepping", _stepping);
         handler.section("axes", _axes);
         handler.section("i2so", _i2so);
+        handler.section("i2c", _i2c);
         handler.section("spi", _spi);
         handler.section("control", _control);
         handler.section("coolant", _coolant);
         handler.section("probe", _probe);
         handler.section("comms", _comms);
         handler.section("macros", _macros);
+        handler.section("extenders", _extenders);
 
         handler.section("user_outputs", _userOutputs);
         handler.section("sdcard", _sdCard);
@@ -94,8 +96,8 @@ namespace Machine {
             _stepping = new Stepping();
         }
 
-        // We do not auto-create an I2SO bus config node
-        // Only if an i2so section is present will config->_i2so be non-null
+        // We do not auto-create an I2SO / I2C bus config node
+        // Only if an the section is present will config->_i2so and config->_i2c be non-null
 
         if (_control == nullptr) {
             log_info("Control: using defaults");
@@ -305,6 +307,7 @@ namespace Machine {
     MachineConfig::~MachineConfig() {
         delete _axes;
         delete _i2so;
+        delete _i2c;
         delete _coolant;
         delete _probe;
         delete _sdCard;

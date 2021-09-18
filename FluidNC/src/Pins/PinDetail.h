@@ -18,7 +18,6 @@ namespace Pins {
 
     // Implementation details of pins.
     class PinDetail {
-    protected:
     public:
         int _index;
 

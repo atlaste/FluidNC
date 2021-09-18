@@ -108,10 +108,6 @@ namespace MotorDrivers {
     void IRAM_ATTR StandardStepper::set_disable(bool disable) { _disable_pin.synchronousWrite(disable); }
 
     // Configuration registration
-    namespace {
-        MotorFactory::InstanceBuilder<StandardStepper> registration("standard_stepper");
-    }
-
     void StandardStepper::validate() const {
         Assert(_step_pin.defined(), "Step pin must be configured.");
         Assert(_dir_pin.defined(), "Direction pin must be configured.");
@@ -123,6 +119,10 @@ namespace MotorDrivers {
             Assert(_step_pin.name().startsWith("gpio"), "Step pin must be a GPIO pin");
             Assert(_dir_pin.name().startsWith("gpio"), "Direction pin must be a GPIO pin");
         }
+    }
+
+    namespace {
+        MotorFactory::InstanceBuilder<StandardStepper> registration("standard_stepper");
     }
 
 }
