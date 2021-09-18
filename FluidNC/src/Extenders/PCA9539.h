@@ -22,24 +22,36 @@ namespace Extenders {
     // pins, so a maximum of 4 possible values. Per PCA, there are 16 I/O ports in 2 
     // separate registers, so that's a total of 16*4 = 64 values.
     // Datasheet: https://www.ti.com/lit/ds/symlink/pca9539.pdf
+    // Speed: 400 kHz
     //
     // The PCA8574 is quite similar as well, but only has 8 bits per device, so a single
     // register. It has 3 address pins, so 8 possible values. 8*8=64 bits.
     // Datasheet: https://www.nxp.com/docs/en/data-sheet/PCA8574_PCA8574A.pdf
+    // Speed: 400 kHz
     //
     // An optional 'interrupt' line can be used. When the 'interrupt' is called, it means
     // that *some* pin has changed state. We don't know which one that was obviously.
     // However, we can then query the individual pins (thereby resetting them) and throwing
     // the results as individual ISR's.
     //
-    // The MCP23017 has two interrupt lines, one for register A and register B. Apart from
-    // that it appears to be quite similar as well. 
-    // Datasheet: https://ww1.microchip.com/downloads/en/devicedoc/20001952c.pdf
-    //
-    // NOTE: The data sheet explains that interrupts can be chained. If that is the case, the 
+    // NOTE: The data sheet explains that interrupts can be chained. If that is the case, the
     // interrupt will have the effect that ALL PCA's in the chain have to be queried. Needless
     // to say, this is usually a bad idea, because things like endstops become much slower
     // as a result. For now, I just felt like not supporting it.
+    //
+    // The MCP23017 has two interrupt lines, one for register A and register B. Apart from
+    // that it appears to be quite similar as well. It has 3 address lines and 16 I/O ports,
+    // so that's a total of 8 * 16 = 128 I/O ports.
+    // Datasheet: https://ww1.microchip.com/downloads/en/devicedoc/20001952c.pdf 
+    // Speed: 100 kHz, 400 kHz, 1.7 MHz.
+    //
+    // MCP23S17 is similar to MCP23017 but works using SPI instead of I2C (10 MHz). MCP23S08 
+    // seems to be the same, but 8-bit.
+    //
+    // MAX7301 is SPI based, and like all the others, it can generate an ISR when the state 
+    // changes (pin 31). Address is selected like any other SPI device by CS. MAX7301 includes 
+    // pullups and schmitt triggers.
+    // Datasheet: https://datasheet.lcsc.com/lcsc/1804140032_Maxim-Integrated-MAX7301AAX-_C143583.pdf
     class PCA9539 : public PinExtenderDriver {
         friend class Pins::PCA9539PinDetail;
 
