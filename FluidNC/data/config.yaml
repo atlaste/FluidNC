@@ -1,0 +1,39 @@
+name: "Test input module"
+board: "Test input module"
+yaml_wiki: "https://github.com/bdring/FluidNC/wiki/YAML-Config-File"
+
+idle_time: 250
+step_type: rmt
+dir_delay_microseconds: 1
+pulse_microseconds: 2
+disable_delay_us: 0
+homing_init_lock: false
+
+i2c:
+  scl: gpio.18
+  sda: gpio.19
+
+extenders:
+  pinextender0:
+    pca9539:
+      interrupt0: gpio.5
+
+axes:
+  number_axis: 4
+  
+  x:
+    motor0:
+      null_motor:
+      limit_all_pin: pinext0.0
+
+  y:
+    motor0:
+      null_motor:
+
+  z:
+    motor0:
+      null_motor:
+
+  a:
+    motor0:
+      null_motor:

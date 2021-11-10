@@ -63,7 +63,8 @@ void setup() {
             log_info("Machine " << config->_name);
             log_info("Board " << config->_board);
 
-            // The initialization order reflects dependencies between the subsystems
+            // The initialization order reflects dependencies between the subsystems:
+            // Bus'es first, they could be needed for the rest:
             if (config->_i2so) {
                 config->_i2so->init();
             }
@@ -74,7 +75,16 @@ void setup() {
                     config->_sdCard->init();
                 }
             }
+            if (config->_i2c) {
+                config->_i2c->init();
+            }
+            
+            // Pin extenders:
+            if (config->_extenders) {
+                config->_extenders->init();
+            }
 
+            // The rest of the machine:
             Stepper::init();  // Configure stepper pins and interrupt timers
 
             config->_userOutputs->init();

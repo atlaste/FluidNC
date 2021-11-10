@@ -8,6 +8,7 @@
 #include "../Configuration/GenericFactory.h"
 #include "../Configuration/HandlerBase.h"
 #include "../Configuration/Configurable.h"
+#include "../Extenders/Extenders.h"
 #include "../CoolantControl.h"
 #include "../WebUI/BTConfig.h"
 #include "../Control.h"
@@ -20,6 +21,7 @@
 #include "../Config.h"
 #include "Axes.h"
 #include "SPIBus.h"
+#include "I2CBus.h"
 #include "I2SOBus.h"
 #include "UserOutputs.h"
 #include "Macros.h"
@@ -52,17 +54,19 @@ namespace Machine {
     public:
         MachineConfig() = default;
 
-        Axes*           _axes        = nullptr;
-        SPIBus*         _spi         = nullptr;
-        I2SOBus*        _i2so        = nullptr;
-        Stepping*       _stepping    = nullptr;
-        CoolantControl* _coolant     = nullptr;
-        Probe*          _probe       = nullptr;
-        Control*        _control     = nullptr;
-        UserOutputs*    _userOutputs = nullptr;
-        SDCard*         _sdCard      = nullptr;
-        Macros*         _macros      = nullptr;
-        Start*          _start       = nullptr;
+        Axes*                 _axes        = nullptr;
+        SPIBus*               _spi         = nullptr;
+        I2SOBus*              _i2so        = nullptr;
+        I2CBus*               _i2c         = nullptr;
+        Stepping*             _stepping    = nullptr;
+        CoolantControl*       _coolant     = nullptr;
+        Probe*                _probe       = nullptr;
+        Control*              _control     = nullptr;
+        UserOutputs*          _userOutputs = nullptr;
+        SDCard*               _sdCard      = nullptr;
+        Macros*               _macros      = nullptr;
+        Start*                _start       = nullptr;
+        Extenders::Extenders* _extenders   = nullptr;
 
         Spindles::SpindleList _spindles;
 
