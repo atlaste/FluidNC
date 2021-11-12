@@ -24,7 +24,7 @@ axes:
   x:
     motor0:
       null_motor:
-      limit_all_pin: pinext0.0
+      limit_all_pin: pinext0.7
 
   y:
     motor0:

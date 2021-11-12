@@ -23,14 +23,14 @@ namespace Machine {
         log_info("I2C SDA:" << _sda.name() << ", SCL:" << _scl.name() << ", Bus:" << _busNumber);
 
         auto sdaPin = _sda.getNative(Pin::Capabilities::Native | Pin::Capabilities::Input | Pin::Capabilities::Output);
-        auto sclPin = _sda.getNative(Pin::Capabilities::Native | Pin::Capabilities::Input | Pin::Capabilities::Output);
+        auto sclPin = _scl.getNative(Pin::Capabilities::Native | Pin::Capabilities::Input | Pin::Capabilities::Output);
 
         if (_busNumber == 0) {
             i2c = &Wire;
         } else {
             i2c = &Wire1;
         }
-        i2c->begin(sdaPin, sclPin, _frequency);
+        i2c->begin(sdaPin, sclPin /*, _frequency */);
     }
 
     int I2CBus::write(uint8_t address, const uint8_t* data, size_t count) {

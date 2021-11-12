@@ -3,6 +3,7 @@
 
 #include "Extenders.h"
 #include "PCA9539.h"
+#include "../Logging.h"
 
 namespace Extenders {
     void PCA9539::claim(pinnum_t index) {
@@ -23,12 +24,13 @@ namespace Extenders {
         auto err = bus->write(address, &reg, 1);
 
         if (err) {
-            /* TODO FIXME: NOT SURE... */
+            // log_info("Error writing to i2c bus. Code: " << err);
+            return 0;
         }
 
         uint8_t inputData;
         if (bus->read(address, &inputData, 1) != 1) {
-            /* TODO FIXME: NOT SURE... */
+            // log_info("Error reading from i2c bus.");
         }
 
         return inputData;
@@ -41,7 +43,7 @@ namespace Extenders {
         auto err = bus->write(address, data, 2);
 
         if (err) {
-            /* TODO FIXME: NOT SURE... */
+            log_info("Error writing to i2c bus. Code: " << err);
         }
     }
 
@@ -118,7 +120,7 @@ namespace Extenders {
 
     void PCA9539::updatePCAState(void* ptr) {
         ISRData* valuePtr = static_cast<ISRData*>(ptr);
-        log_info("PCA state change ISR");
+        // log_info("PCA state change ISR");
         valuePtr->updateValueFromDevice();
     }
 
@@ -137,6 +139,8 @@ namespace Extenders {
 
         uint8_t value = uint8_t(_configuration >> (8 * (index / 8)));
         uint8_t reg   = ConfigReg + ((index / 8) & 1);
+
+        log_info("Setup reg " << int(reg) << " with value " << int(value));
 
         I2CSetValue(_i2cBus, address, reg, value);
     }
@@ -160,14 +164,19 @@ namespace Extenders {
             const uint8_t InputReg = 0;
             uint8_t       address  = 0x74 + deviceId;
 
-            auto     value    = I2CGetValue(_i2cBus, address, InputReg + (reg & 1));
+            auto     readReg  = InputReg + (reg & 1);
+            auto     value    = I2CGetValue(_i2cBus, address, readReg);
             uint64_t newValue = uint64_t(value) << (int(reg) * 8);
             uint64_t mask     = uint64_t(0xff) << (int(reg) * 8);
 
             _value = ((newValue ^ _invert) & mask) | (_value & ~mask);
+
+            log_info("Read reg " << int(readReg) << " <- value " << int(newValue) << " gives " << int(_value));
+        } else {
+            log_info("No read, value is " << int(_value));
         }
 
-        return (_value & (1 << index)) != 0;
+            return (_value & (1 << index)) != 0;
     }
 
     void PCA9539::flushWrites() {
