@@ -59,13 +59,36 @@ namespace Extenders {
         handler.item("interrupt3", _isrData[3]._pin);
     }
 
+    void PCA9539::isrTaskLoop(void* arg) {
+        auto inst = static_cast<PCA9539*>(arg);
+        while (true) {
+            void* ptr;
+            if (xQueueReceive(inst->_isrQueue, &ptr, portMAX_DELAY)) {
+                ISRData* valuePtr = static_cast<ISRData*>(ptr);
+                // log_info("PCA state change ISR");
+                valuePtr->updateValueFromDevice();
+            }
+        }
+    }
+
     void PCA9539::init() {
         this->_i2cBus = config->_i2c;
+
+        _isrQueue = xQueueCreate(16, sizeof(void*));
+        xTaskCreatePinnedToCore(isrTaskLoop,                     // task
+                                "isr_handler",                   // name for task
+                                configMINIMAL_STACK_SIZE + 256,  // size of task stack
+                                this,                            // parameters
+                                1,                               // priority
+                                &_isrHandler,
+                                SUPPORT_TASK_CORE  // core
+        );
+
         for (int i = 0; i < 4; ++i) {
             auto& data = _isrData[i];
 
             data._address   = uint8_t(0x74 + i);
-            data._i2cBus    = this->_i2cBus;
+            data._container = this;
             data._valueBase = reinterpret_cast<uint16_t*>(&_value) + i;
 
             // Update the value first by reading it:
@@ -85,9 +108,10 @@ namespace Extenders {
 
     void PCA9539::ISRData::updateValueFromDevice() {
         const uint8_t InputReg = 0;
+        auto          i2cBus   = _container->_i2cBus;
 
-        auto     r1       = I2CGetValue(_i2cBus, _address, InputReg);
-        auto     r2       = I2CGetValue(_i2cBus, _address, InputReg + 1);
+        auto     r1       = I2CGetValue(i2cBus, _address, InputReg);
+        auto     r2       = I2CGetValue(i2cBus, _address, InputReg + 1);
         uint16_t oldValue = *_valueBase;
         uint16_t value    = (uint16_t(r1) << 8) | uint16_t(r2);
         *_valueBase       = value;
@@ -121,7 +145,10 @@ namespace Extenders {
     void PCA9539::updatePCAState(void* ptr) {
         ISRData* valuePtr = static_cast<ISRData*>(ptr);
         // log_info("PCA state change ISR");
-        valuePtr->updateValueFromDevice();
+        // valuePtr->updateValueFromDevice();
+
+        BaseType_t xHigherPriorityTaskWoken = false;
+        xQueueSendFromISR(valuePtr->_container->_isrQueue, &valuePtr, &xHigherPriorityTaskWoken);
     }
 
     void PCA9539::setupPin(pinnum_t index, Pins::PinAttributes attr) {
@@ -176,7 +203,7 @@ namespace Extenders {
             log_info("No read, value is " << int(_value));
         }
 
-            return (_value & (1 << index)) != 0;
+        return (_value & (1 << index)) != 0;
     }
 
     void PCA9539::flushWrites() {

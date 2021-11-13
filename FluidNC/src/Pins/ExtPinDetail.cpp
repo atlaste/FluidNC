@@ -85,5 +85,9 @@ namespace Pins {
         return s;
     }
 
-    ExtPinDetail::~ExtPinDetail() { _owner->free(_index); }
+    ExtPinDetail::~ExtPinDetail() {
+        if (_owner) {
+            _owner->free(_index);
+        }
+    }
 }
