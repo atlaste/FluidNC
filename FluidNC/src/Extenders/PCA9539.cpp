@@ -43,7 +43,7 @@ namespace Extenders {
         auto err = bus->write(address, data, 2);
 
         if (err) {
-            log_info("Error writing to i2c bus. Code: " << err);
+            log_error("Error writing to i2c bus; PCA9539 failed. Code: " << err);
         }
     }
 
@@ -89,7 +89,7 @@ namespace Extenders {
 
             data._address   = uint8_t(0x74 + i);
             data._container = this;
-            data._valueBase = reinterpret_cast<uint16_t*>(&_value) + i;
+            data._valueBase = reinterpret_cast<volatile uint16_t*>(&_value) + i;
 
             // Update the value first by reading it:
             data.updateValueFromDevice();
@@ -121,7 +121,7 @@ namespace Extenders {
                 uint16_t mask = uint16_t(1) << i;
 
                 if (_isrCallback[i] != nullptr && (oldValue & mask) != (value & mask)) {
-                    log_info("State change pin " << i);
+                    // log_info("State change pin " << i);
                     switch (_isrMode[i]) {
                         case RISING:
                             if ((value & mask) == mask) {
@@ -144,8 +144,6 @@ namespace Extenders {
 
     void PCA9539::updatePCAState(void* ptr) {
         ISRData* valuePtr = static_cast<ISRData*>(ptr);
-        // log_info("PCA state change ISR");
-        // valuePtr->updateValueFromDevice();
 
         BaseType_t xHigherPriorityTaskWoken = false;
         xQueueSendFromISR(valuePtr->_container->_isrQueue, &valuePtr, &xHigherPriorityTaskWoken);
@@ -167,7 +165,7 @@ namespace Extenders {
         uint8_t value = uint8_t(_configuration >> (8 * (index / 8)));
         uint8_t reg   = ConfigReg + ((index / 8) & 1);
 
-        log_info("Setup reg " << int(reg) << " with value " << int(value));
+        // log_info("Setup reg " << int(reg) << " with value " << int(value));
 
         I2CSetValue(_i2cBus, address, reg, value);
     }
@@ -198,10 +196,11 @@ namespace Extenders {
 
             _value = ((newValue ^ _invert) & mask) | (_value & ~mask);
 
-            log_info("Read reg " << int(readReg) << " <- value " << int(newValue) << " gives " << int(_value));
-        } else {
-            log_info("No read, value is " << int(_value));
+            // log_info("Read reg " << int(readReg) << " <- value " << int(newValue) << " gives " << int(_value));
         }
+        // else {
+        //     log_info("No read, value is " << int(_value));
+        // }
 
         return (_value & (1 << index)) != 0;
     }

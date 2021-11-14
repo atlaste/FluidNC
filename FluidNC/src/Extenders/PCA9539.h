@@ -67,16 +67,12 @@ namespace Extenders {
 
         // Registers:
         // 4x16 = 64 bits. Fits perfectly into an uint64.
-        uint64_t _configuration = 0;
-        uint64_t _invert        = 0;
-        uint64_t _value         = 0;
+        uint64_t          _configuration = 0;
+        uint64_t          _invert        = 0;
+        volatile uint64_t _value         = 0;
 
-        // 4 devices, 2 registers per device:
+        // 4 devices, 2 registers per device. 8 bits is enough:
         uint8_t _dirtyRegisters = 0;
-        uint8_t _registerUsage  = 0;
-
-        // State:
-        int _error;  // error code from I2C
 
         QueueHandle_t _isrQueue   = nullptr;
         TaskHandle_t  _isrHandler = nullptr;
@@ -86,10 +82,10 @@ namespace Extenders {
         struct ISRData {
             ISRData() = default;
 
-            Pin       _pin;
-            PCA9539*  _container = nullptr;
-            uint16_t* _valueBase = nullptr;
-            uint8_t   _address   = 0;
+            Pin                _pin;
+            PCA9539*           _container = nullptr;
+            volatile uint16_t* _valueBase = nullptr;
+            uint8_t            _address   = 0;
 
             typedef void (*ISRCallback)(void*);
 
@@ -101,8 +97,8 @@ namespace Extenders {
             void IRAM_ATTR updateValueFromDevice();
         };
 
-        ISRData _isrData[4];
-        static void    updatePCAState(void* ptr);
+        ISRData     _isrData[4];
+        static void IRAM_ATTR updatePCAState(void* ptr);
 
     public:
         PCA9539() = default;
