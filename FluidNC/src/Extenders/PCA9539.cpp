@@ -113,7 +113,7 @@ namespace Extenders {
         auto     r1       = I2CGetValue(i2cBus, _address, InputReg);
         auto     r2       = I2CGetValue(i2cBus, _address, InputReg + 1);
         uint16_t oldValue = *_valueBase;
-        uint16_t value    = (uint16_t(r1) << 8) | uint16_t(r2);
+        uint16_t value    = (uint16_t(r2) << 8) | uint16_t(r1);
         *_valueBase       = value;
 
         if (_hasISR) {

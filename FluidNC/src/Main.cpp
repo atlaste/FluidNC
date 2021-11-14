@@ -84,13 +84,6 @@ void setup() {
                 config->_extenders->init();
             }
 
-            Pin pin = Pin::create("pinext0.7");
-            pin.setAttr(Pin::Attr::Input);
-            while (true) {
-                Uart0.printf("%d\n", pin.read() ? 1 : 0);
-                delay(1000);
-            }
-
             // The rest of the machine:
             Stepper::init();  // Configure stepper pins and interrupt timers
 
