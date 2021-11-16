@@ -3,7 +3,6 @@
 
 #include "UserOutput.h"
 #include "Logging.h"         // log_*
-#include "Pins/LedcPin.h"    // ledcInit()
 #include <esp32-hal-ledc.h>  // ledc*
 #include <esp32-hal-cpu.h>   // getApbFrequency()
 
@@ -59,9 +58,11 @@ namespace UserOutput {
         if (_pin.undefined()) {
             return;
         }
+        /*
         _pwm_channel = ledcInit(_pin, -1, _pwm_frequency, _resolution_bits);
         ledcWrite(_pwm_channel, 0);
         config_message();
+        */
     }
 
     void AnalogOutput::config_message() {

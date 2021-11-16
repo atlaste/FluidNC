@@ -22,16 +22,11 @@
 
 #include "Machine/MachineConfig.h"
 #include "SettingsDefinitions.h"
-#include "MotionControl.h"               // probe_succeeded
-#include "Limits.h"                      // limits_get_state
-#include "Planner.h"                     // plan_get_block_buffer_available
-#include "Stepper.h"                     // step_count
-#include "Platform.h"                    // WEAK_LINK
-#include "WebUI/NotificationsService.h"  // WebUI::notificationsservice
-#include "WebUI/WifiConfig.h"            // wifi_config
-#include "WebUI/TelnetServer.h"          // WebUI::telnet_server
-#include "WebUI/BTConfig.h"              // bt_config
-#include "WebUI/WebSettings.h"
+#include "MotionControl.h"  // probe_succeeded
+#include "Limits.h"         // limits_get_state
+#include "Planner.h"        // plan_get_block_buffer_available
+#include "Stepper.h"        // step_count
+#include "Platform.h"       // WEAK_LINK
 #include "InputFile.h"
 
 #include <map>
@@ -48,9 +43,7 @@ EspClass esp;
 
 portMUX_TYPE mmux = portMUX_INITIALIZER_UNLOCKED;
 
-void _notify(const char* title, const char* msg) {
-    WebUI::notificationsservice.sendMSG(title, msg);
-}
+void _notify(const char* title, const char* msg) {}
 
 void _notifyf(const char* title, const char* format, ...) {
     char    loc_buf[64];
@@ -398,15 +391,6 @@ void report_build_info(const char* line, Print& channel) {
     channel << "]\n";
 
     channel << "[MSG: Machine: " << config->_name << "]\n";
-
-    String info = WebUI::wifi_config.info();
-    if (info.length()) {
-        channel << "[MSG: " << info << "]\n";
-    }
-    info = WebUI::bt_config.info();
-    if (info.length()) {
-        channel << "[MSG: " << info << "]\n";
-    }
 }
 
 // Prints the character string line that was received, which has been pre-parsed,

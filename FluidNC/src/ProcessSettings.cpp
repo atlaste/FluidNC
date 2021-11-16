@@ -11,7 +11,6 @@
 #include "Machine/Axes.h"
 #include "Regex.h"
 #include "WebUI/Authentication.h"
-#include "WebUI/WifiConfig.h"
 #include "Report.h"
 #include "MotionControl.h"
 #include "System.h"
@@ -56,10 +55,6 @@ static void show_setting(const char* name, const char* value, const char* descri
 }
 
 void settings_restore(uint8_t restore_flag) {
-    if (restore_flag & SettingsRestore::Wifi) {
-        WebUI::wifi_config.reset_settings();
-    }
-
     if (restore_flag & SettingsRestore::Defaults) {
         bool restore_startup = restore_flag & SettingsRestore::StartupLines;
         for (Setting* s = Setting::List; s; s = s->next()) {
@@ -94,13 +89,8 @@ static void load_settings() {
 extern void make_settings();
 extern void make_user_commands();
 
-namespace WebUI {
-    extern void make_web_settings();
-}
-
 void settings_init() {
     make_settings();
-    WebUI::make_web_settings();
     load_settings();
 }
 

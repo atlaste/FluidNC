@@ -12,6 +12,16 @@ std::string String::ValueToString(int value, int base) {
     return output;
 }
 
+void String::trim() {
+    auto   str   = this->backbuf;
+    size_t first = str.find_first_not_of(' ');
+    if (std::string::npos == first) {
+        this->backbuf = str;
+    }
+    size_t last   = str.find_last_not_of(' ');
+    this->backbuf = str.substr(first, (last - first + 1));
+}
+
 std::string String::DecToString(double value, int decimalPlaces) {
     std::stringstream stream;
     stream << std::fixed << std::setprecision(decimalPlaces) << value;

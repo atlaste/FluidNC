@@ -1,8 +1,6 @@
 #include "Settings.h"
 
 #include "WebUI/JSONEncoder.h"  // JSON
-#include "WebUI/WifiConfig.h"   // WebUI::WiFiConfig
-#include "WebUI/Commands.h"     // WebUI::COMMANDS
 #include "Protocol.h"           // protocol_buffer_synchronize
 
 #include <map>
@@ -256,10 +254,7 @@ Error StringSetting::setStringValue(char* s) {
 }
 
 static bool isPassword(bool (*_checker)(char*)) {
-    if (_checker == (bool (*)(char*))WebUI::WiFiConfig::isPasswordValid) {
-        return true;
-    }
-    return _checker == (bool (*)(char*))WebUI::COMMANDS::isLocalPasswordValid;
+    return true;
 }
 
 const char* StringSetting::getDefaultString() {

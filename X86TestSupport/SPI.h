@@ -2,6 +2,8 @@
 
 class SPIClass {
 public:
+    void begin(int sck, int miso, int mosi) { /* TODO */
+    }
     void begin(int sck, int miso, int mosi, int ss) { /* TODO */
     }
 };

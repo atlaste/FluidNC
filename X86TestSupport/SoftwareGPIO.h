@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Arduino.h"
-#include <src/Assert.h>
 #include <random>
 #include "esp32-hal-gpio.h"
 
@@ -136,7 +135,6 @@ public:
 
     void attachISR(int index, void (*callback)(void* arg), void* arg, int mode) {
         auto& pin = pins[index];
-        Assert(pin.mode == 0, "ISR mode should be 0 when attaching interrupt. Another interrupt is already attached.");
 
         pin.callback = callback;
         pin.argument = arg;

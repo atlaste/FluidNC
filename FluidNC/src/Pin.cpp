@@ -8,7 +8,6 @@
 #include "Pins/PinOptionsParser.h"
 #include "Pins/GPIOPinDetail.h"
 #include "Pins/VoidPinDetail.h"
-#include "Pins/I2SOPinDetail.h"
 #include "Pins/ErrorPinDetail.h"
 #include <stdio.h>  // snprintf()
 

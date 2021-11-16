@@ -4,10 +4,10 @@
 #include "FreeRTOSTypes.h"
 
 #include <queue>
-#include <mutex>
+// #include <mutex>
 
 struct QueueHandle {
-    std::mutex mutex;
+    // std::mutex mutex;
 
     size_t numberItems = 16;
     size_t entrySize   = 1;

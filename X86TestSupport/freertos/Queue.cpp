@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <vector>
-#include <mutex>
+// #include <mutex>
 
 QueueHandle_t xQueueGenericCreate(const UBaseType_t uxQueueLength, const UBaseType_t uxItemSize, const uint8_t ucQueueType /* =0 */) {
     auto ptr         = new QueueHandle();
@@ -13,7 +13,7 @@ QueueHandle_t xQueueGenericCreate(const UBaseType_t uxQueueLength, const UBaseTy
 }
 
 BaseType_t xQueueGenericReceive(QueueHandle_t xQueue, void* const pvBuffer, TickType_t xTicksToWait, const BaseType_t xJustPeek) {
-    std::lock_guard<std::mutex> lock(xQueue->mutex);
+    // std::lock_guard<std::mutex> lock(xQueue->mutex);
 
     if (xQueue->readIndex != xQueue->writeIndex) {
         memcpy(pvBuffer, xQueue->data.data() + xQueue->readIndex, xQueue->entrySize);
@@ -34,7 +34,7 @@ BaseType_t xQueueGenericSendFromISR(QueueHandle_t     xQueue,
                                     const void* const pvItemToQueue,
                                     BaseType_t* const pxHigherPriorityTaskWoken,
                                     const BaseType_t  xCopyPosition) {
-    std::lock_guard<std::mutex> lock(xQueue->mutex);
+    // std::lock_guard<std::mutex> lock(xQueue->mutex);
 
     auto newPtr = xQueue->writeIndex + xQueue->entrySize;
     if (newPtr == xQueue->data.size()) {
@@ -51,7 +51,7 @@ BaseType_t xQueueGenericSendFromISR(QueueHandle_t     xQueue,
 }
 
 BaseType_t xQueueGenericReset(QueueHandle_t xQueue, BaseType_t xNewQueue) {
-    std::lock_guard<std::mutex> lock(xQueue->mutex);
+    // std::lock_guard<std::mutex> lock(xQueue->mutex);
 
     xQueue->writeIndex = xQueue->readIndex = 0;
     return pdTRUE;
