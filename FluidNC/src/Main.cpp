@@ -2,6 +2,10 @@
 // Copyright (c) 2018 -	Bart Dring
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
+// #include "smb2.h"
+// #include "libsmb2.h"
+// #include "libsmb2-raw.h"
+
 #include "Main.h"
 #include "Machine/MachineConfig.h"
 
@@ -26,6 +30,9 @@
 #endif
 #include <SPIFFS.h>
 
+#include "libsmb2/include/smb2/libsmb2.h"
+#include "libsmb2/include/smb2/smb2.h"
+
 extern void make_user_commands();
 
 void setup() {
@@ -48,6 +55,53 @@ void setup() {
 
         // Load settings from non-volatile storage
         settings_init();  // requires config
+
+        struct smb2_context* smb2;
+        struct smb2_url*     url;
+        struct smb2dir*      dir;
+        struct smb2dirent*   ent;
+        char*                link;
+
+        smb2 = smb2_init_context();
+        if (smb2 == NULL) {
+            log_info("Failed to init context");
+        }
+
+#if CONFIG_SMB_NEED_PASSWORD
+        smb2_set_password(smb2, CONFIG_SMB_PASSWORD);
+#endif
+
+        url = smb2_parse_url(smb2, "smb://nas/test");
+        if (url == NULL) {
+            log_info("Failed to parse url: " << smb2_get_error(smb2));
+            while (1) {
+                vTaskDelay(1);
+            }
+        }
+
+        smb2_set_security_mode(smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
+
+        if (smb2_connect_share(smb2, url->server, url->share, url->user) < 0) {
+            log_info("smb2_connect_share failed. " << smb2_get_error(smb2));
+            while (1) {
+                vTaskDelay(1);
+            }
+        }
+
+        dir = smb2_opendir(smb2, url->path);
+        if (dir == NULL) {
+            log_info("smb2_opendir failed. " << smb2_get_error(smb2));
+            while (1) {
+                vTaskDelay(1);
+            }
+        }
+
+        while ((ent = smb2_readdir(smb2, dir))) {}
+
+        smb2_closedir(smb2, dir);
+        smb2_disconnect_share(smb2);
+        smb2_destroy_url(url);
+        smb2_destroy_context(smb2);
 
         log_info("FluidNC " << git_info);
         log_info("Compiled with ESP32 SDK:" << ESP.getSdkVersion());
