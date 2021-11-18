@@ -7,7 +7,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FluidNC", "FluidNC.vcxproj"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTests", "UnitTests.vcxproj", "{33ECE513-60D1-4949-A4A9-C95D353C2CF0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SMBTest", "..\SMBTest\SMBTest.vcxproj", "{801622B6-35C3-4BF7-8F47-954E5FB04BC5}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SMBTest", "SMBTest\SMBTest.vcxproj", "{801622B6-35C3-4BF7-8F47-954E5FB04BC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

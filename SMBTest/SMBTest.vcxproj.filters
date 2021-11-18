@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="SMBTest.cpp" />
+    <ClCompile Include="lib\Security\aes128ccm.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\aes.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\sha384-512.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\usha.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\hmac.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\sha256.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\hmac-md5.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\md5.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Security\md4.cpp">
+      <Filter>lib\Security</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="lib">
+      <UniqueIdentifier>{a5718fd5-c2a0-4c0a-bfff-2cef5b9654ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\Security">
+      <UniqueIdentifier>{a643a028-85b8-4eab-b400-944bb258b30b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\Todo">
+      <UniqueIdentifier>{97339a19-e148-4695-af7a-7c28de6cd45b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="lib\Security\aes.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\aes128ccm.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Endian.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\sha.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\sha-private.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\hmac-md5.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\md4.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Security\md5.h">
+      <Filter>lib\Security</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
