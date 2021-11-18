@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FluidNC", "FluidNC.vcxproj"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTests", "UnitTests.vcxproj", "{33ECE513-60D1-4949-A4A9-C95D353C2CF0}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SMBTest", "..\SMBTest\SMBTest.vcxproj", "{801622B6-35C3-4BF7-8F47-954E5FB04BC5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -18,7 +20,6 @@ Global
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Debug|x64.ActiveCfg = Debug|x64
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Debug|x64.Build.0 = Debug|x64
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Debug|x86.ActiveCfg = Debug|Win32
-		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Debug|x86.Build.0 = Debug|Win32
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Release|x64.ActiveCfg = Release|x64
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Release|x64.Build.0 = Release|x64
 		{11C8A44F-A303-4885-B5AD-5B65F7FE41C0}.Release|x86.ActiveCfg = Release|Win32
@@ -30,6 +31,14 @@ Global
 		{33ECE513-60D1-4949-A4A9-C95D353C2CF0}.Release|x64.Build.0 = Release|x64
 		{33ECE513-60D1-4949-A4A9-C95D353C2CF0}.Release|x86.ActiveCfg = Release|Win32
 		{33ECE513-60D1-4949-A4A9-C95D353C2CF0}.Release|x86.Build.0 = Release|Win32
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Debug|x64.ActiveCfg = Debug|x64
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Debug|x64.Build.0 = Debug|x64
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Debug|x86.ActiveCfg = Debug|Win32
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Debug|x86.Build.0 = Debug|Win32
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Release|x64.ActiveCfg = Release|x64
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Release|x64.Build.0 = Release|x64
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Release|x86.ActiveCfg = Release|Win32
+		{801622B6-35C3-4BF7-8F47-954E5FB04BC5}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

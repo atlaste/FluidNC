@@ -1,3 +1,4 @@
+#pragma once
 /*
  * This is the header file for the MD5 message-digest algorithm.
  * The algorithm is due to Ron Rivest.  This code was
@@ -21,37 +22,37 @@
  */
 
 #ifndef MD5_H
-#define MD5_H
+#    define MD5_H
 
-#ifdef HAVE_CONFIG_H
-#    include "config.h"
-#endif
-#include <stdint.h>
-
-#if !defined(_WIN32) && !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
-#    include <netinet/in.h>
-#endif
-
-#include <string.h>
-#include <sys/types.h>
-
-#ifdef HAVE_STDINT_H
+#    ifdef HAVE_CONFIG_H
+#        include "config.h"
+#    endif
 #    include <stdint.h>
-#endif
 
-#if !defined(_WIN32) && (__BYTE_ORDER == __BIG_ENDIAN)
-#    define WORDS_BIGENDIAN 1
-#endif
+#    if !defined(_WIN32) && !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#        include <netinet/in.h>
+#    endif
 
-#if !defined(PS2_IOP_PLATFORM)
+#    include <string.h>
+#    include <sys/types.h>
+
+#    ifdef HAVE_STDINT_H
+#        include <stdint.h>
+#    endif
+
+#    if !defined(_WIN32) && (__BYTE_ORDER == __BIG_ENDIAN)
+#        define WORDS_BIGENDIAN 1
+#    endif
+
+#    if !defined(PS2_IOP_PLATFORM)
 typedef uint32_t UWORD32;
-#endif
+#    endif
 
-#ifdef __cplusplus
+#    ifdef __cplusplus
 extern "C" {
-#endif
+#    endif
 
-#define md5byte unsigned char
+#    define md5byte unsigned char
 
 struct MD5Context {
     UWORD32 buf[4];
@@ -64,8 +65,8 @@ void MD5Update(struct MD5Context* context, md5byte const* buf, unsigned len);
 void MD5Final(unsigned char digest[16], struct MD5Context* context);
 void MD5Transform(UWORD32 buf[4], UWORD32 const in[16]);
 
-#ifdef __cplusplus
+#    ifdef __cplusplus
 }
-#endif
+#    endif
 
 #endif /* !MD5_H */
