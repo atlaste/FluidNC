@@ -9,6 +9,7 @@
 
 namespace MotorDrivers {
     class MotorDriver;
+    class DriverInitBase;
 }
 
 namespace Machine {
@@ -27,6 +28,7 @@ namespace Machine {
     public:
         Motor(int axis, int motorNum) : _axis(axis), _motorNum(motorNum) {}
 
+        MotorDrivers::DriverInitBase* _driverISR = nullptr;
         MotorDrivers::MotorDriver* _driver  = nullptr;
         float                      _pulloff = 1.0f;  // mm
 

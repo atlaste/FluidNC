@@ -42,5 +42,4 @@ namespace MotorDrivers {
         Assert(config != nullptr && config->_axes != nullptr, "Expected machine to be configured before this is called.");
         return size_t(config->_axes->findAxisMotor(this));
     }
-    void IRAM_ATTR MotorDriver::set_disable(bool disable) {}
 }

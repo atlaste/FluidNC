@@ -13,9 +13,10 @@ namespace MotorDrivers {
         // Overrides for inherited methods
         void init() override;
         bool set_homing_mode(bool isHoming) override { return true; }
-        void set_disable(bool disable) override;
-        void set_direction(bool) override;
-        void step() override;
+        
+        void IRAM_ATTR set_disable(bool disable);
+        void IRAM_ATTR set_direction(bool);
+        void IRAM_ATTR step();
 
         // Configuration handlers:
         void validate() const override {
@@ -35,6 +36,8 @@ namespace MotorDrivers {
 
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override { return "unipolar"; }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<UnipolarMotor>(this); }
 
     private:
         Pin     _pin_phase0;

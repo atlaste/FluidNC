@@ -55,7 +55,7 @@ namespace MotorDrivers {
         void init() override;
         void read_settings() override;
         bool set_homing_mode(bool ishoming) override;
-        void set_disable(bool disable) override;
+        void IRAM_ATTR set_disable(bool disable);
 
         void config_motor() override;
 
@@ -95,6 +95,8 @@ namespace MotorDrivers {
 
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override { return "trinamic_spi"; }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<TrinamicSpiDriver>(this); }
     };
 
     class TMC2130 : public TrinamicSpiDriver {

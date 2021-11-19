@@ -37,7 +37,7 @@ namespace MotorDrivers {
         void init() override;
         void read_settings() override;
         bool set_homing_mode(bool isHoming) override;
-        void set_disable(bool disable) override;
+        void set_disable(bool disable);
         void update() override;
 
         void _write_pwm(uint32_t duty);
@@ -52,5 +52,8 @@ namespace MotorDrivers {
 
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override { return "rc_servo"; }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<RcServo>(this); }
+
     };
 }

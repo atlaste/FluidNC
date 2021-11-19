@@ -25,8 +25,45 @@
 #include "../Configuration/Configurable.h"
 
 #include <cstdint>
+#include <esp_attr.h>  // IRAM_ATTR
 
 namespace MotorDrivers {
+    // These 4 function need to be IRAM_ATTR to work in an ISR. Don't be confused by the fact
+    // that DriverInitBase is a base class of DriverInit<T>; no virtual methods are being used.
+    class DriverInitBase {
+    protected:
+        using StepFunction      = void (*)(void*);
+        using UnstepFunction    = void (*)(void*);
+        using DirectionFunction = void (*)(void*, bool);
+        using DisableFunction   = void (*)(void*, bool);
+
+        void*             target;
+        StepFunction      stepF;
+        UnstepFunction    unstepF;
+        DirectionFunction directionF;
+        DisableFunction   disableF;
+
+        DriverInitBase(void* t, StepFunction s, UnstepFunction u, DirectionFunction dir, DisableFunction dis) :
+            target(t), stepF(s), unstepF(u), directionF(dir), disableF(dis) {}
+
+    public:
+        inline void IRAM_ATTR step() { stepF(target); }
+        inline void IRAM_ATTR unstep() { unstepF(target); }
+        inline void IRAM_ATTR set_direction(bool dir) { directionF(target, dir); }
+        inline void IRAM_ATTR set_disable(bool dis) { disableF(target, dis); }
+    };
+
+    template <typename T>
+    class DriverInit : public DriverInitBase {
+        static void IRAM_ATTR stepT(void* target) { static_cast<T*>(target)->step(); }
+        static void IRAM_ATTR unstepT(void* target) { static_cast<T*>(target)->unstep(); }
+        static void IRAM_ATTR set_directionT(void* target, bool dir) { static_cast<T*>(target)->set_direction(dir); }
+        static void IRAM_ATTR set_disableT(void* target, bool dis) { static_cast<T*>(target)->set_disable(dis); }
+
+    public:
+        DriverInit(T* instance) : DriverInitBase(instance, &stepT, &unstepT, &set_directionT, &set_disableT) {}
+    };
+
     class MotorDriver : public Configuration::Configurable {
     public:
         MotorDriver() = default;
@@ -60,23 +97,25 @@ namespace MotorDrivers {
 
         // set_disable() disables or enables a motor.  It is used to
         // make a motor transition between idle and non-idle states.
-        virtual void set_disable(bool disable);
+        inline void IRAM_ATTR set_disable(bool disable) {}
 
         // set_direction() sets the motor movement direction.  It is
         // invoked for every motion segment.
-        virtual void set_direction(bool) {}
+        inline void IRAM_ATTR set_direction(bool) {}
 
         // step() initiates a step operation on a motor.  It is called
         // from motors_step() for ever motor than needs to step now.
         // For ordinary step/direction motors, it sets the step pin
         // to the active state.
-        virtual void step() {}
+        inline void IRAM_ATTR step() {}
 
         // unstep() turns off the step pin, if applicable, for a motor.
         // It is called from motors_unstep() for all motors, since
         // motors_unstep() is used in many contexts where the previous
         // states of the step pins are unknown.
-        virtual void unstep() {}
+        inline void IRAM_ATTR unstep() {}
+
+        virtual DriverInitBase* GetISRMethods() = 0;
 
         // this is used to configure and test motors. This would be used for Trinamic
         virtual void config_motor() {}

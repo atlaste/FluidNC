@@ -29,6 +29,15 @@ namespace Machine {
             _sharedStepperDisable.report("Shared stepper disable");
         }
 
+        for (int axis = X_AXIS; axis < _numberAxis; axis++) {
+            for (size_t motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; motor++) {
+                auto m = _axis[axis]->_motors[motor];
+                if (m) {
+                    m->_driverISR = m->_driver->GetISRMethods();
+                }
+            }
+        }
+
         unlock_all_motors();
 
         // certain motors need features to be turned on. Check them here
@@ -47,7 +56,7 @@ namespace Machine {
         for (int motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; motor++) {
             auto m = _axis[axis]->_motors[motor];
             if (m) {
-                m->_driver->set_disable(disable);
+                m->_driverISR->set_disable(disable);
             }
         }
     }
@@ -103,7 +112,7 @@ namespace Machine {
                 for (size_t motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; motor++) {
                     auto m = _axis[axis]->_motors[motor];
                     if (m) {
-                        m->_driver->set_direction(thisDir);
+                        m->_driverISR->set_direction(thisDir);
                     }
                 }
             }
@@ -118,13 +127,13 @@ namespace Machine {
                 if (bitnum_is_false(_motorLockoutMask, axis)) {
                     auto m = a->_motors[0];
                     if (m) {
-                        m->_driver->step();
+                        m->_driverISR->step();
                     }
                 }
                 if (bitnum_is_false(_motorLockoutMask, axis + 16)) {
                     auto m = a->_motors[1];
                     if (m) {
-                        m->_driver->step();
+                        m->_driverISR->step();
                     }
                 }
             }
@@ -140,7 +149,7 @@ namespace Machine {
             for (size_t motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; motor++) {
                 auto m = _axis[axis]->_motors[motor];
                 if (m) {
-                    m->_driver->unstep();
+                    m->_driverISR->unstep();
                 }
             }
         }

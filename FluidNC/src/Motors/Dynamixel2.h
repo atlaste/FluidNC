@@ -97,7 +97,7 @@ namespace MotorDrivers {
         void init() override;
         void read_settings() override;
         bool set_homing_mode(bool isHoming) override;
-        void set_disable(bool disable) override;
+        void set_disable(bool disable);
         void update() override;
 
         static uint8_t ids[MAX_N_AXIS][2];
@@ -120,6 +120,8 @@ namespace MotorDrivers {
             handler.item("id", id);
             _id = id;
         }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<Dynamixel2>(this); }
 
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override { return "dynamixel2"; }

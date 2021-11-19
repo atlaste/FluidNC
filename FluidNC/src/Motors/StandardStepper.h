@@ -16,13 +16,14 @@ namespace MotorDrivers {
 
         // No special action, but return true to say homing is possible
         bool set_homing_mode(bool isHoming) override { return true; }
-        void set_disable(bool) override;
-        void set_direction(bool) override;
-        void step() override;
-        void unstep() override;
         void read_settings() override;
 
         void init_step_dir_pins();
+
+        void IRAM_ATTR set_disable(bool);
+        void IRAM_ATTR set_direction(bool);
+        void IRAM_ATTR step();
+        void IRAM_ATTR unstep();
 
     protected:
         void config_message() override;
@@ -42,6 +43,8 @@ namespace MotorDrivers {
 
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override { return "standard_stepper"; }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<StandardStepper>(this); }
 
     private:
         // Initialized after configuration for RMT steps:

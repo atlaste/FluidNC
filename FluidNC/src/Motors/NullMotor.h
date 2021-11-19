@@ -15,5 +15,7 @@ namespace MotorDrivers {
         void group(Configuration::HandlerBase& handler) override {}
 
         const char* name() const override { return "null_motor"; }
+
+        DriverInitBase* GetISRMethods() override { return new DriverInit<Nullmotor>(this); }
     };
 }

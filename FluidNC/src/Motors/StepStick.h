@@ -30,6 +30,8 @@ namespace MotorDrivers {
         // Name of the configurable. Must match the name registered in the cpp file.
         const char* name() const override;
 
+        DriverInitBase* GetISRMethods() override { return new DriverInit<StepStick>(this); }
+
         ~StepStick() = default;
     };
 }
