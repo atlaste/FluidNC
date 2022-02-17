@@ -29,7 +29,34 @@ public:
     IPAddress(const uint8_t* address) { memcpy(_address.bytes, address, 4); }
     virtual ~IPAddress() {}
 
-    bool fromString(const char* address) { throw "not implemented"; }
+    bool fromString(const char* address) {
+        // e.g. 127.0.0.1
+        char buf[128];
+        strncpy(buf, address, 127);
+
+        uint8_t ip[4];
+        int     n = 0;
+        int     v = 0;
+        for (const char* i = address; *i; ++i) {
+            char c = *i;
+            if (c >= '0' && c <= '9') {
+                v = v * 10 + c - '0';
+            } else if (c == '.') {
+                if (n >= 4 || v < 0 || v >= 256) {
+                    return false;
+                }
+                ip[n++] = uint8_t(v);
+            } else {
+                return false;
+            }
+        }
+        if (n != 4) {
+            return false;
+        }
+
+        memcpy(_address.bytes, ip, 4);
+        return true;
+    }
     bool fromString(const String& address) { return fromString(address.c_str()); }
 
     // Overloaded cast operator to allow IPAddress objects to be used where a pointer

@@ -271,4 +271,41 @@ namespace Configuration {
         parser.Tokenize();
         Assert(parser.eof(), "Expected EOF");
     }
+
+    void TestIncorrectYaml(const char* test) {
+        Parser parser(test, test + strlen(test));
+        try {
+            while (!parser.eof()) {
+                parser.Tokenize();
+            }
+            Assert(false, "Expected parser to fail.");
+        } catch (ParseException) {}
+    }
+
+    Test(YamlTokenizer, IncorrectTokenizer1) {
+        TestIncorrectYaml("aap#noot#mies:\n"
+                          "fruit: banana\n");
+    }
+
+    Test(YamlTokenizer, IncorrectTokenizer2) {
+        // # is not a valid identifier token.
+        TestIncorrectYaml("fruit#wrong: banana\n"); }
+    Test(YamlTokenizer, IncorrectTokenizer3) {
+        // : is missing
+        TestIncorrectYaml("aap  \n"
+                          "  fruit: banana\n");
+    }
+
+    Test(YamlTokenizer, IncorrectTokenizer4) {
+        // Incorrect quotation
+        TestIncorrectYaml("aap:\n"
+                          "  fruit: 'string\n");
+    }
+
+    Test(YamlTokenizer, IncorrectTokenizer5) {
+        // Incorrect quotation
+        TestIncorrectYaml("aap:\n"
+                          "  fruit: \"string\n");
+    }
+
 }

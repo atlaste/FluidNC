@@ -413,6 +413,9 @@
     <ClCompile Include="FluidNC\test\Configuration\YamlTokenizer.cpp">
       <Filter>test\Configuration</Filter>
     </ClCompile>
+    <ClCompile Include="FluidNC\test\Configuration\YamlProperties.cpp">
+      <Filter>test\Configuration</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Configuration\Parser.md">

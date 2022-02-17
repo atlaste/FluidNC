@@ -42,7 +42,13 @@ namespace Configuration {
 
     bool Parser::boolValue() const {
         auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
-        return str.equals("true");
+        if (str.equals("true")) {
+            return true;
+        } else if (str.equals("false")) {
+            return false;
+        } else {
+            parseError("Expected 'true' or 'false' value");
+        }
     }
 
     int Parser::intValue() const {
@@ -79,24 +85,31 @@ namespace Configuration {
             if (!speed.length() || !speed.isUInteger(entry.speed)) {
                 log_error("Bad speed number " << speed.str());
                 value.clear();
+                parseError("Bad speed number. Speed map entries should be numbers and percentages");
                 break;
             }
             StringRange percent = entryStr.nextWord('%');
             if (!percent.length() || !percent.isFloat(entry.percent)) {
                 log_error("Bad speed percent " << percent.str());
                 value.clear();
+                parseError("Bad speed percent. Speed map entries should be numbers and percentages");
                 break;
             }
             value.push_back(entry);
         }
-        if (!value.size())
-            log_info("Using default speed map");
+        if (!value.size()) {
+            parseError("Bad speed map.");
+        }
         return value;
     }
 
     Pin Parser::pinValue() const {
         auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
-        return Pin::create(str);
+        auto pin = Pin::create(str);
+        if (pin.capabilities() == Pin::Capabilities::Error) {
+            parseError("Incorrect pin specification.");
+        }
+        return pin;
     }
 
     IPAddress Parser::ipValue() const {
@@ -108,7 +121,7 @@ namespace Configuration {
         return ip;
     }
 
-    int Parser::enumValue(EnumItem* e) const {
+    int Parser::enumValue(const EnumItem* e) const {
         auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
         for (; e->name; ++e) {
             if (str.equals(e->name)) {

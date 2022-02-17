@@ -122,6 +122,7 @@
     <ClCompile Include="FluidNC\src\Pin.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
+    <ClCompile Include="FluidNC\test\Configuration\YamlProperties.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTokenizer.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
     <ClCompile Include="FluidNC\test\Pins\BasicGPIO.cpp" />

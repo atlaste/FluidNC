@@ -119,7 +119,7 @@ Pin Pin::create(const StringRange& str) {
                 delete pinImplementation;
             }
 
-            log_error("Setting up pin:" << str.str() << " failed:" << err);
+            log_error("Setting up pin:" << str.str() << " failed: " << err);
             return Pin(new Pins::ErrorPinDetail(str.str()));
         } else {
             return Pin(pinImplementation);
