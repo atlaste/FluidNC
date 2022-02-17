@@ -4,7 +4,6 @@
 #include "Validator.h"
 
 #include "Configurable.h"
-#include "../System.h"
 #include "../Logging.h"
 
 #include <cstring>
@@ -26,7 +25,7 @@ namespace Configuration {
             log_error("Validation error at "; for (auto it : _path) { ss << '/' << it; } ss << ": " << ex.msg);
 
             // Set the state to config alarm, so users can't run time machine.
-            sys.state = State::ConfigAlarm;
+            // sys.state = State::ConfigAlarm; // TODO FIXME SdB
         }
 
         value->group(*this);

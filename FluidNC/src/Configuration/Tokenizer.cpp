@@ -46,13 +46,13 @@ namespace Configuration {
     parseAgain:
         int indent = 0;
 
-        while (!Eof() && IsSpace()) {
+        while (!EndOfInput() && IsSpace()) {
             Inc();
             ++indent;
         }
         token_.indent_ = indent;
 
-        if (Eof()) {
+        if (EndOfInput()) {
             token_.state     = TokenState::Eof;
             token_.indent_   = -1;
             token_.keyStart_ = token_.keyEnd_ = current_;
@@ -65,14 +65,14 @@ namespace Configuration {
 
             case '#':  // Comment till end of line
                 Inc();
-                while (!Eof() && !IsEndLine()) {
+                while (!EndOfInput() && !IsEndLine()) {
                     Inc();
                 }
                 goto parseAgain;
 
             case '\r':
                 Inc();
-                if (!Eof() && Current() == '\n') {
+                if (!EndOfInput() && Current() == '\n') {
                     Inc();
                 }  // \r\n
                 goto parseAgain;
@@ -88,7 +88,7 @@ namespace Configuration {
 
                 token_.keyStart_ = current_;
                 Inc();
-                while (!Eof() && IsIdentifierChar()) {
+                while (!EndOfInput() && IsIdentifierChar()) {
                     Inc();
                 }
                 token_.keyEnd_ = current_;
@@ -124,7 +124,7 @@ namespace Configuration {
 
                         Inc();
                         token_.sValueStart_ = current_;
-                        while (!Eof() && Current() != delimiter && !IsEndLine()) {
+                        while (!EndOfInput() && Current() != delimiter && !IsEndLine()) {
                             Inc();
                         }
                         token_.sValueEnd_ = current_;

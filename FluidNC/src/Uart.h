@@ -3,13 +3,11 @@
 
 #pragma once
 
-#include "Config.h"
-
 #include "Configuration/Configurable.h"
 #include "UartTypes.h"
-
-#include "lineedit.h"
+#include "LineEdit.h"
 #include "Channel.h"
+
 #include <freertos/FreeRTOS.h>  // TickType_T
 #include <queue>
 

@@ -286,8 +286,8 @@ namespace Pins {
     }
 
     class GPIOISR {
-        int  hitCount;
-        void HandleISR() { ++hitCount; }
+        int         hitCount;
+        static void HandleISR(void* data) { ++static_cast<GPIOISR*>(data)->hitCount; }
 
     public:
         GPIOISR(int deltaRising, int deltaFalling, int mode) {
@@ -301,7 +301,7 @@ namespace Pins {
 
             hitCount     = 0;
             int expected = 0;
-            gpio16.attachInterrupt<GPIOISR, &GPIOISR::HandleISR>(this, mode);
+            gpio16.attachInterrupt(&GPIOISR::HandleISR, mode, this);
 
             // Two ways to set I/O:
             // 1. using on/off

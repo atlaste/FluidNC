@@ -108,7 +108,12 @@ int strncasecmp(const char* lhs, const char* rhs, size_t count) {
         ++rhs;
         --count;
     }
-    return count == 0 || ((*lhs) == '\0' && (*rhs) == '\0');
+
+    if (count == 0 || ((*lhs) == '\0' && (*rhs) == '\0')) {
+        return 0;
+    } else {
+        return ((*lhs) < (*rhs)) ? -1 : 1;
+    }
 }
 
 #endif

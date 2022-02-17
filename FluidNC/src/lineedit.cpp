@@ -290,7 +290,9 @@ bool Lineedit::find_word_under_cursor() {
     return true;
 }
 
-extern int num_initial_matches(char* key, int keylen, int matchnum, char* matchname);
+int num_initial_matches(char* key, int keylen, int matchnum, char* matchname) {
+    return 0;  // TODO FIXME SdB
+}
 
 void Lineedit::color(const char* s) {
     emit(0x1b);

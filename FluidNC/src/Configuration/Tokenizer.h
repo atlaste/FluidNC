@@ -7,19 +7,20 @@
 #include "../Logging.h"
 
 namespace Configuration {
-
     class Tokenizer {
+        const char* start_;
         const char* current_;
         const char* end_;
 
         void skipToEol();
 
+    protected:
         inline void Inc() {
             if (current_ != end_) {
                 ++current_;
             }
         }
-        inline char Current() const { return Eof() ? '\0' : (*current_); }
+        inline char Current() const { return EndOfInput() ? '\0' : (*current_); }
 
         inline bool IsAlpha() {
             char c = Current();
@@ -29,7 +30,7 @@ namespace Configuration {
         inline bool IsSpace() { return Current() == ' '; }
 
         inline bool IsWhiteSpace() {
-            if (Eof()) {
+            if (EndOfInput()) {
                 return false;
             }
             char c = Current();
@@ -38,7 +39,7 @@ namespace Configuration {
 
         inline bool IsIdentifierChar() { return IsAlpha() || IsDigit() || Current() == '_'; }
 
-        inline bool IsEndLine() { return Eof() || Current() == '\n'; }
+        inline bool IsEndLine() { return EndOfInput() || Current() == '\n'; }
 
         inline bool IsDigit() {
             char c = Current();
@@ -59,8 +60,7 @@ namespace Configuration {
             return isSame;
         }
 
-    public:
-        const char* start_;
+        inline bool EndOfInput() const { return current_ == end_; }
 
         // Results:
         struct TokenData {
@@ -82,12 +82,14 @@ namespace Configuration {
 
         void ParseError(const char* description) const;
 
-        inline bool Eof() const { return current_ == end_; }
-
     public:
         Tokenizer(const char* start, const char* end);
         void Tokenize();
 
         inline StringRange key() const { return StringRange(token_.keyStart_, token_.keyEnd_); }
+        inline bool        eof() const { return token_.state == TokenState::Eof; }
+        inline TokenState  state() const { return token_.state; }
+        inline void        setState(TokenState state) { token_.state = state; }
+        inline int         indent() const { return token_.indent_; }
     };
 }

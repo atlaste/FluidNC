@@ -6,7 +6,6 @@
 #include "HandlerBase.h"
 #include "Parser.h"
 #include "Configurable.h"
-#include "../System.h"
 
 #include "../Logging.h"
 
@@ -26,7 +25,7 @@ namespace Configuration {
 
             // On entry, the token is for the section that invoked us.
             // We will handle following nodes with indents greater than entryIndent
-            int entryIndent = _parser.token_.indent_;
+            int entryIndent = _parser.indent();
 #ifdef DEBUG_CHATTY_YAML_PARSER
             log_debug("Entered section " << name << " at indent " << entryIndent);
 #endif
@@ -34,7 +33,7 @@ namespace Configuration {
             // The next token controls what we do next.  If thisIndent is greater
             // than entryIndent, there are some subordinate tokens.
             _parser.Tokenize();
-            int thisIndent = _parser.token_.indent_;
+            int thisIndent = _parser.indent();
 #ifdef DEBUG_VERBOSE_YAML_PARSER
             log_debug("thisIndent " << _parser.key().str() << " " << thisIndent);
 #endif
@@ -45,14 +44,12 @@ namespace Configuration {
             if (thisIndent > entryIndent) {
                 // If thisIndent > entryIndent, the new token is the first token within
                 // this section so we process tokens at the same level as thisIndent.
-                for (; _parser.token_.indent_ >= thisIndent; _parser.Tokenize()) {
+                for (; _parser.indent() >= thisIndent; _parser.Tokenize()) {
 #ifdef DEBUG_VERBOSE_YAML_PARSER
-                    log_debug(" KEY " << _parser.key().str() << " state " << int(_parser.token_.state) << " indent "
-                                      << _parser.token_.indent_);
+                    log_debug(" KEY " << _parser.key().str() << " state " << int(_parser.token_.state) << " indent " << _parser.indent());
 #endif
-                    if (_parser.token_.indent_ > thisIndent) {
-                        log_error("Skipping key " << _parser.key().str() << " indent " << _parser.token_.indent_ << " thisIndent "
-                                                 << thisIndent);
+                    if (_parser.indent() > thisIndent) {
+                        log_error("Skipping key " << _parser.key().str() << " indent " << _parser.indent() << " thisIndent " << thisIndent);
                     } else {
 #ifdef DEBUG_VERBOSE_YAML_PARSER
                         log_debug("Parsing key " << _parser.key().str());
@@ -64,14 +61,15 @@ namespace Configuration {
                             log_error("Configuration error at "; for (auto it : _path) { ss << '/' << it; } ss << ": " << ex.msg);
 
                             // Set the state to config alarm, so users can't run time machine.
-                            sys.state = State::ConfigAlarm;
+                            throw "TODO FIXME!";
+                            // sys.state = State::ConfigAlarm;
                         }
 
-                        if (_parser.token_.state == TokenState::Matching) {
+                        if (_parser.state() == TokenState::Matching) {
                             log_warn("Ignored key " << _parser.key().str());
                         }
 #ifdef DEBUG_CHATTY_YAML_PARSER
-                        if (_parser.token_.state == Configuration::TokenState::Matched) {
+                        if (_parser.token_.state == TokenState::Matched) {
                             log_debug("Handled key " << _parser.key().str());
                         }
 #endif
@@ -86,7 +84,7 @@ namespace Configuration {
             // release that token instead of parsing ahead.
             // _parser.token_.held = true;
 
-            _parser.token_.state = TokenState::Held;
+            _parser.setState(TokenState::Held);
 #ifdef DEBUG_CHATTY_YAML_PARSER
             log_debug("Left section at indent " << entryIndent << " holding " << _parser.key().str());
 #endif

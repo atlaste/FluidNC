@@ -1,3 +1,4 @@
+/*
 #include "../../FluidNC/src/I2SOut.h"
 
 // STUB implementation. Won't do you any good.
@@ -31,3 +32,4 @@ int i2s_out_reset() {
 i2s_out_pulser_status_t i2s_out_get_pulser_status() {
     return i2s_out_pulser_status_t::PASSTHROUGH;
 }
+*/

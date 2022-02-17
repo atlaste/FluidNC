@@ -137,7 +137,7 @@ namespace Configuration {
     }
 
     Test(YamlTreeBuilder, Hierarchical1) {
-        const char* config = "startup_line1:\n"
+        const char* config = "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"
@@ -169,7 +169,7 @@ namespace Configuration {
         const char* config = "n2:\n"
                              "  banaan: 2\n"
                              "  aap: aap\n"
-                             "startup_line1:\n"
+                             "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"
@@ -199,7 +199,7 @@ namespace Configuration {
                              "n2:\n"
                              "  banaan: 2\n"
                              "  aap: aap\n"
-                             "startup_line1:\n"
+                             "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"
@@ -223,7 +223,6 @@ namespace Configuration {
         Assert(test.foo == 2);
     }
 
-    //  ST_TIMED, "Timed" }, { ST_RMT, "RMT" }, { ST_I2S_STATIC, "I2S_static" }, { ST_I2S_STREAM, "I2S_stream" }, EnumItem()
     Test(YamlTreeBuilder, Enum1) {
         {
             const char*   config = "aap: 1\ntype: Timed\nbanaan: 2\n";

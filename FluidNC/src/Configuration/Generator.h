@@ -5,8 +5,8 @@
 
 #include <vector>
 
+#include "../MyIOStream.h"
 #include "../Pin.h"
-#include "../Report.h"
 #include "HandlerBase.h"
 
 namespace Configuration {

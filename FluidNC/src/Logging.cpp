@@ -2,7 +2,6 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "Logging.h"
-#include "SettingsDefinitions.h"
 
 #ifndef ESP32
 
@@ -10,7 +9,11 @@
 
 #    define DEBUG_OUT std::cout
 bool atMsgLevel(MsgLevel level) {
-    return message_level == nullptr || message_level->get() >= level;
+    // throw "TODO FIXME!";
+
+    //return message_level == nullptr || message_level->get() >= level;
+
+    return true;
 }
 #else
 #    define DEBUG_OUT allChannels
