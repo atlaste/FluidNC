@@ -5,7 +5,9 @@
 #include <src/Configuration/Tokenizer.h>
 #include <src/Configuration/Parser.h>
 #include <src/Configuration/ParserHandler.h>
+#include <src/Configuration/Validator.h>
 #include <src/Configuration/Configurable.h>
+#include <src/StringStream.h>
 
 namespace Configuration {
     class TestBasic : public Configurable {
@@ -25,7 +27,7 @@ namespace Configuration {
     class TestBasic2 : public Configurable {
     public:
         String aap;
-        int    banaan;
+        int    banaan = 0;
 
         void validate() const {}
         void group(HandlerBase& handler) {
@@ -248,6 +250,93 @@ namespace Configuration {
             TestBasicEnum test;
             Helper::Parse(config, test);
             Assert(test.value == int(ST_I2S_STREAM));
+        }
+    }
+
+    class TestCompleteTypes : public Configurable {
+    public:
+        bool                    myBool  = false;
+        int                     myInt   = 0;
+        float                   myFloat = 0.0f;
+        std::vector<speedEntry> mySpeedMap;
+        Pin                     myPin;
+        IPAddress               myIp;
+        UartData                myUartData;
+        UartParity              myUartParity;
+        UartStop                myUartStop;
+
+        bool hasValidated = false;
+
+        void validate() const {
+            // Set has validated.
+            const_cast<TestCompleteTypes*>(this)->hasValidated = true;
+        }
+
+        void group(HandlerBase& handler) {
+            handler.item("bool", myBool);
+            handler.item("int", myInt);
+            handler.item("float", myFloat);
+            handler.item("speedMap", mySpeedMap);
+            handler.item("pin", myPin);
+            handler.item("ip", myIp);
+            handler.item("uart", myUartData, myUartParity, myUartStop);
+        }
+    };
+
+    Test(YamlTreeBuilder, Composite1) {
+        {
+            const char* config = "pin: gpio.12:pu\n"
+                                 "float: 12.34\n"
+                                 "speedMap: 20=0% 100=100%\n"
+                                 "bool: true\n"
+                                 "int: 2\n"
+                                 "ip:127.0.0.1\n"
+                                 "uart: 8e1";
+            TestCompleteTypes test;
+            Helper::Parse(config, test);
+
+            Assert(test.myBool == true);
+            Assert(test.myInt == 2);
+            Assert(test.myFloat >= 12.33f && test.myFloat <= 12.35f);
+            Assert(test.mySpeedMap.size() == 2);
+            Assert(test.mySpeedMap[0].speed == 20);
+            Assert(test.mySpeedMap[1].speed == 100);
+            Assert(test.mySpeedMap[0].percent == 0);
+            Assert(test.mySpeedMap[1].percent == 100);
+            Assert(test.myPin.name() == "gpio.12:pu");
+            Assert(test.myIp.toString() == "127.0.0.1");
+            Assert(test.myUartData == UartData::Bits8);
+            Assert(test.myUartParity == UartParity::Even);
+            Assert(test.myUartStop == UartStop::Bits1);
+        }
+    }
+
+    Test(YamlTreeBuilder, Composite2) {
+        {
+            const char* config = "pin: gpio.12:pu\n"
+                                 "float: 12.34\n"
+                                 "speedMap: 20=0% 100=100%\n"
+                                 "bool: true\n"
+                                 "int: 2\n"
+                                 "ip:127.0.0.1\n"
+                                 "uart: 8e1";
+
+            const char* correct = "bool: true\n"
+                                  "int: 2\n"
+                                  "float: 12.340\n"
+                                  "speedMap: 20=0.000% 100=100.000%\n"
+                                  "pin: gpio.12:pu\n"
+                                  "ip: 127.0.0.1\n"
+                                  "uart: 8E1\n";
+            TestCompleteTypes test;
+            Helper::Parse(config, test);
+
+            StringStream ss;
+            Generator    gen(ss);
+            test.group(gen);
+
+            auto s = ss.str();
+            Assert(s.equals(correct));
         }
     }
 }

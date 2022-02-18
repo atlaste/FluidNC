@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <sstream>
 #include "WString.h"
 
 class IPAddress {
@@ -46,10 +47,12 @@ public:
                     return false;
                 }
                 ip[n++] = uint8_t(v);
+                v       = 0;
             } else {
                 return false;
             }
         }
+        ip[n++] = uint8_t(v);
         if (n != 4) {
             return false;
         }
@@ -79,7 +82,16 @@ public:
         return *this;
     }
 
-    String toString() const { throw "not implemented"; }
+    String toString() const {
+        std::stringstream oss;
+        for (int i = 0; i < 4; ++i) {
+            if (i != 0) {
+                oss << '.';
+            }
+            oss << int(_address.bytes[i]);
+        }
+        return String(oss.str().c_str());
+    }
 };
 
 const IPAddress INADDR_NONE(0, 0, 0, 0);

@@ -18,6 +18,7 @@ namespace Configuration {
     private:
         Configuration::Parser&   _parser;
         std::vector<const char*> _path;
+        bool                     _hasError = false;
 
     public:
         void enterSection(const char* name, Configuration::Configurable* section) override {
@@ -60,8 +61,9 @@ namespace Configuration {
                             // Log something meaningful to the user:
                             log_error("Configuration error at "; for (auto it : _path) { ss << '/' << it; } ss << ": " << ex.msg);
 
+                            _hasError = true;
                             // Set the state to config alarm, so users can't run time machine.
-                            throw "TODO FIXME!";
+                            // throw "TODO FIXME!";
                             // sys.state = State::ConfigAlarm;
                         }
 
