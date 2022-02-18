@@ -15,7 +15,6 @@ public:
     StringRange() : start_(nullptr), end_(nullptr) {}
 
     StringRange(const char* str) : start_(str), end_(str + strlen(str)) {}
-
     StringRange(const char* start, const char* end) : start_(start), end_(end) {}
 
     StringRange(const StringRange& o) = default;
@@ -33,6 +32,9 @@ public:
     }
 
     StringRange subString(int index, int length) const {
+        if (index < 0) {
+            index = 0;
+        }
         const char* s = start_ + index;
         if (s > end_) {
             s = end_;

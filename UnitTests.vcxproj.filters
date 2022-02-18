@@ -28,6 +28,9 @@
     <Filter Include="X86TestSupport\soc">
       <UniqueIdentifier>{e2803694-74fa-4db4-81f2-ad93a96763fc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="test\Utility">
+      <UniqueIdentifier>{5013c39f-3e52-46c9-989f-8216ee5904ac}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\StringRange.h">
@@ -258,6 +261,9 @@
     <ClInclude Include="FluidNC\src\PinMapper.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="FluidNC\src\StringStream.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp">
@@ -415,6 +421,21 @@
     </ClCompile>
     <ClCompile Include="FluidNC\test\Configuration\YamlProperties.cpp">
       <Filter>test\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Pins\PinAttributesBasics.cpp">
+      <Filter>test\Pins</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Utility\Enums.cpp">
+      <Filter>test\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Utility\IOStream.cpp">
+      <Filter>test\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Utility\StringRange.cpp">
+      <Filter>test\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Utility\Assertions.cpp">
+      <Filter>test\Utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

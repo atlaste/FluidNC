@@ -33,8 +33,19 @@ namespace Pins {
     }
 
     bool PinAttributes::conflictsWith(PinAttributes t) {
+        auto combination = t | (*this);
+
+        // Input and output attributes shouldn't be mixed:
+        bool hasInputAttributes  = combination & (Input | PullUp | PullDown | ISR);
+        bool hasOutputAttributes = combination & (Output | ActiveLow | InitialOn);
+
         // Input and output are mutually exclusive:
-        if (t.has(Input) && t.has(Output)) {
+        if (hasInputAttributes && hasOutputAttributes) {
+            return true;
+        }
+
+        // Can't pullup and pull down
+        if (combination.has(PullUp) && combination.has(PullDown)) {
             return true;
         }
 
@@ -44,7 +55,7 @@ namespace Pins {
         }
 
         // If we have an ISR that doesn't have an Input, that doesn't make much sense.
-        if (t.has(ISR) && !t.has(Input)) {
+        if (t.has(ISR) && !t.has(Input) && !this->has(Input)) {
             return true;
         }
 

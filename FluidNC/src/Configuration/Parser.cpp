@@ -121,14 +121,9 @@ namespace Configuration {
         return ip;
     }
 
-    int Parser::enumValue(const EnumItem* e) const {
+    EnumItem Parser::enumValue(const EnumItem* set) const {
         auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
-        for (; e->name; ++e) {
-            if (str.equals(e->name)) {
-                break;
-            }
-        }
-        return e->value;  // Terminal value is default.
+        return EnumItem::find(set, str);
     }
 
     void Parser::uartMode(UartData& wordLength, UartParity& parity, UartStop& stopBits) const {

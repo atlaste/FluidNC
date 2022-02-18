@@ -75,7 +75,7 @@ namespace Configuration {
             try {
                 T result = YamlSpecificParser<T>::get(parser);
                 Assert(false, "Expected error because type is incorrect.");
-            } catch (ParseException& ex) {}
+            } catch (ParseException&) {}
         }
     };
 

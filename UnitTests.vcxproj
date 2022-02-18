@@ -43,6 +43,7 @@
     <ClInclude Include="FluidNC\src\StackTrace\debug_helpers.h" />
     <ClInclude Include="FluidNC\src\Pins\PinCapabilities.h" />
     <ClInclude Include="FluidNC\src\Configuration\HandlerType.h" />
+    <ClInclude Include="FluidNC\src\StringStream.h" />
     <ClInclude Include="FluidNC\test\TestFactory.h" />
     <ClInclude Include="FluidNC\test\TestFramework.h" />
     <ClInclude Include="X86TestSupport\TestSupport\Arduino.h" />
@@ -128,11 +129,16 @@
     <ClCompile Include="FluidNC\test\Pins\BasicGPIO.cpp" />
     <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" />
     <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
+    <ClCompile Include="FluidNC\test\Pins\PinAttributesBasics.cpp" />
     <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp" />
     <ClCompile Include="FluidNC\test\Pins\Undefined.cpp" />
     <ClCompile Include="FluidNC\test\TestFactory.cpp" />
     <ClCompile Include="FluidNC\test\TestFrameworkTest.cpp" />
     <ClCompile Include="FluidNC\test\test_main.cpp" />
+    <ClCompile Include="FluidNC\test\Utility\Assertions.cpp" />
+    <ClCompile Include="FluidNC\test\Utility\Enums.cpp" />
+    <ClCompile Include="FluidNC\test\Utility\IOStream.cpp" />
+    <ClCompile Include="FluidNC\test\Utility\StringRange.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\Arduino.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
