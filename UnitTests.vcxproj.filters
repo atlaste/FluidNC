@@ -114,9 +114,6 @@
     <ClInclude Include="FluidNC\src\SpindleDatatypes.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\LedcPin.h">
-      <Filter>src\Pins</Filter>
-    </ClInclude>
     <ClInclude Include="FluidNC\src\Configuration\ParserHandler.h">
       <Filter>src\Configuration</Filter>
     </ClInclude>
@@ -316,9 +313,6 @@
     </ClCompile>
     <ClCompile Include="FluidNC\src\Configuration\AfterParse.cpp">
       <Filter>src\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\LedcPin.cpp">
-      <Filter>src\Pins</Filter>
     </ClCompile>
     <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp">
       <Filter>src\Pins</Filter>

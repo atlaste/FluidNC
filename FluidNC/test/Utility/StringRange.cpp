@@ -13,6 +13,7 @@ namespace Configuration {
             Assert(!sr.equals("aa"));
 
             Assert(sr.str() == "aap");
+            Assert(sr.length() == 3);
         }
         {
             const char* test = "aap noot mies";
@@ -22,6 +23,7 @@ namespace Configuration {
             Assert(!sr.equals("noot "));
 
             Assert(sr.str() == "noot");
+            Assert(sr.length() == 4);
         }
         {
             const char* test = "aap noot mies";
@@ -32,6 +34,7 @@ namespace Configuration {
             Assert(!sr.equals("aa"));
 
             Assert(sr.str() == "aap noot mies");
+            Assert(sr.length() == strlen(test));
         }
         {
             String      test = "aap noot mies";
@@ -42,6 +45,7 @@ namespace Configuration {
             Assert(!sr.equals("aa"));
 
             Assert(sr.str() == "aap noot mies");
+            Assert(sr.length() == test.length());
         }
         {
             const char* test = "aap noot mies";
@@ -55,6 +59,7 @@ namespace Configuration {
             Assert(!sr.equals("aa"));
 
             Assert(sr.str() == "aap noot mies");
+            Assert(sr.length() == strlen(test));
 
             buf[2] = 's';
             Assert(!sr.equals(test));
@@ -63,6 +68,15 @@ namespace Configuration {
             Assert(!sr.equals("aa"));
 
             Assert(sr.str() == "aas noot mies");
+            Assert(sr.length() == strlen(test));
+        }
+        {
+            StringRange sr;
+            Assert(sr.equals(""));
+            Assert(sr.str().equals(""));
+            Assert(!sr.equals("aap "));
+            Assert(!sr.equals("aa"));
+            Assert(sr.length() == 0);
         }
     }
 

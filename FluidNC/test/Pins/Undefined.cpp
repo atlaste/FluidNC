@@ -28,6 +28,11 @@ namespace Pins {
         Assert(unassigned.capabilities().has(Pin::Capabilities::Void));
         auto name = unassigned.name();
         Assert(unassigned.name().equals("NO_PIN"));
+
+        // Can't change undefined-pin attributes:
+        Assert(unassigned.getAttr() == Pin::Attr::Undefined);
+        unassigned.setAttr(Pin::Attr::Input);
+        Assert(unassigned.getAttr() == Pin::Attr::Undefined);
     }
 
     Test(Undefined, MultipleInstances) {

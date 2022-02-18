@@ -42,7 +42,7 @@ extern void DumpStackTrace(std::ostringstream& builder);
 
 String stackTrace;
 
-std::exception AssertionFailed::create(const char* condition, const char* msg, ...) {
+AssertionFailed AssertionFailed::create(const char* condition, const char* msg, ...) {
     std::ostringstream oss;
     oss << std::endl;
     oss << "Error: " << std::endl;
@@ -58,15 +58,10 @@ std::exception AssertionFailed::create(const char* condition, const char* msg, .
     oss << " at ";
     DumpStackTrace(oss);
 
-    // Store in a static temp:
-    static std::string info;
-    info = oss.str();
+    auto   str = oss.str();
+    String str2(str.c_str());
 
-#    ifdef _MSC_VER
-    throw std::exception(info.c_str());
-#    else
-    throw std::exception();
-#    endif
+    return AssertionFailed(str2, tmp);
 }
 
 #endif

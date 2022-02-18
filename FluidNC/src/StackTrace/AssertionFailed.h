@@ -6,7 +6,14 @@
 #include "WString.h"
 
 #ifdef ESP32
-class AssertionFailed {
+class AssertionFailed
+#else
+#    include <exception>
+
+class AssertionFailed :
+    public std::exception
+#endif
+{
 public:
     String stackTrace;
     String msg;
@@ -18,19 +25,3 @@ public:
 
     const char* what() const { return msg.c_str(); }
 };
-
-#else
-#    include <exception>
-
-class AssertionFailed {
-public:
-    String stackTrace;
-    String msg;
-
-    static std::exception create(const char* condition) { return create(condition, "Assertion failed"); }
-    static std::exception create(const char* condition, const char* msg, ...);
-
-    const char* what() const { return msg.c_str(); }
-};
-
-#endif

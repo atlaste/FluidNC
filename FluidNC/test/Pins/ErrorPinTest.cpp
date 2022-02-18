@@ -9,13 +9,43 @@ namespace Pins {
 
         Pin errorPin = Pin::Error();
 
-        AssertThrow(errorPin.write(true));
-        AssertThrow(errorPin.read());
+        {
+            std::ostringstream oss;
+            auto               oldbuf = std::cout.rdbuf();
+            std::cout.set_rdbuf(oss.rdbuf());
+            errorPin.write(true);
+            std::cout.set_rdbuf(oldbuf);
+            Assert(oss.str().size() != 0, "Expected error written to output");
+        }
+
+        {
+            std::ostringstream oss;
+            auto               oldbuf = std::cout.rdbuf();
+            std::cout.set_rdbuf(oss.rdbuf());
+            errorPin.read();
+            std::cout.set_rdbuf(oldbuf);
+            Assert(oss.str().size() != 0, "Expected error written to output");
+        }
 
         errorPin.setAttr(Pin::Attr::None);
 
-        AssertThrow(errorPin.write(true));
-        AssertThrow(errorPin.read());
+        {
+            std::ostringstream oss;
+            auto               oldbuf = std::cout.rdbuf();
+            std::cout.set_rdbuf(oss.rdbuf());
+            errorPin.write(true);
+            std::cout.set_rdbuf(oldbuf);
+            Assert(oss.str().size() != 0, "Expected error written to output");
+        }
+
+        {
+            std::ostringstream oss;
+            auto               oldbuf = std::cout.rdbuf();
+            std::cout.set_rdbuf(oss.rdbuf());
+            errorPin.read();
+            std::cout.set_rdbuf(oldbuf);
+            Assert(oss.str().size() != 0, "Expected error written to output");
+        }
 
         AssertThrow(errorPin.attachInterrupt([](void* arg) {}, CHANGE));
         AssertThrow(errorPin.detachInterrupt());

@@ -70,7 +70,6 @@
     <ClInclude Include="FluidNC\src\UartTypes.h" />
     <ClInclude Include="FluidNC\src\Pin.h" />
     <ClInclude Include="FluidNC\src\SpindleDatatypes.h" />
-    <ClInclude Include="FluidNC\src\Pins\LedcPin.h" />
     <ClInclude Include="FluidNC\src\Configuration\ParserHandler.h" />
     <ClInclude Include="FluidNC\src\Pins\PinOptionsParser.h" />
     <ClInclude Include="FluidNC\src\Configuration\TokenState.h" />
@@ -153,7 +152,6 @@
     <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\driver\rmt.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\AfterParse.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\LedcPin.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\esp32-hal-timer.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\ExceptionHelper.cpp" />

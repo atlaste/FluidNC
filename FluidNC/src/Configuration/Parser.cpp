@@ -48,6 +48,7 @@ namespace Configuration {
             return false;
         } else {
             parseError("Expected 'true' or 'false' value");
+            return false;
         }
     }
 
