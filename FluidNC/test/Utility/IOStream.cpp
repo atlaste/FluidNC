@@ -242,4 +242,12 @@ namespace Configuration {
         }
     }
 
+    Test(UtilIOStream, Pins) {
+        {
+            StringStream ss;
+            Pin          p = Pin::create("gpio.12:pu");
+            ss << p;
+            Assert(ss.str() == "gpio.12:pu");
+        }
+    }
 }

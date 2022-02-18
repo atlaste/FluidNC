@@ -48,6 +48,11 @@ namespace Pins {
         }
 
         {
+            Assert(PinAttributes::Output.conflictsWith(PinAttributes::ISR));
+            Assert(!PinAttributes::Input.conflictsWith(PinAttributes::ISR));
+        }
+
+        {
             PinAttributes excl = PinAttributes::Input | PinAttributes::Exclusive;
 
             Assert(excl.conflictsWith(PinAttributes::ActiveLow));

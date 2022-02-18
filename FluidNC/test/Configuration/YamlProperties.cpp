@@ -7,6 +7,12 @@
 #include <vector>
 
 namespace Configuration {
+    struct UartInfo {
+        UartData   wordLength;
+        UartParity parity;
+        UartStop   stop;
+    };
+
     template <typename T>
     struct YamlSpecificParser;
 
@@ -43,6 +49,15 @@ namespace Configuration {
     template <>
     struct YamlSpecificParser<StringRange> {
         static StringRange get(Configuration::Parser& p) { return p.stringValue(); }
+    };
+
+    template <>
+    struct YamlSpecificParser<UartInfo> {
+        static UartInfo get(Configuration::Parser& p) {
+            UartInfo info;
+            p.uartMode(info.wordLength, info.parity, info.stop);
+            return info;
+        }
     };
 
     template <>
@@ -107,7 +122,7 @@ namespace Configuration {
         }
     };
 
-    using AllNonStringTypes = std::tuple<bool, int, float, std::vector<speedEntry>, Pin, IPAddress>;
+    using AllNonStringTypes = std::tuple<bool, int, float, std::vector<speedEntry>, Pin, IPAddress, UartInfo>;
 
     Test(YamlProperties, StringValues) {
         {
@@ -126,7 +141,7 @@ namespace Configuration {
         }
     }
 
-    using AllNonNumericTypes = std::tuple<bool, std::vector<speedEntry>, Pin, IPAddress>;
+    using AllNonNumericTypes = std::tuple<bool, std::vector<speedEntry>, Pin, IPAddress, UartInfo>;
 
     Test(YamlProperties, IntValues) {
         {
@@ -150,7 +165,7 @@ namespace Configuration {
         }
     }
 
-    using AllNonBooleanTypes = std::tuple<int, float, std::vector<speedEntry>, Pin, IPAddress>;
+    using AllNonBooleanTypes = std::tuple<int, float, std::vector<speedEntry>, Pin, IPAddress, UartInfo>;
 
     Test(YamlProperties, BoolValues) {
         {
@@ -175,4 +190,46 @@ namespace Configuration {
             Assert(aap.defined());
         }
     }
+
+    using AllUartData      = std::tuple<bool, int, float, std::vector<speedEntry>, Pin, IPAddress>;
+    using AllNonUartTypes1 = std::tuple<int, float, std::vector<speedEntry>, Pin, IPAddress, UartInfo>;
+
+    // Float and int are both numbers. If we have 8E1 then it's parsed as float as 8e1=80, and rounded to 80 for ints.
+    using AllNonUartTypes2 = std::tuple<std::vector<speedEntry>, Pin, IPAddress, UartInfo>;
+
+    Test(YamlProperties, UartValues) {
+        {
+            for (int i = 5; i <= 8; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    for (int k = 0; k < 3; ++k) {
+                        std::ostringstream oss;
+                        oss << "key: ";
+
+                        // 5E1.5 f.ex. Maps to the enums.
+                        oss << i;
+                        oss << ("NEO"[j]);
+                        if (k == 1) {
+                            oss << "1.5";
+                        } else {
+                            oss << (1 + k / 2);
+                        }
+
+                        auto str = oss.str();
+
+                        UartInfo uart;
+                        if (j == 1) {
+                            uart = ParseAllHelper<UartInfo, AllNonUartTypes2>::TestAll(str.c_str());
+                        } else {
+                            uart = ParseAllHelper<UartInfo, AllNonUartTypes1>::TestAll(str.c_str());
+                        }
+
+                        Assert(uart.stop == UartStop(k + 1));
+                        Assert(uart.parity == UartParity(j == 0 ? 0 : (j + 1)));
+                        Assert(uart.wordLength == UartData(i - 5));
+                    }
+                }
+            }
+        }
+    }
+
 }

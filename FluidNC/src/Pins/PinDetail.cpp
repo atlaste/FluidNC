@@ -8,11 +8,12 @@
 
 namespace Pins {
     void PinDetail::attachInterrupt(void (*callback)(void*), void* arg, int mode) {
+        // Default is no interupts are supported.
         Assert(false, "Interrupts are not supported by pin %d", _index);
     }
     void PinDetail::detachInterrupt() {
+        // Default is no interupts are supported.
         Assert(false, "Interrupts are not supported by pin %d", _index);
-        ;
     }
     void IRAM_ATTR PinDetail::synchronousWrite(int high) { write(high); }
 

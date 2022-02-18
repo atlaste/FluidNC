@@ -51,5 +51,16 @@ namespace Pins {
         AssertThrow(errorPin.detachInterrupt());
 
         Assert(errorPin.capabilities() == Pin::Capabilities::Error, "Incorrect caps");
+
+        Assert(errorPin.getAttr() == Pin::Attr::None);
+
+        {
+            std::ostringstream oss;
+            auto               oldbuf = std::cout.rdbuf();
+            std::cout.set_rdbuf(oss.rdbuf());
+            errorPin.setAttr(Pin::Attr::Output);
+            std::cout.set_rdbuf(oldbuf);
+            Assert(oss.str().size() != 0, "Expected error written to output");
+        }
     }
 }

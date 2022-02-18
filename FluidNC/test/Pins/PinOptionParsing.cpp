@@ -37,6 +37,7 @@ namespace Pins {
             auto endopt = parser.end();
             Assert(opt != endopt, "Expected an argument");
             Assert(opt->is("first"), "Expected 'first'");
+            Assert(!strcmp(opt(), "first"));
 
             ++opt;
             Assert(opt == endopt, "Expected one argument");
