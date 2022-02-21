@@ -31,6 +31,9 @@
     <Filter Include="test\Utility">
       <UniqueIdentifier>{5013c39f-3e52-46c9-989f-8216ee5904ac}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Motors">
+      <UniqueIdentifier>{55036e3e-1200-4e6a-a918-38735ae96477}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\StringRange.h">
@@ -261,6 +264,52 @@
     <ClInclude Include="FluidNC\src\StringStream.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="X86TestSupport\TestSupport\SoftwareGPIO.h">
+      <Filter>X86TestSupport</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\RcServo.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\RcServoSettings.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\Servo.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\Solenoid.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\StandardStepper.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\StepStick.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\TrinamicBase.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\TrinamicSpiDriver.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\TrinamicUartDriver.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\UnipolarMotor.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\Dynamixel2.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\MotorDriver.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Motors\NullMotor.h">
+      <Filter>src\Motors</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Peripherals.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\LimitedResource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp">
@@ -437,6 +486,42 @@
     <ClCompile Include="FluidNC\src\Configuration\Configurable.cpp">
       <Filter>src\Configuration</Filter>
     </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\Servo.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\Solenoid.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\StepStick.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\TrinamicBase.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\TrinamicSpiDriver.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\TrinamicUartDriver.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\UnipolarMotor.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\Dynamixel2.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\RcServo.cpp">
+      <Filter>src\Motors</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Configuration\Parser.md">
@@ -453,6 +538,9 @@
     </None>
     <None Include="FluidNC\test\UnitTests.md">
       <Filter>test</Filter>
+    </None>
+    <None Include="FluidNC\src\Motors\Dynamixel2.md">
+      <Filter>src\Motors</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
