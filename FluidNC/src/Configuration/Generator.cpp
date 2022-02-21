@@ -20,12 +20,6 @@ namespace Configuration {
         indent_++;
     }
 
-    void Generator::add(Configuration::Configurable* configurable) {
-        if (configurable != nullptr) {
-            configurable->group(*this);
-        }
-    }
-
     void Generator::leave() {
         if (!lastIsNewline_) {
             dst_ << '\n';

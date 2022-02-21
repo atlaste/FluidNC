@@ -111,6 +111,7 @@
     <ClInclude Include="X86TestSupport\TestSupport\xtensa\core-macros.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FluidNC\src\Configuration\Configurable.cpp" />
     <ClCompile Include="FluidNC\src\PinMapper.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
     <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp" />
@@ -120,6 +121,7 @@
     <ClCompile Include="FluidNC\src\Pins\PinAttributes.cpp" />
     <ClCompile Include="FluidNC\src\StackTrace\debug_helpers.cpp" />
     <ClCompile Include="FluidNC\src\Pin.cpp" />
+    <ClCompile Include="FluidNC\test\Configuration\YamlAfterParse.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlProperties.cpp" />

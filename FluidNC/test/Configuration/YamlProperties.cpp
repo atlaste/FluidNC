@@ -232,4 +232,33 @@ namespace Configuration {
         }
     }
 
+    Test(YamlProperties, BoundaryCases) {
+        {
+            // Incorrect uart items
+            ParseHelper<UartInfo>::ParseError("key: 9N1");
+            ParseHelper<UartInfo>::ParseError("key: 5Q1");
+            ParseHelper<UartInfo>::ParseError("key: 6E6");
+            ParseHelper<UartInfo>::ParseError("key: aap");
+        }
+        {
+            // Integers:
+            Assert(ParseHelper<int>::ParseCorrect("key: 2.1") == 2);
+        }
+        {
+            // Boolean:
+            Assert(ParseHelper<bool>::ParseCorrect("key: false") == false);
+            Assert(ParseHelper<bool>::ParseCorrect("key: true") == true);
+            ParseHelper<bool>::ParseError("key: 2");
+        }
+        {
+            // Speed map:
+            // ParseHelper<std::vector<speedEntry>>::ParseError("key: 400=500"); TODO FIXME: Bug.
+            // ParseHelper<std::vector<speedEntry>>::ParseError("key: 400=500%"); TODO FIXME: Bug.
+
+            Assert(ParseHelper<std::vector<speedEntry>>::ParseCorrect("key: none").size() == 0);
+            ParseHelper<std::vector<speedEntry>>::ParseError("key: aap");
+            ParseHelper<std::vector<speedEntry>>::ParseError("key: 2=aap");
+            ParseHelper<bool>::ParseError("key: 2");
+        }
+    }
 }

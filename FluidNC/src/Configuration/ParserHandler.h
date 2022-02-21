@@ -105,7 +105,7 @@ namespace Configuration {
             }
         }
 
-        void item(const char* name, int& value, EnumItem* e) override {
+        void item(const char* name, int& value, const EnumItem* e) override {
             if (_parser.is(name)) {
                 value = _parser.enumValue(e).value;
             }

@@ -245,6 +245,25 @@ namespace Configuration {
     }
 
     Test(YamlTokenizer, Tokenizer9) {
+        const char* test = "aap:\t\t# aapjes\n"
+                           "  fruit: apple\n";
+
+        Parser parser(test, test + strlen(test));
+        Assert(!parser.eof(), "Unexpected EOF");
+        parser.Tokenize();
+        Assert(parser.indent() == 0);
+        Assert(parser.key().equals("aap"), "Incorrect key");
+
+        parser.Tokenize();
+        auto k = parser.key();
+        Assert(parser.indent() == 2);
+        Assert(k.equals("fruit"));
+        Assert(parser.stringValue().equals("apple"));
+        parser.Tokenize();
+        Assert(parser.eof(), "Expected EOF");
+    }
+
+    Test(YamlTokenizer, Tokenizer10) {
         const char* test = "aap: #comment1\r\n"
                            "  fruit: apple\r\n"
                            "  #comment2\r\n"
@@ -272,6 +291,25 @@ namespace Configuration {
         Assert(parser.eof(), "Expected EOF");
     }
 
+    Test(YamlTokenizer, Tokenizer11) {
+        const char* test = "aap:\t\t# aapjes\n"
+                           "  @fruit: apple\n";
+
+        Parser parser(test, test + strlen(test));
+        Assert(!parser.eof(), "Unexpected EOF");
+        try {
+            parser.Tokenize();
+            Assert(parser.key().equals("aap"), "Incorrect key");
+
+            parser.Tokenize();
+            auto k = parser.key();
+            Assert(k.equals("fruit"));
+            Assert(false, "@'s are not valid identifier chars.");
+        } catch (ParseException) {
+            // OK, this is expected.
+        }
+    }
+
     void TestIncorrectYaml(const char* test) {
         Parser parser(test, test + strlen(test));
         try {
@@ -289,7 +327,8 @@ namespace Configuration {
 
     Test(YamlTokenizer, IncorrectTokenizer2) {
         // # is not a valid identifier token.
-        TestIncorrectYaml("fruit#wrong: banana\n"); }
+        TestIncorrectYaml("fruit#wrong: banana\n");
+    }
     Test(YamlTokenizer, IncorrectTokenizer3) {
         // : is missing
         TestIncorrectYaml("aap  \n"

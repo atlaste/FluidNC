@@ -33,6 +33,6 @@ namespace Configuration {
         void item(const char* name, String& value, int minLength, int maxLength) override {}
         void item(const char* name, Pin& value) override {}
         void item(const char* name, IPAddress& value) override {}
-        void item(const char* name, int& value, EnumItem* e) override {}
+        void item(const char* name, int& value, const EnumItem* e) override {}
     };
 }

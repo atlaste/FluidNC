@@ -56,7 +56,7 @@ namespace Configuration {
         virtual void item(const char* name, Pin& value)       = 0;
         virtual void item(const char* name, IPAddress& value) = 0;
 
-        virtual void item(const char* name, int& value, EnumItem* e) = 0;
+        virtual void item(const char* name, int& value, const EnumItem* e) = 0;
 
         virtual void item(const char* name, String& value, int minLength = 0, int maxLength = 255) = 0;
 

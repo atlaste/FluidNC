@@ -8,6 +8,7 @@
 
 namespace Configuration {
     class HandlerBase;
+    class Validator;
 
     class Configurable {
         Configurable(const Configurable&) = delete;
@@ -19,11 +20,12 @@ namespace Configuration {
     public:
         Configurable() = default;
 
-        virtual void validate() const {};
         virtual void group(HandlerBase& handler) = 0;
-        virtual void afterParse() {}
-        // virtual const char* name() const = 0;
+        virtual void validate(Validator& handler);
+        virtual void afterParse(HandlerBase& handler);
 
-        virtual ~Configurable() {}
+        virtual const char* name() const = 0;
+
+        virtual ~Configurable();
     };
 }

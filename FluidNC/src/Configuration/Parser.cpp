@@ -76,10 +76,14 @@ namespace Configuration {
     }
 
     std::vector<speedEntry> Parser::speedEntryValue() const {
-        auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
-
+        auto                    str = StringRange(token_.sValueStart_, token_.sValueEnd_);
         std::vector<speedEntry> value;
-        StringRange             entryStr;
+
+        if (str.equals("none")) {
+            return value;
+        }
+
+        StringRange entryStr;
         for (entryStr = str.nextWord(); entryStr.length(); entryStr = str.nextWord()) {
             speedEntry  entry;
             StringRange speed = entryStr.nextWord('=');
@@ -123,8 +127,13 @@ namespace Configuration {
     }
 
     EnumItem Parser::enumValue(const EnumItem* set) const {
-        auto str = StringRange(token_.sValueStart_, token_.sValueEnd_);
-        return EnumItem::find(set, str);
+        auto str    = StringRange(token_.sValueStart_, token_.sValueEnd_);
+        auto result = EnumItem::find(set, str);
+        if (!result.name) {
+            return EnumItem::default(set);
+        } else {
+            return result;
+        }
     }
 
     void Parser::uartMode(UartData& wordLength, UartParity& parity, UartStop& stopBits) const {

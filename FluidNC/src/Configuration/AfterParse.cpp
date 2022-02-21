@@ -13,7 +13,7 @@ namespace Configuration {
         _path.push_back(name);  // For error handling
 
         try {
-            value->afterParse();
+            value->afterParse(*this);
         } catch (const AssertionFailed& ex) {
             // Log something meaningful to the user:
             log_error("Initialization error at "; for (auto it : _path) { ss << '/' << it; } ss << ": " << ex.msg);

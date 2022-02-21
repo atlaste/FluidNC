@@ -28,7 +28,6 @@ namespace Configuration {
         }
 
         void enter(const char* name);
-        void add(Configuration::Configurable* configurable);
         void leave();
 
     protected:
@@ -53,7 +52,7 @@ namespace Configuration {
             indent();
             dst_ << name << ": ";
             if (value.size() == 0) {
-                dst_ << "None";
+                dst_ << "none";
             } else {
                 const char* separator = "";
                 for (speedEntry n : value) {
@@ -93,8 +92,10 @@ namespace Configuration {
         }
 
         void item(const char* name, String& value, int minLength, int maxLength) override {
-            indent();
-            dst_ << name << ": " << value << '\n';
+            if (value.length()) {
+                indent();
+                dst_ << name << ": '" << value << "'\n";
+            }
         }
 
         void item(const char* name, bool& value) override {
@@ -111,16 +112,14 @@ namespace Configuration {
             indent();
             dst_ << name << ": " << value.toString() << '\n';
         }
-        void item(const char* name, int& value, EnumItem* e) override {
+        void item(const char* name, int& value, const EnumItem* e) override {
             indent();
-            const char* str = "unknown";
-            for (; e->name; ++e) {
-                if (value == e->value) {
-                    str = e->name;
-                    break;
-                }
+            auto item = EnumItem::find(e, value);
+            if (item.undefined()) {
+                dst_ << name << ": unknown\n";
+            } else {
+                dst_ << name << ": " << item.name << '\n';
             }
-            dst_ << name << ": " << str << '\n';
         }
     };
 }
