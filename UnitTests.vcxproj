@@ -204,6 +204,7 @@
     <None Include="FluidNC\src\Configuration\ConfigurationHandlers.md" />
     <None Include="FluidNC\src\Configuration\GenericFactory.md" />
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
+    <None Include="FluidNC\src\Motors\Stepping.md" />
     <None Include="FluidNC\test\UnitTests.md" />
   </ItemGroup>
   <ItemGroup>

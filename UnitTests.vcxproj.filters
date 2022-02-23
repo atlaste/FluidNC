@@ -542,6 +542,9 @@
     <None Include="FluidNC\src\Motors\Dynamixel2.md">
       <Filter>src\Motors</Filter>
     </None>
+    <None Include="FluidNC\src\Motors\Stepping.md">
+      <Filter>src\Motors</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="X86TestSupport\TestSupport\TODO.txt">
