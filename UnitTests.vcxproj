@@ -34,21 +34,9 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClInclude Include="FluidNC\src\LimitedResource.h" />
-    <ClInclude Include="FluidNC\src\Motors\Dynamixel2.h" />
-    <ClInclude Include="FluidNC\src\Motors\MotorDriver.h" />
-    <ClInclude Include="FluidNC\src\Motors\NullMotor.h" />
-    <ClInclude Include="FluidNC\src\Motors\RcServo.h" />
-    <ClInclude Include="FluidNC\src\Motors\RcServoSettings.h" />
-    <ClInclude Include="FluidNC\src\Motors\Servo.h" />
-    <ClInclude Include="FluidNC\src\Motors\Solenoid.h" />
-    <ClInclude Include="FluidNC\src\Motors\StandardStepper.h" />
-    <ClInclude Include="FluidNC\src\Motors\StepStick.h" />
-    <ClInclude Include="FluidNC\src\Motors\TrinamicBase.h" />
-    <ClInclude Include="FluidNC\src\Motors\TrinamicSpiDriver.h" />
-    <ClInclude Include="FluidNC\src\Motors\TrinamicUartDriver.h" />
-    <ClInclude Include="FluidNC\src\Motors\UnipolarMotor.h" />
     <ClInclude Include="FluidNC\src\Peripherals.h" />
     <ClInclude Include="FluidNC\src\PinMapper.h" />
+    <ClInclude Include="FluidNC\src\Planner.h" />
     <ClInclude Include="FluidNC\src\StringRange.h" />
     <ClInclude Include="FluidNC\src\Configuration\GenericFactory.h" />
     <ClInclude Include="FluidNC\src\Configuration\Configurable.h" />
@@ -128,20 +116,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\Configuration\Configurable.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\Dynamixel2.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\RcServo.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\Servo.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\Solenoid.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\StepStick.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\TrinamicBase.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\TrinamicSpiDriver.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\TrinamicUartDriver.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\UnipolarMotor.cpp" />
     <ClCompile Include="FluidNC\src\PinMapper.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
+    <ClCompile Include="FluidNC\src\Planner.cpp" />
     <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp" />
     <ClCompile Include="FluidNC\src\Pins\I2SOPinDetail.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Validator.cpp" />
@@ -203,8 +180,7 @@
     <None Include="FluidNC\src\Configuration\_Overview.md" />
     <None Include="FluidNC\src\Configuration\ConfigurationHandlers.md" />
     <None Include="FluidNC\src\Configuration\GenericFactory.md" />
-    <None Include="FluidNC\src\Motors\Dynamixel2.md" />
-    <None Include="FluidNC\src\Motors\Stepping.md" />
+    <None Include="FluidNC\src\Motors\MotorsAndStepping.md" />
     <None Include="FluidNC\test\UnitTests.md" />
   </ItemGroup>
   <ItemGroup>

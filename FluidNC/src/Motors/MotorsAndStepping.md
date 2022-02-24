@@ -42,10 +42,6 @@ formula's in a loop.
 
 # Planning lines
 
-The idea here is roughly based on https://github.com/MarlinFirmware/Marlin/blob/2.0.x/Marlin/src/module/planner.h ,
-and https://github.com/MarlinFirmware/Marlin/blob/2.0.x/Marlin/src/module/planner.cpp but works 
-very different with timing.
-
 After planning, we're going to execute lines. Execution can be as easy as telling a motor to
 "go there" (absolute positioning) or as hard as "I'll tell you how to go there" (stepping).
 One thing to keep in mind here is that it's important that all line segments are completely 
@@ -145,6 +141,9 @@ lines in the planner buffer:
 When the machine is idle, we add a no-op line segment at the start of the buffer. This segment
 has a total time of the lag delay for all motors. So in other words, an initial delay is added.
 
+TODO FIXME: Pause is actually quite hard to get right. We have to think this through in more
+detail when the time gets there. Let's do the other things first...
+
 ## Synchronized events
 
 Synchronized events are events that follow the motion speed. Two examples are lasers (the PWM 
@@ -154,6 +153,70 @@ motion into account. Normally, synchronized events have a low update frequency, 
 motors. Note that extruders have the physical delay of [stopping the] melting of plastic.
 
 Synchronized events compute the total speed in the near future, and updates the device.
+
+# Acceleration and deceleration computations
+
+For acceleration and deceleration profiles, we use a quintic (fifth-degree) Bézier 
+polynomial for the velocity curve, giving a "linear pop" velocity curve; with pop 
+being the sixth derivative of position:
+
+velocity - 1st, acceleration - 2nd, jerk - 3rd, snap - 4th, crackle - 5th, pop - 6th
+
+The Bézier curve takes the form:
+
+V(t) = P_0B_0(t) + P_1B_1(t) + P_2B_2(t) + P_3B_3(t) + P_4B_4(t) + P_5B_5(t)
+
+Where 0 <= t <= 1, and V(t) is the velocity. P_0 through P_5 are the control points, and B_0(t)
+through B_5(t) are the Bernstein basis as follows:
+
+      B_0(t) =   (1-t)^5        =   -t^5 +  5t^4 - 10t^3 + 10t^2 -  5t   +   1
+      B_1(t) =  5(1-t)^4t    =   5t^5 - 20t^4 + 30t^3 - 20t^2 +  5t
+      B_2(t) = 10(1-t)^3t^2  = -10t^5 + 30t^4 - 30t^3 + 10t^2
+      B_3(t) = 10(1-t)^2t^3  =  10t^5 - 20t^4 + 10t^3
+      B_4(t) =  5(1-t) t^4  =  -5t^5 +  5t^4
+      B_5(t) =             t^5  =    t^5
+                                    ^       ^       ^       ^       ^       ^
+                                    |       |       |       |       |       |
+                                    A       B       C       D       E       F
+
+Unfortunately, we cannot use forward-differencing to calculate each position through
+the curve, as we use variable timer periods. So, we require a formula of the form:
+
+      V_f(t) = A*t^5 + B*t^4 + C*t^3 + D*t^2 + E*t + F
+
+Looking at the above B_0(t) through B_5(t) expanded forms, if we take the coefficients of t^5
+through t of the Bézier form of V(t), we can determine that:
+
+      A =    -P_0 +  5*P_1 - 10*P_2 + 10*P_3 -  5*P_4 +  P_5
+      B =   5*P_0 - 20*P_1 + 30*P_2 - 20*P_3 +  5*P_4
+      C = -10*P_0 + 30*P_1 - 30*P_2 + 10*P_3
+      D =  10*P_0 - 20*P_1 + 10*P_2
+      E = - 5*P_0 +  5*P_1
+      F =     P_0
+
+Now, since we will (currently) *always* want the initial acceleration and jerk values to be 0,
+We set P_i = P_0 = P_1 = P_2 (initial velocity), and P_t = P_3 = P_4 = P_5 (target velocity),
+which, after simplification, resolves to:
+
+      A = - 6*P_i +  6*P_t =  6*(P_t - P_i)
+      B =  15*P_i - 15*P_t = 15*(P_i - P_t)
+      C = -10*P_i + 10*P_t = 10*(P_t - P_i)
+      D = 0
+      E = 0
+      F = P_i
+
+As the t is evaluated in non uniform steps here, there is no other way rather than evaluating
+the Bézier curve at each point in time:
+
+      V_f(t) = A*t^5 + B*t^4 + C*t^3 + F          [0 <= t <= 1]
+
+Having acceleration and jerk as 0 was a bit of a trade-off here. For many small segments, a 
+trapezoid curve might be used instead. Small segments *will* be used unfortunately; specifically 
+when accelerating in an arc, this will become a problem. However, for simplicity, I chose not 
+to take this into account and always use the bezier curves for now. 
+
+So, in short, we need to store calculate A,B,C and F and store them in eack block, and then 
+during the line scheduling, we just calculate the velocity and throw steps into the buffers.
 
 # Line scheduling
 
@@ -181,3 +244,23 @@ either the I2S DMA or GPIO ISR, and thrown to the device.
 Because of all the above, the actual speed and position of the system of every moter at any given 
 time is *known*. Rotary encoders translate the position and compare it with the position of the 
 system at the current time. 
+
+Compensation can only be done at control points. Control points are points where the motors and 
+encoders should be in alignment - which is basically at the update frequency of the motors, 
+compensated by the time lag described above. So, if we have a servo with an update frequency 
+of 50 Hz, we only have control points every (1/50s = ) 20.000 us, because we don't know the 
+exact acceleration profile of the servo during the transition. 
+
+Having the exact position means we can compensate for it. Specifically, we limit the speed and 
+acceleration if the rotary encoder tells us we're at a different position than what we should be.
+Compensation for position is always a bit tricky, because we don't know if the encoder is wrong,
+or if the motor is wrong. To compensate, we normally assume the encoder is right, up to a limit
+over time. This limit basically ensures that we don't slam into a piece or endstop if our encoder
+is giving us the wrong information.
+
+Compensation is first and foremost done by downplaying the velocity and acceleration rates of 
+the _other_ axis that apparently lag behind. 
+
+Second, we can inject extra steps into the stepper engine. However, this is tricky because it 
+means we have to change the rate to compensate. For now, we just don't and assume the hardware 
+will catch up.
