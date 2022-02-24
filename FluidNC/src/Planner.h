@@ -160,6 +160,13 @@ public:
     volatile size_t scheduleIndex = 0;
     volatile size_t writeIndex    = 0;
 
+    bool IsBlockBusy(const PlannerBlock* const block) const {
+        auto idx = block - (&(blocks[0]));
+        return idx == scheduleIndex; 
+        // TODO FIXME: I think...!! 
+        // I think atomic int's with compare_exchange is easier to handle!
+    }
+
     PlannerBlock& GrabWriteBlock() {
         // Can we write?
         while (writeIndex != currentIndex) {
@@ -228,6 +235,11 @@ class Planner {
         return maxRate;
     }
 
+    inline float    minf(float lhs, float rhs) { return lhs < rhs ? lhs : rhs; }
+    inline float    maxf(float lhs, float rhs) { return lhs > rhs ? lhs : rhs; }
+    inline uint32_t minu(uint32_t lhs, uint32_t rhs) { return lhs < rhs ? lhs : rhs; }
+    inline uint32_t maxu(uint32_t lhs, uint32_t rhs) { return lhs > rhs ? lhs : rhs; }
+
     // The kernel called by recalculate() when scanning the plan from last to first entry.
     void ReversePassKernel(PlannerBlock* const current, const PlannerBlock* const next) {
         if (current) {
@@ -251,10 +263,10 @@ class Planner {
                 float new_entry_speed_sqr =
                     current->NominalLength() ?
                         max_entry_speed_sqr :
-                        MIN(max_entry_speed_sqr,
-                            MaxAllowableSpeedSqr(-current->acceleration,
-                                                 next ? next->entrySpeedSqr : (MINIMUM_PLANNER_SPEED * MINIMUM_PLANNER_SPEED),
-                                                 current->millimeters));
+                        minf(max_entry_speed_sqr,
+                             MaxAllowableSpeedSqr(-current->acceleration,
+                                                  next ? next->entrySpeedSqr : (MINIMUM_PLANNER_SPEED * MINIMUM_PLANNER_SPEED),
+                                                  current->millimeters));
 
                 if (current->entrySpeedSqr != new_entry_speed_sqr) {
                     // Need to recalculate the block speed - Mark it now, so the stepper
@@ -263,7 +275,7 @@ class Planner {
 
                     // But there is an inherent race condition here, as the block may have
                     // become BUSY just before being marked RECALCULATE, so check for that!
-                    if (stepper.is_block_busy(current)) {
+                    if (buffer.IsBlockBusy(current)) {
                         // Block became busy. Clear the RECALCULATE flag (no point in
                         // recalculating BUSY blocks). And don't set its speed, as it can't
                         // be updated at this time.
@@ -348,7 +360,7 @@ class Planner {
                     // But there is an inherent race condition here, as the block maybe
                     // became BUSY, just before it was marked as RECALCULATE, so check
                     // if that is the case!
-                    if (stepper.is_block_busy(current)) {
+                    if (buffer.IsBlockBusy(current)) {
                         // Block became busy. Clear the RECALCULATE flag (no point in
                         //  recalculating BUSY blocks and don't set its speed, as it can't
                         //  be updated at this time.
@@ -398,7 +410,7 @@ class Planner {
             // the previous block became BUSY, so assume the current block's
             // entry speed can't be altered (since that would also require
             // updating the exit speed of the previous block).
-            if (!previous || !stepper.is_block_busy(previous)) {
+            if (!previous || !buffer.IsBlockBusy(previous)) {
                 ForwardPassKernel(previous, block, block_index);
             }
             previous = block;
@@ -459,7 +471,7 @@ class Planner {
                     // But there is an inherent race condition here, as the block maybe
                     // became BUSY, just before it was marked as RECALCULATE, so check
                     // if that is the case!
-                    if (!stepper.is_block_busy(block)) {
+                    if (!buffer.IsBlockBusy(block)) {
                         // Block is not BUSY, we won the race against the Stepper ISR:
 
                         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
@@ -491,7 +503,7 @@ class Planner {
             // But there is an inherent race condition here, as the block maybe
             // became BUSY, just before it was marked as RECALCULATE, so check
             // if that is the case!
-            if (!stepper.is_block_busy(block)) {
+            if (!buffer.IsBlockBusy(block)) {
                 // Block is not BUSY, we won the race against the Stepper ISR:
 
                 const float next_nominal_speed = std::sqrt(next->nominalSpeedSqr), nomr = 1.0f / next_nominal_speed;
@@ -566,7 +578,7 @@ class Planner {
         // reach the final_rate exactly at the end of this block.
         if (plateau_steps < 0) {
             float accelerate_steps_float = ceil(intersection_distance(initial_rate, final_rate, accel, block->totalStepCount));
-            accelerate_steps             = min(uint32_t(max(accelerate_steps_float, 0)), block->totalStepCount);
+            accelerate_steps             = minu(uint32_t(maxf(accelerate_steps_float, 0)), block->totalStepCount);
             plateau_steps                = 0;
 
             // We won't reach the cruising rate. Let's calculate the speed we will reach
