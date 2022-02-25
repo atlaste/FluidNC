@@ -34,6 +34,12 @@
     <Filter Include="src\Motors">
       <UniqueIdentifier>{55036e3e-1200-4e6a-a918-38735ae96477}</UniqueIdentifier>
     </Filter>
+    <Filter Include="test\Motion">
+      <UniqueIdentifier>{d99a7719-36bc-47fd-967e-b5c9938f44c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Motion">
+      <UniqueIdentifier>{e733f1c6-19fe-4aed-9147-894f437ca858}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\StringRange.h">
@@ -271,8 +277,8 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="FluidNC\src\LimitedResource.h" />
-    <ClInclude Include="FluidNC\src\Planner.h">
-      <Filter>src</Filter>
+    <ClInclude Include="FluidNC\src\Motion\Planner.h">
+      <Filter>src\Motion</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -450,8 +456,11 @@
     <ClCompile Include="FluidNC\src\Configuration\Configurable.cpp">
       <Filter>src\Configuration</Filter>
     </ClCompile>
-    <ClCompile Include="FluidNC\src\Planner.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="FluidNC\test\Motion\PlannerTests.cpp">
+      <Filter>test\Motion</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motion\Planner.cpp">
+      <Filter>src\Motion</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -470,8 +479,8 @@
     <None Include="FluidNC\test\UnitTests.md">
       <Filter>test</Filter>
     </None>
-    <None Include="FluidNC\src\Motors\MotorsAndStepping.md">
-      <Filter>src\Motors</Filter>
+    <None Include="FluidNC\src\Motion\MotorsAndStepping.md">
+      <Filter>src\Motion</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

@@ -34,9 +34,9 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClInclude Include="FluidNC\src\LimitedResource.h" />
+    <ClInclude Include="FluidNC\src\Motion\Planner.h" />
     <ClInclude Include="FluidNC\src\Peripherals.h" />
     <ClInclude Include="FluidNC\src\PinMapper.h" />
-    <ClInclude Include="FluidNC\src\Planner.h" />
     <ClInclude Include="FluidNC\src\StringRange.h" />
     <ClInclude Include="FluidNC\src\Configuration\GenericFactory.h" />
     <ClInclude Include="FluidNC\src\Configuration\Configurable.h" />
@@ -116,9 +116,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\Configuration\Configurable.cpp" />
+    <ClCompile Include="FluidNC\src\Motion\Planner.cpp" />
     <ClCompile Include="FluidNC\src\PinMapper.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Planner.cpp" />
     <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp" />
     <ClCompile Include="FluidNC\src\Pins\I2SOPinDetail.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Validator.cpp" />
@@ -132,6 +132,7 @@
     <ClCompile Include="FluidNC\test\Configuration\YamlProperties.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTokenizer.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
+    <ClCompile Include="FluidNC\test\Motion\PlannerTests.cpp" />
     <ClCompile Include="FluidNC\test\Pins\BasicGPIO.cpp" />
     <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" />
     <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
@@ -180,7 +181,7 @@
     <None Include="FluidNC\src\Configuration\_Overview.md" />
     <None Include="FluidNC\src\Configuration\ConfigurationHandlers.md" />
     <None Include="FluidNC\src\Configuration\GenericFactory.md" />
-    <None Include="FluidNC\src\Motors\MotorsAndStepping.md" />
+    <None Include="FluidNC\src\Motion\MotorsAndStepping.md" />
     <None Include="FluidNC\test\UnitTests.md" />
   </ItemGroup>
   <ItemGroup>
