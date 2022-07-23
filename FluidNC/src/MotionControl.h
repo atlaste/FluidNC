@@ -24,7 +24,7 @@ bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* positi
 void motors_to_cartesian(float* cartesian, float* motors, int n_axis);
 
 // Execute a linear motion in cartesian space.
-bool mc_linear(float* target, plan_line_data_t* pl_data, float* position);
+bool mc_linear(float* target, plan_line_data_t* pl_data, float* position, bool autoAirCut, float zeroZ);
 
 // Execute a linear motion in motor space.
 bool mc_move_motors(float* target, plan_line_data_t* pl_data);  // returns true if line was submitted to planner
@@ -41,7 +41,8 @@ void mc_arc(float*            target,
             size_t            axis_0,
             size_t            axis_1,
             size_t            axis_linear,
-            bool              is_clockwise_arc);
+            bool              is_clockwise_arc,
+            float             zeroZ);
 
 // Dwell for a specific number of seconds
 bool mc_dwell(int32_t milliseconds);

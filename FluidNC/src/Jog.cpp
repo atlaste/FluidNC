@@ -22,7 +22,7 @@ Error jog_execute(plan_line_data_t* pl_data, parser_block_t* gc_block, bool* can
     constrainToSoftLimits(gc_block->values.xyz);
 
     // Valid jog command. Plan, set state, and execute.
-    if (!mc_linear(gc_block->values.xyz, pl_data, gc_state.position)) {
+    if (!mc_linear(gc_block->values.xyz, pl_data, gc_state.position, false, 0)) {
         return Error::JogCancelled;
     }
 

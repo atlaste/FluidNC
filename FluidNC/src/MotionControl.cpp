@@ -103,7 +103,23 @@ void mc_cancel_jog() {
 // Execute linear motion in absolute millimeter coordinates. Feed rate given in millimeters/second
 // unless invert_feed_rate is true. Then the feed_rate means that the motion should be completed in
 // (1 minute)/feed_rate time.
-bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
+bool mc_linear(float* target, plan_line_data_t* pl_data, float* position, bool escallateAirCut, float zeroZ) {
+    if (escallateAirCut && !pl_data->motion.rapidMotion) {
+        // Let's see if it's an air cut:
+        //
+
+        // TODO FIXME: Compensate for G54?
+
+        // Move up is always an air cut, so f.ex target = 0, position = -1.
+        //
+        // Also, if both position and target have a z>=1 then we call it an air cut and we set the
+        // rapid to 1:
+        if (target[2] > position[2] || (target[2] >= zeroZ + 1 && position[2] >= zeroZ + 1)) {
+            // Escallate:
+            pl_data->motion.rapidMotion = 1;
+        }
+    }
+
     limits_soft_check(target);
     return config->_kinematics->cartesian_to_motors(target, pl_data, position);
 }
@@ -112,6 +128,7 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
 // offset == offset from current xyz, axis_X defines circle plane in tool space, axis_linear is
 // the direction of helical travel, radius == circle radius, isclockwise boolean. Used
 // for vector transformation direction.
+//
 // The arc is approximated by generating a huge number of tiny, linear segments. The chordal tolerance
 // of each segment is configured in the arc_tolerance setting, which is defined to be the maximum normal
 // distance from segment to the circle when the end points both lie on the circle.
@@ -123,7 +140,8 @@ void mc_arc(float*            target,
             size_t            axis_0,
             size_t            axis_1,
             size_t            axis_linear,
-            bool              is_clockwise_arc) {
+            bool              is_clockwise_arc,
+            float             zeroZ) {
     float center_axis0 = position[axis_0] + offset[axis_0];
     float center_axis1 = position[axis_1] + offset[axis_1];
     float r_axis0      = -offset[axis_0];  // Radius vector from center to current location
@@ -229,7 +247,7 @@ void mc_arc(float*            target,
                 position[i] += linear_per_segment[i];
             }
             pl_data->feed_rate = original_feedrate;  // This restores the feedrate kinematics may have altered
-            mc_linear(position, pl_data, previous_position);
+            mc_linear(position, pl_data, previous_position, config->_escallateAirCut, zeroZ);
             previous_position[axis_0]      = position[axis_0];
             previous_position[axis_1]      = position[axis_1];
             previous_position[axis_linear] = position[axis_linear];
@@ -240,7 +258,7 @@ void mc_arc(float*            target,
         }
     }
     // Ensure last segment arrives at target location.
-    mc_linear(target, pl_data, previous_position);
+    mc_linear(target, pl_data, previous_position, config->_escallateAirCut, zeroZ);
 }
 
 // Execute dwell in seconds.
@@ -320,7 +338,7 @@ GCUpdatePos mc_probe_cycle(float* target, plan_line_data_t* pl_data, bool away, 
         return GCUpdatePos::None;  // Nothing else to do but bail.
     }
     // Setup and queue probing motion. Auto cycle-start should not start the cycle.
-    mc_linear(target, pl_data, gc_state.position);
+    mc_linear(target, pl_data, gc_state.position, false, 0);
     // Activate the probing state monitor in the stepper module.
     probeState = ProbeState::Active;
     // Perform probing cycle. Wait here until probe is triggered or motion completes.

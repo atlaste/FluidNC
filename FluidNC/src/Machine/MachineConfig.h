@@ -88,6 +88,7 @@ namespace Machine {
 
         // Tracks and reports gcode line numbers. Disabled by default.
         bool _useLineNumbers = false;
+        bool _escallateAirCut = false;
 
         String _board = "None";
         String _name  = "None";

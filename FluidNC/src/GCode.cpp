@@ -1543,9 +1543,9 @@ Error gc_execute_line(char* line, Channel& channel) {
             // and absolute and incremental modes.
             pl_data->motion.rapidMotion = 1;  // Set rapid motion flag.
             if (axis_command != AxisCommand::None) {
-                mc_linear(gc_block.values.xyz, pl_data, gc_state.position);
+                mc_linear(gc_block.values.xyz, pl_data, gc_state.position, false, 0);
             }
-            mc_linear(coord_data, pl_data, gc_state.position);
+            mc_linear(coord_data, pl_data, gc_state.position, false, 0);
             copyAxes(gc_state.position, coord_data);
             break;
         case NonModal::SetHome0:
@@ -1572,11 +1572,13 @@ Error gc_execute_line(char* line, Channel& channel) {
     if (gc_state.modal.motion != Motion::None) {
         if (axis_command == AxisCommand::MotionMode) {
             GCUpdatePos gc_update_pos = GCUpdatePos::Target;
+            float zeroZ = block_coord_system[TOOL_LENGTH_OFFSET_AXIS] + gc_state.coord_offset[TOOL_LENGTH_OFFSET_AXIS];
+
             if (gc_state.modal.motion == Motion::Linear) {
-                mc_linear(gc_block.values.xyz, pl_data, gc_state.position);
+                mc_linear(gc_block.values.xyz, pl_data, gc_state.position, config->_escallateAirCut, zeroZ);
             } else if (gc_state.modal.motion == Motion::Seek) {
                 pl_data->motion.rapidMotion = 1;  // Set rapid motion flag.
-                mc_linear(gc_block.values.xyz, pl_data, gc_state.position);
+                mc_linear(gc_block.values.xyz, pl_data, gc_state.position, false, zeroZ);
             } else if ((gc_state.modal.motion == Motion::CwArc) || (gc_state.modal.motion == Motion::CcwArc)) {
                 mc_arc(gc_block.values.xyz,
                        pl_data,
@@ -1586,7 +1588,7 @@ Error gc_execute_line(char* line, Channel& channel) {
                        axis_0,
                        axis_1,
                        axis_linear,
-                       clockwiseArc);
+                       clockwiseArc, zeroZ);
             } else {
                 // NOTE: gc_block.values.xyz is returned from mc_probe_cycle with the updated position value. So
                 // upon a successful probing cycle, the machine position and the returned value should be the same.
