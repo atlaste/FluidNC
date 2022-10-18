@@ -14,6 +14,7 @@
 namespace Pins {
     class PCA9539PinDetail;
     class PCA9555PinDetail;
+    class PCF8574PinDetail;
 }
 
 namespace Extenders {
@@ -21,6 +22,7 @@ namespace Extenders {
         Unknown,
         PCA9539,
         PCA9555,
+        PCF8574,
     };
 
     // Pin extenders...
