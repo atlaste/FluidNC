@@ -15,6 +15,7 @@
 namespace Extenders {
     EnumItem i2cDevice[] = { { int(I2CExtenderDevice::PCA9539), "pca9539" },
                              { int(I2CExtenderDevice::PCA9555), "pca9555" },
+                             { int(I2CExtenderDevice::PCF8574), "pcf8574" },
                              EnumItem(int(I2CExtenderDevice::Unknown)) };
 
     I2CExtender::I2CExtender() : _i2cBus(nullptr), _usedIORegisters(0), _dirtyWriteBuffer(0), _dirtyWrite(0), _status(0) {}
@@ -348,6 +349,15 @@ namespace Extenders {
                 // See data sheet page 7+:
                 _address      = 0x20 + _deviceId;
                 _ports        = 16;
+                _inputReg     = 0;
+                _outputReg    = 2;
+                _invertReg    = 4;
+                _operationReg = 6;
+                break;
+            
+            case I2CExtenderDevice::PCF8574:
+                _address      = 0x20 + _deviceId;
+                _ports        = 8;
                 _inputReg     = 0;
                 _outputReg    = 2;
                 _invertReg    = 4;
