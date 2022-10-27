@@ -71,8 +71,8 @@ union Accessory {
 
 extern volatile Accessory rtAccessoryOverride;  // Global realtime executor bitflag variable for spindle/coolant overrides.
 
-extern volatile Percent rtFOverride;  // Feed override value in percent
-extern volatile Percent rtROverride;  // Rapid feed override value in percent
+extern volatile float   rtFOverride;  // Feed override value in percent
+extern volatile float   rtROverride;  // Rapid feed override value in percent
 extern volatile Percent rtSOverride;  // Spindle override value in percent
 
 // Alarm codes.

@@ -8,6 +8,8 @@
 namespace Spindles {
     class H2A : public VFD {
     protected:
+        bool _safety_polling = false;
+
         void direction_command(SpindleState mode, ModbusCommand& data) override;
         void set_speed_command(uint32_t dev_speed, ModbusCommand& data) override;
 
@@ -26,5 +28,10 @@ namespace Spindles {
 
     public:
         H2A();
+
+        void group(Configuration::HandlerBase& handler) override {
+            handler.item("safety_polling", _safety_polling);
+            VFD::group(handler);
+        }
     };
 }

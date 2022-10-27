@@ -830,6 +830,25 @@ Error gc_execute_line(char* line, Channel& channel) {
         // [9. Enable/disable feed rate or spindle overrides ]: NOT SUPPORTED.
     }
 
+    // Check if we're running a motor spindle XXXXX SdB
+    if (spindle->motorSpindle()) {
+        // axis words need to update the spindle:
+        if (axis_words != 0) {
+            auto x = gc_block.values.xyz[X_AXIS];
+            auto y = gc_block.values.xyz[Y_AXIS];
+            auto z = gc_block.values.xyz[Z_AXIS];
+
+            auto f = gc_block.values.f;
+
+            // Compensate for absolute / relative mode:
+            auto dist = sqrt(x * x + y * y + z * z);
+            // TODO!
+
+            // How much?
+            gc_block.values.xyz[A_AXIS] = gc_state.position[A_AXIS] + dist;
+        }
+    }
+
     if (config->_enableParkingOverrideControl) {
         if (bitnum_is_true(command_words, ModalGroup::MM9)) {  // Already set as enabled in parser.
             if (bitnum_is_true(value_words, GCodeWord::P)) {

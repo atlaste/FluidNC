@@ -64,8 +64,8 @@ struct system_t {
     bool           abort;              // System abort flag. Forces exit back to main loop for reset.
     Suspend        suspend;            // System suspend bitflag variable that manages holds, cancels, and safety door.
     StepControl    step_control;       // Governs the step segment generator depending on system state.
-    Percent        f_override;         // Feed rate override value in percent
-    Percent        r_override;         // Rapids override value in percent
+    float          f_override;         // Feed rate override value in percent
+    float          r_override;         // Rapids override value in percent
     Percent        spindle_speed_ovr;  // Spindle speed value in percent
     Override       override_ctrl;      // Tracks override control states.
     SpindleSpeed   spindle_speed;

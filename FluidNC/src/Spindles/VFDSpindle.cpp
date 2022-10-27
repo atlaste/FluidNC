@@ -86,6 +86,7 @@ namespace Spindles {
             }
             next_cmd.critical = false;
 
+            bool      syncing = false;
             VFDaction action;
             if (parser == nullptr) {
                 // If we don't have a parser, the queue goes first.
@@ -121,7 +122,12 @@ namespace Spindles {
                             case 1:
                                 parser = instance->get_current_speed(next_cmd);
                                 if (parser) {
-                                    pollidx = 2;
+                                    if (instance->_spindle_sync) {
+                                        pollidx = 1;
+                                        syncing = true;
+                                    } else {
+                                        pollidx = 2;
+                                    }
                                     break;
                                 }
                                 // fall through if get_current_speed did not return a parser
@@ -212,6 +218,12 @@ namespace Spindles {
                             // If we're initializing, move to the next initialization command:
                             if (pollidx < 0) {
                                 --pollidx;
+                            }
+
+                            if (syncing && instance->_current_dev_speed != 0) {
+                                auto fraction = double(instance->_sync_dev_speed) / double(instance->_current_dev_speed);
+                                rtFOverride   = fraction * 100.0;
+                                rtROverride   = fraction * 100.0;
                             }
                         } else {
                             // Parsing failed

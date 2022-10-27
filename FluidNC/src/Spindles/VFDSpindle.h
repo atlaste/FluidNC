@@ -69,8 +69,9 @@ namespace Spindles {
         virtual bool            safety_polling() const { return true; }
 
         // The constructor sets these
-        Uart*   _uart      = nullptr;
-        uint8_t _modbus_id = 1;
+        Uart*   _uart         = nullptr;
+        uint8_t _modbus_id    = 1;
+        bool    _spindle_sync = false;
 
         void setSpeed(uint32_t dev_speed);
 
@@ -100,6 +101,7 @@ namespace Spindles {
         void group(Configuration::HandlerBase& handler) override {
             handler.section("uart", _uart);
             handler.item("modbus_id", _modbus_id, 0, 247);  // per https://modbus.org/docs/PI_MBUS_300.pdf
+            handler.item("spindle_sync", _spindle_sync);
 
             Spindle::group(handler);
         }

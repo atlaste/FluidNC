@@ -75,6 +75,8 @@ namespace Spindles {
 
         void afterParse() override;
 
+        virtual bool motorSpindle() { return false; }
+
         void group(Configuration::HandlerBase& handler) override {
             if (use_delay_settings()) {
                 handler.item("spinup_ms", _spinup_ms, 0, 20000);

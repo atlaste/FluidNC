@@ -40,8 +40,8 @@ std::map<ExecAlarm, const char*> AlarmNames = {
 };
 
 volatile Accessory rtAccessoryOverride;  // Global realtime executor bitflag variable for spindle/coolant overrides.
-volatile Percent   rtFOverride;          // Global realtime executor feedrate override percentage
-volatile Percent   rtROverride;          // Global realtime executor rapid override percentage
+volatile float     rtFOverride;          // Global realtime executor feedrate override percentage
+volatile float     rtROverride;          // Global realtime executor rapid override percentage
 volatile Percent   rtSOverride;          // Global realtime executor spindle override percentage
 
 volatile bool rtStatusReport;
