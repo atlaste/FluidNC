@@ -36,8 +36,9 @@ const int        VFD_RS485_POLL_RATE  = 250;                                    
 const TickType_t response_ticks       = RESPONSE_WAIT_MS / portTICK_PERIOD_MS;  // in milliseconds between commands
 
 namespace Spindles {
-    QueueHandle_t VFD::vfd_cmd_queue     = nullptr;
-    TaskHandle_t  VFD::vfd_cmdTaskHandle = nullptr;
+    Uart*         VFD::_theUart             = nullptr;
+    // QueueHandle_t VFD::vfd_cmd_queue     = nullptr;
+    // TaskHandle_t  VFD::vfd_cmdTaskHandle = nullptr;
 
     void VFD::reportParsingErrors(ModbusCommand cmd, uint8_t* rx_message, size_t read_length) {
 #ifdef DEBUG_VFD
@@ -90,7 +91,7 @@ namespace Spindles {
             VFDaction action;
             if (parser == nullptr) {
                 // If we don't have a parser, the queue goes first.
-                if (xQueueReceive(vfd_cmd_queue, &action, 0)) {
+                if (xQueueReceive(instance->vfd_cmd_queue, &action, 0)) {
                     switch (action.action) {
                         case actionSetSpeed:
                             if (!instance->prepareSetSpeedCommand(action.arg, next_cmd)) {
@@ -269,6 +270,12 @@ namespace Spindles {
     void VFD::init() {
         _sync_dev_speed = 0;
         _syncing        = false;
+
+        // We want to share the uart.
+        if (_uart != nullptr && _theUart == nullptr) {
+            _theUart = _uart;
+        }
+        _uart = _theUart;
 
         _uart->begin();
 

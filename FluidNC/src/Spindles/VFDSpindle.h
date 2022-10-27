@@ -26,11 +26,13 @@ namespace Spindles {
         uint32_t _last_speed          = 0;
         Percent  _last_override_value = 100;  // no override is 100 percent
 
-        static QueueHandle_t vfd_cmd_queue;
-        static TaskHandle_t  vfd_cmdTaskHandle;
-        static void          vfd_cmd_task(void* pvParameters);
+        QueueHandle_t vfd_cmd_queue     = nullptr;
+        TaskHandle_t  vfd_cmdTaskHandle = nullptr;
+
+        static void vfd_cmd_task(void* pvParameters);
 
         static uint16_t ModRTU_CRC(uint8_t* buf, int msg_len);
+
         enum VFDactionType : uint8_t { actionSetSpeed, actionSetMode };
         struct VFDaction {
             VFDactionType action;
@@ -68,8 +70,10 @@ namespace Spindles {
         virtual response_parser get_status_ok(ModbusCommand& data) = 0;
         virtual bool            safety_polling() const { return true; }
 
-        // The constructor sets these
-        Uart*   _uart         = nullptr;
+        // Trick to ensure we share the uart:
+        Uart*        _uart;
+        static Uart* _theUart;
+
         uint8_t _modbus_id    = 1;
         bool    _spindle_sync = false;
 
@@ -95,11 +99,15 @@ namespace Spindles {
         // Configuration handlers:
         void validate() const override {
             Spindle::validate();
-            Assert(_uart != nullptr, "VFD: missing UART configuration");
+            Assert(_uart != nullptr || _theUart == nullptr, "VFD: missing UART configuration");
         }
 
         void group(Configuration::HandlerBase& handler) override {
             handler.section("uart", _uart);
+            if (_uart != nullptr) {
+                _theUart = _uart;
+            }
+
             handler.item("modbus_id", _modbus_id, 0, 247);  // per https://modbus.org/docs/PI_MBUS_300.pdf
             handler.item("spindle_sync", _spindle_sync);
 
