@@ -153,6 +153,9 @@ namespace Spindles
                 // Assume for the worst, and retry...
                 int retry_count = 0;
                 for (; retry_count < MAX_RETRIES; ++retry_count) {
+                    // TODO FIXME: REMOVE THIS: 
+                    retry_count = 0;
+
                     // Flush the UART and write the data:
                     uart.flush();
                     uart.write(next_cmd.msg, next_cmd.tx_length);

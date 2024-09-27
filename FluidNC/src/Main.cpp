@@ -25,6 +25,8 @@
 
 #    include "src/ToolChangers/atc.h"
 
+#include "CrashTest.h"
+
 extern void make_user_commands();
 
 void setup() {
@@ -134,6 +136,9 @@ void setup() {
     allChannels.ready();
     allChannels.deregistration(&startupLog);
     protocol_send_event(&startEvent);
+
+    // Let's go:
+    CrashTest::RunTest();
 }
 
 void loop() {
