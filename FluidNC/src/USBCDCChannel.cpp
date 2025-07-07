@@ -6,6 +6,8 @@
 
 #include "Machine/MachineConfig.h"  // config
 #include "Serial.h"                 // allChannels
+#include "Driver/delay_usecs.h"
+#include <freertos.h>
 
 USBCDCChannel::USBCDCChannel(bool addCR) : Channel("usbcdc", addCR) {
     _lineedit = new Lineedit(this, _line, Channel::maxLine - 1);
@@ -27,7 +29,7 @@ size_t USBCDCChannel::write(const uint8_t* buffer, size_t length) {
         char   lastchar = '\0';
         size_t j        = 0;
         while (rem) {
-            const int bufsize = 80;
+            const int bufsize = 32;
             uint8_t   modbuf[bufsize];
             // bufsize-1 in case the last character is \n
             size_t k = 0;
@@ -41,10 +43,14 @@ size_t USBCDCChannel::write(const uint8_t* buffer, size_t length) {
                 --rem;
             }
             _uart->write(modbuf, k);
+
+            vTaskDelay(3 / portTICK_PERIOD_MS); // 115200 is 0.0025 secs for 32 bytes. So let's delay 3 ms.
         }
         return length;
     } else {
-        return _uart->write(buffer, length);
+        auto result = _uart->write(buffer, length);
+        vTaskDelay(3 / portTICK_PERIOD_MS);  // 115200 is 0.0025 secs for 32 bytes. So let's delay 3 ms.
+        return result;
     }
 }
 
