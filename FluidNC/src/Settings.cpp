@@ -3,6 +3,7 @@
 #include "System.h"    // sys
 #include "Protocol.h"  // protocol_buffer_synchronize
 #include "Machine/MachineConfig.h"
+#include "State.h"
 
 #include <map>
 #include <limits>
@@ -65,8 +66,7 @@ Command::Command(const char*   description,
                  const char*   fullName,
                  bool (*cmdChecker)(),
                  bool synchronous) :
-    Word(type, permissions, description, grblName, fullName),
-    _cmdChecker(cmdChecker), _synchronous(synchronous) {
+    Word(type, permissions, description, grblName, fullName), _synchronous(synchronous), _cmdChecker(cmdChecker) {
     List.insert(List.begin(), this);
 }
 
@@ -81,7 +81,7 @@ Setting::Setting(const char* description, type_t type, permissions_t permissions
         _keyName = _fullName;
     } else {
         // This is Donald Knuth's hash function from Vol 3, chapter 6.4
-        uint32_t hash = len;
+        unsigned int hash = static_cast<unsigned int>(len);
         for (const char* s = fullName; *s; s++) {
             hash = ((hash << 5) ^ (hash >> 27)) ^ (*s);
         }
@@ -118,8 +118,8 @@ IntSetting::IntSetting(const char*   description,
                        int32_t       minVal,
                        int32_t       maxVal,
                        bool          currentIsNvm) :
-    Setting(description, type, permissions, grblName, name),
-    _defaultValue(defVal), _currentValue(defVal), _minValue(minVal), _maxValue(maxVal), _currentIsNvm(currentIsNvm) {
+    Setting(description, type, permissions, grblName, name), _defaultValue(defVal), _currentValue(defVal), _minValue(minVal),
+    _maxValue(maxVal), _currentIsNvm(currentIsNvm) {
     _storedValue = std::numeric_limits<int32_t>::min();
     load();
 }
@@ -180,7 +180,7 @@ Error IntSetting::setStringValue(std::string_view s) {
 
 const char* IntSetting::getDefaultString() {
     static char strval[32];
-    sprintf(strval, "%d", _defaultValue);
+    sprintf(strval, "%d", int(_defaultValue));
     return strval;
 }
 
@@ -217,8 +217,7 @@ StringSetting::StringSetting(const char*   description,
                              const char*   defVal,
                              int           min,
                              int           max) :
-    Setting(description, type, permissions, grblName, name),
-    _defaultValue(defVal), _currentValue(defVal), _minLength(min), _maxLength(max) {
+    Setting(description, type, permissions, grblName, name), _defaultValue(defVal), _currentValue(defVal), _minLength(min), _maxLength(max) {
     load();
 };
 
@@ -300,8 +299,7 @@ EnumSetting::EnumSetting(const char*       description,
                          const char*       name,
                          int8_t            defVal,
                          const enum_opt_t* opts) :
-    Setting(description, type, permissions, grblName, name),
-    _defaultValue(defVal), _options(opts) {
+    Setting(description, type, permissions, grblName, name), _defaultValue(defVal), _options(opts) {
     load();
 }
 
@@ -448,7 +446,7 @@ void Coordinates::set(float value[MAX_N_AXIS]) {
 }
 
 IPaddrSetting::IPaddrSetting(
-    const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, uint32_t defVal) :
+    const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, IPAddress defVal) :
     Setting(description, type, permissions, grblName, name)  // There are no GRBL IP settings.
     ,
     _defaultValue(defVal), _currentValue(defVal) {
@@ -459,8 +457,7 @@ IPaddrSetting::IPaddrSetting(
     const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, const char* defVal) :
     Setting(description, type, permissions, grblName, name) {
     IPAddress ipaddr;
-    if (ipaddr.fromString(defVal)) {
-        _defaultValue = ipaddr;
+    if (ipaddr_aton(defVal, &ipaddr)) {
         _currentValue = _defaultValue;
     } else {
         throw std::runtime_error("Bad IPaddr default");
@@ -469,9 +466,11 @@ IPaddrSetting::IPaddrSetting(
 }
 
 void IPaddrSetting::load() {
-    esp_err_t err = nvs_get_i32(_handle, _keyName, (int32_t*)&_storedValue);
+    IPAddress addr;
+    size_t    len = sizeof(IPAddress);
+    esp_err_t err = nvs_get_blob(_handle, _keyName, &addr, &len);
     if (err) {
-        _storedValue  = 0x000000ff;  // Unreasonable value for any IP thing
+        _storedValue  = IPADDR4_INIT(0x000000ff);  // Unreasonable value for any IP thing
         _currentValue = _defaultValue;
     } else {
         _currentValue = _storedValue;
@@ -480,7 +479,8 @@ void IPaddrSetting::load() {
 
 void IPaddrSetting::setDefault() {
     _currentValue = _defaultValue;
-    if (_storedValue != _currentValue) {
+    if (!memcmp(&_storedValue, &_currentValue, sizeof(IPAddress)))
+    {
         nvs_erase_key(_handle, _keyName);
     }
 }
@@ -492,15 +492,14 @@ Error IPaddrSetting::setStringValue(std::string_view s) {
     }
     IPAddress   ipaddr;
     std::string str(s);
-    if (!ipaddr.fromString(str.c_str())) {
+    if (!ipaddr_aton(str.c_str(), &ipaddr)) {
         return Error::InvalidValue;
     }
-    _currentValue = ipaddr;
-    if (_storedValue != _currentValue) {
-        if (_currentValue == _defaultValue) {
+    if (!memcmp(&_storedValue, &_currentValue, sizeof(IPAddress))) {
+        if (memcmp(&_currentValue, &_defaultValue, sizeof(IPAddress))) {
             nvs_erase_key(_handle, _keyName);
         } else {
-            if (nvs_set_i32(_handle, _keyName, (int32_t)_currentValue)) {
+            if (nvs_set_blob(_handle, _keyName, &_currentValue, sizeof(IPAddress))) {
                 return Error::NvsSetFailed;
             }
             _storedValue = _currentValue;

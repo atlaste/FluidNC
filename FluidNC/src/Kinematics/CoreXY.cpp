@@ -1,7 +1,7 @@
 #include "CoreXY.h"
 
 #include "../Machine/MachineConfig.h"
-#include "../Limits.h"  // ambiguousLimit()
+#include "../AxisLimits.h"  // ambiguousLimit()
 #include "../Machine/Homing.h"
 
 #include "../Protocol.h"  // protocol_execute_realtime

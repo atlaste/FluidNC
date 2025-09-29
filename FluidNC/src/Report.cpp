@@ -23,7 +23,7 @@
 #include "Machine/MachineConfig.h"
 #include "SettingsDefinitions.h"
 #include "MotionControl.h"               // probe_succeeded
-#include "Limits.h"                      // limits_get_state
+#include "AxisLimits.h"                      // limits_get_state
 #include "Planner.h"                     // plan_get_block_buffer_available
 #include "Stepper.h"                     // step_count
 #include "Platform.h"                    // WEAK_LINK
@@ -32,6 +32,7 @@
 #include "Job.h"
 
 #include <map>
+#include <freertos/FreeRtOS.h>
 #include <freertos/task.h>
 #include <cstring>
 #include <cstdio>
@@ -466,6 +467,8 @@ const char* state_name() {
             return "Door:2";  // Retracting
         case State::Sleep:
             return "Sleep";
+        case State::Held: // SdB added
+            return "Held";
     }
     return "";
 }
@@ -556,6 +559,7 @@ void report_realtime_status(Channel& channel) {
             case State::Jog:
             case State::SafetyDoor:
                 report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1);  // Reset counter for slow refresh
+                break; // BUG
             default:
                 report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1);
                 break;
@@ -576,6 +580,7 @@ void report_realtime_status(Channel& channel) {
             case State::Jog:
             case State::SafetyDoor:
                 report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1);  // Reset counter for slow refresh
+                break;
             default:
                 report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1);
                 break;

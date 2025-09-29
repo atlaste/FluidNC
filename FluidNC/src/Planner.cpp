@@ -38,7 +38,7 @@ typedef struct {
 static planner_t pl;
 
 // Returns the index of the next block in the ring buffer. Also called by stepper segment buffer.
-static uint8_t plan_next_block_index(uint8_t block_index) {
+uint8_t plan_next_block_index(uint8_t block_index) {
     block_index++;
     if (block_index == config->_planner_blocks) {
         block_index = 0;
@@ -47,7 +47,7 @@ static uint8_t plan_next_block_index(uint8_t block_index) {
 }
 
 // Returns the index of the previous block in the ring buffer
-static uint8_t plan_prev_block_index(uint8_t block_index) {
+uint8_t plan_prev_block_index(uint8_t block_index) {
     if (block_index == 0) {
         block_index = config->_planner_blocks;
     }

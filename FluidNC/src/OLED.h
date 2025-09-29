@@ -1,3 +1,7 @@
+/*
+* Deprecated by SdB
+* 
+
 #pragma once
 
 #include "src/Config.h"
@@ -128,3 +132,5 @@ public:
         handler.item("radio_delay_ms", _radio_delay);
     }
 };
+
+*/

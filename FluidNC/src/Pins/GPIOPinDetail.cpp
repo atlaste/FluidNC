@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #include "GPIOPinDetail.h"
-#include "src/Assert.h"
+#include "src/Assertion.h"
 #include "src/Config.h"
 #include "src/Machine/EventPin.h"
 #include "src/Protocol.h"

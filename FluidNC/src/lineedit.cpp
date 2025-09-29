@@ -3,6 +3,8 @@
 
 #include "lineedit.h"
 
+#include <cstring>
+
 Lineedit::Lineedit(Print* _out, char* line, int linelen) : out(_out), needs_reecho(false), startaddr(line), maxaddr(line + linelen) {
     restart();
 }

@@ -20,7 +20,7 @@
 #include "../Machine/MachineConfig.h"
 #include "../System.h"  // mpos_to_steps() etc
 #include "../Pin.h"
-#include "../Limits.h"  // limitsMaxPosition
+#include "../AxisLimits.h"  // limitsMaxPosition
 #include "RcServoSettings.h"
 
 namespace MotorDrivers {

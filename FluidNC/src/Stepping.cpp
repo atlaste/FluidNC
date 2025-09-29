@@ -26,8 +26,8 @@ namespace Machine {
 
     AxisMask Stepping::direction_mask = 0;
 
-    bool   Stepping::_switchedStepper = false;
-    size_t Stepping::_segments        = 12;
+    bool    Stepping::_switchedStepper = false;
+    int32_t Stepping::_segments        = 12;
 
     uint32_t Stepping::_idleMsecs           = 255;
     uint32_t Stepping::_pulseUsecs          = 4;
@@ -86,7 +86,7 @@ void Stepping::assignMotor(int axis, int motor, int step_pin, bool step_invert, 
     }
 }
 
-int Stepping::axis_steps[MAX_N_AXIS] = { 0 };
+int32_t Stepping::axis_steps[MAX_N_AXIS] = { 0, 0, 0, 0, 0, 0 };
 
 bool* Stepping::limit_var(int axis, int motor) {
     auto m = axis_motors[axis][motor];

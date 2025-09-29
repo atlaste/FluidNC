@@ -14,7 +14,7 @@
 #include "Report.h"
 #include "MotionControl.h"
 #include "System.h"
-#include "Limits.h"               // homingAxes
+#include "AxisLimits.h"           // homingAxes
 #include "SettingsDefinitions.h"  // build_info
 #include "Protocol.h"             // LINE_BUFFER_SIZE
 #include "UartChannel.h"          // Uart0.write()
@@ -37,8 +37,6 @@
 // WA Readable as user and admin, writable as admin
 
 static Error switchInchMM(const char* value, AuthenticationLevel auth_level, Channel& out);
-
-static Error fakeMaxSpindleSpeed(const char* value, AuthenticationLevel auth_level, Channel& out);
 
 static Error report_init_message_cmd(const char* value, AuthenticationLevel auth_level, Channel& out);
 
@@ -134,7 +132,7 @@ static void show_setting(const char* name, const char* value, const char* descri
 void settings_restore(uint8_t restore_flag) {
     if (restore_flag & SettingsRestore::Wifi) {
         for (Setting* s : Setting::List) {
-            if (!s->getType() == WEBSET) {
+            if (s->getType() != WEBSET) {  // SdB BUG- error: comparison of constant 'WEBSET' with boolean expression is always false
                 s->setDefault();
             }
         }
@@ -165,12 +163,6 @@ void settings_restore(uint8_t restore_flag) {
 }
 
 // Get settings values from non volatile storage into memory
-static void load_settings() {
-    for (Setting* s : Setting::List) {
-        s->load();
-    }
-}
-
 extern void make_settings();
 extern void make_user_commands();
 
@@ -608,7 +600,7 @@ const char* errorString(Error errorNumber) {
 
 static Error listErrors(const char* value, AuthenticationLevel auth_level, Channel& out) {
     if (value) {
-        int errorNumber;
+        int32_t errorNumber;
         if (!string_util::from_decimal(value, errorNumber)) {
             log_stream(out, "Malformed error number: " << value);
             return Error::InvalidValue;
@@ -742,7 +734,7 @@ static Error showGPIOs(const char* value, AuthenticationLevel auth_level, Channe
 #include "UartTypes.h"
 
 static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, Channel& out) {
-    int         timeout = 2000;
+    int32_t     timeout = 2000;
     std::string uart_name("auto");
     int         uart_num;
 
@@ -810,9 +802,9 @@ static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, 
         channel = nullptr;  // Leave channel null if not found
     }
 
-    bool flow;
-    int  xon_threshold;
-    int  xoff_threshold;
+    // bool flow;
+    // int  xon_threshold;
+    // int  xoff_threshold;
 
     if (channel) {
         channel->pause();
@@ -821,8 +813,8 @@ static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, 
 
     const int buflen = 256;
     uint8_t   buffer[buflen];
-    size_t    upstream_len;
-    size_t    downstream_len;
+    // size_t    upstream_len;
+    // size_t    downstream_len;
 
     TickType_t last_ticks = xTaskGetTickCount();
 
@@ -1057,7 +1049,6 @@ Error do_command_or_setting(std::string_view key, std::string_view value, Authen
     // indicating a display operation, we allow partial matches
     // and display every possibility.  This only applies to the
     // text form of the name, not to the nnn and ESPnnn forms.
-    Error retval = Error::InvalidStatement;
     if (value.empty()) {
         bool found = false;
         for (Setting* s : Setting::List) {

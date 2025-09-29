@@ -17,7 +17,7 @@
 
 #include "../Machine/MachineConfig.h"
 #include "../System.h"   // mpos_to_steps() etc
-#include "../Limits.h"   // limitsMinPosition
+#include "../AxisLimits.h"   // limitsMinPosition
 #include "../Planner.h"  // plan_sync_position()
 
 #include <cstdarg>

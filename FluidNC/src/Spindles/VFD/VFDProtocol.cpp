@@ -3,6 +3,7 @@
 #include "../VFDSpindle.h"
 #include "../../MotionControl.h"  // mc_critical
 
+#include <freertos/FreeRtOS.h>
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <atomic>

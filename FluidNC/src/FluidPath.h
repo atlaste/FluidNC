@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Arduino.h>
 #include <filesystem>
 #include <string>
 #include "Driver/localfs.h"

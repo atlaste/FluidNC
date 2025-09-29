@@ -5,6 +5,7 @@
 #include "src/Report.h"  // info_channel
 #include "src/GCode.h"   // CoordIndex
 
+#include <functional>
 #include <string_view>
 #include <map>
 #include <nvs.h>
@@ -129,6 +130,7 @@ public:
     static Error report_nvs_stats(const char* value, AuthenticationLevel auth_level, Channel& out) {
         nvs_stats_t stats;
         if (esp_err_t err = nvs_get_stats(NULL, &stats)) {
+            log_error("Getting NVS stats failed with error: " << esp_err_to_name(err));
             return Error::NvsGetStatsFailed;
         }
 
@@ -270,7 +272,7 @@ public:
     // Return a pointer to the array
     const float* get() { return _currentValue; }
     // Get an individual component
-    const float get(int axis) { return _currentValue[axis]; }
+    float get(int axis) { return _currentValue[axis]; }
     // Set an individual component
     void set(int axis, float value) { _currentValue[axis] = value; }
 
@@ -355,12 +357,12 @@ extern bool allowConfigStates();
 
 class IPaddrSetting : public Setting {
 private:
-    uint32_t _defaultValue;
-    uint32_t _currentValue;
-    uint32_t _storedValue;
+    IPAddress _defaultValue;
+    IPAddress _currentValue;
+    IPAddress _storedValue;
 
 public:
-    IPaddrSetting(const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, uint32_t defVal);
+    IPaddrSetting(const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, IPAddress defVal);
     IPaddrSetting(const char* description, type_t type, permissions_t permissions, const char* grblName, const char* name, const char* defVal);
 
     void        load();
@@ -370,7 +372,7 @@ public:
     const char* getStringValue();
     const char* getDefaultString();
 
-    uint32_t get() { return _currentValue; }
+    IPAddress get() { return _currentValue; }
 };
 
 class WebCommand : public Command {

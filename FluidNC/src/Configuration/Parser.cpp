@@ -179,7 +179,8 @@ namespace Configuration {
     // cppcheck-suppress unusedFunction
     IPAddress Parser::ipValue() const {
         IPAddress ip;
-        if (!ip.fromString(std::string(string_util::trim(_token._value)).c_str())) {
+        std::string tmp(string_util::trim(_token._value));
+        if (!ipaddr_aton(tmp.c_str(), &ip)) {
             parseError("Expected an IP address like 192.168.0.100");
         }
         return ip;

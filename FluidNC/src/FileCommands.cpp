@@ -144,7 +144,7 @@ static Error fileShowSome(const char* parameter, AuthenticationLevel auth_level,
         error = "Cannot open file";
     } else {
         char  fileLine[255];
-        Error res;
+        Error res = Error::Ok;
         for (int linenum = 0; linenum < lastline && (res = theFile->readLine(fileLine, 255)) == Error::Ok; ++linenum) {
             if (linenum >= firstline) {
                 j.string(fileLine);
@@ -223,7 +223,6 @@ static Error fileSendJson(const char* parameter, AuthenticationLevel auth_level,
         j.begin_member("result");
 
         char  fileLine[101];
-        Error res;
         int   len;
 
         while ((len = theFile->read(fileLine, 100)) > 0) {

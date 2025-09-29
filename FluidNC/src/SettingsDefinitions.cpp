@@ -36,9 +36,8 @@ const enum_opt_t onoffOptions = { { "OFF", 0 }, { "ON", 1 } };
 EnumSetting* gcode_echo;
 
 void make_coordinate(CoordIndex index, const char* name) {
-    float coord_data[MAX_N_AXIS] = { 0.0 };
-    auto  coord                  = new Coordinates(name);
-    coords[index]                = coord;
+    auto coord    = new Coordinates(name);
+    coords[index] = coord;
     if (!coord->load()) {
         coords[index]->setDefault();
     }
@@ -54,12 +53,12 @@ void float_proxy(int axis, int grbl_number, const char* name, float* varp) {
 
     // Creation of any setting inserts it into the settings list, so we
     // do not need to keep the pointer here
-    auto proxy = new FloatProxySetting(grbl_name, fluidnc_name, varp);
+    new FloatProxySetting(grbl_name, fluidnc_name, varp);
 }
 
 #define INT_PROXY(number, name, configvar)                                                                                                 \
     {                                                                                                                                      \
-        auto dummy = new IntProxySetting(number, name, [](MachineConfig const& config) { return configvar; });                             \
+        new IntProxySetting(number, name, [](MachineConfig const& config) { return configvar; });                                          \
     }
 
 void make_settings() {

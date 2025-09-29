@@ -10,7 +10,7 @@
 
 #include "Pin.h"
 
-std::string IP_string(uint32_t ipaddr);
+std::string IP_string(const ip_addr_t& ipaddr);
 
 inline Print& operator<<(Print& lhs, char c) {
     lhs.print(c);
@@ -23,7 +23,7 @@ inline Print& operator<<(Print& lhs, const char* v) {
 }
 
 inline Print& operator<<(Print& lhs, const std::string_view& v) {
-    lhs.write(reinterpret_cast<const uint8_t*>(v.data()), v.length());
+    lhs.print(v.data(), v.length());
     return lhs;
 }
 
@@ -37,13 +37,23 @@ inline Print& operator<<(Print& lhs, int v) {
     return lhs;
 }
 
+inline Print& operator<<(Print& lhs, int32_t v) {
+    lhs.print(int(v));
+    return lhs;
+}
+
 inline Print& operator<<(Print& lhs, unsigned int v) {
-    lhs.print(v);
+    lhs.print(static_cast<long long int>(v));
+    return lhs;
+}
+
+inline Print& operator<<(Print& lhs, uint32_t v) {
+    lhs.print(static_cast<long long int>(v));
     return lhs;
 }
 
 inline Print& operator<<(Print& lhs, uint64_t v) {
-    lhs.print(v);
+    lhs.print(static_cast<long long int>(v));
     return lhs;
 }
 

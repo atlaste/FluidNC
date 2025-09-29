@@ -1,7 +1,5 @@
 #include "../TestFramework.h"
 
-#include <Arduino.h>
-
 #ifdef ESP32
 
 extern "C" int  __digitalRead(uint8_t pin);

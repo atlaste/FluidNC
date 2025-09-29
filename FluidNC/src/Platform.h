@@ -2,7 +2,7 @@
 
 // This contains definitions of "very platform specific defines", that cannot be dealth with some other way.
 
-#ifdef ESP32
+#ifdef ESP_PLATFORM
 
 #    define WEAK_LINK __attribute__((weak))
 

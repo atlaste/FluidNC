@@ -1,9 +1,9 @@
 #include "PinMapper.h"
 #include "Pins/GPIOPinDetail.h"
 
-#include "Assert.h"
+#include "Assertion.h"
 
-#include <esp32-hal-gpio.h>  // PULLUP, INPUT, OUTPUT
+#include "driver/gpio.h"
 #include "Driver/fluidnc_gpio.h"
 
 // Pin mapping lets you use non-GPIO pins as though they were GPIOs by
@@ -93,6 +93,9 @@ PinMapper::~PinMapper() {
     }
 }
 
+/* 
+* Deprecated by SdB
+
 // Arduino compatibility functions, which basically forward the call to the mapper:
 void IRAM_ATTR digitalWrite(pinnum_t pin, uint8_t val) {
     if (pin < PinMap::BOUNDARY) {
@@ -140,3 +143,4 @@ int IRAM_ATTR digitalRead(pinnum_t pin) {
     const Pin* thePin = PinMap::instance()._mapping[pin - PinMap::BOUNDARY];
     return (thePin) ? thePin->read() : 0;
 }
+*/

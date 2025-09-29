@@ -61,7 +61,7 @@ namespace Configuration {
             }
         }
 
-        void item(const char* name, int& value, const int32_t minValue, const int32_t maxValue) override {
+        void item(const char* name, int32_t& value, const int32_t minValue, const int32_t maxValue) override {
             send_item(name, std::to_string(value));
         }
 

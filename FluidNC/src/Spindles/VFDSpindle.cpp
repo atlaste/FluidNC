@@ -27,6 +27,7 @@
 #include "../Configuration/HandlerType.h"
 #include "../Platform.h"
 
+#include <freertos/FreeRtOS.h>
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <atomic>

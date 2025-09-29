@@ -5,7 +5,7 @@
 #include "Report.h"                 // report_gcode_modes
 #include "Machine/MachineConfig.h"  // config
 #include "RealtimeCmd.h"            // execute_realtime_command
-#include "Limits.h"
+#include "AxisLimits.h"
 #include "Logging.h"
 #include "Job.h"
 #include <string_view>
@@ -280,8 +280,8 @@ void Channel::ack(Error status) {
 
 void Channel::print_msg(MsgLevel level, const char* msg) {
     if (_message_level >= level) {
-        write(msg);
-        write("\n");
+        print(msg);
+        print('\n');
     }
 }
 

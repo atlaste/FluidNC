@@ -1,4 +1,7 @@
-// Copyright (c) 2014 Luc Lebosse. All rights reserved.
+/*
+ * TODO FIXME SdB: Bluetooth in ESP-IDF works differently.
+
+ // Copyright (c) 2014 Luc Lebosse. All rights reserved.
 // Copyright (c) 2021 Stefan de Bruijn
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
@@ -85,3 +88,5 @@ namespace WebUI {
         }
     };
 }
+
+*/

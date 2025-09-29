@@ -211,7 +211,7 @@ bool multiple_bits_set(uint32_t val) {
 
 const char* to_hex(uint32_t n) {
     static char hexstr[12];
-    snprintf(hexstr, 11, "0x%x", n);
+    snprintf(hexstr, 11, "0x%x", static_cast<unsigned int>(n));
     return hexstr;
 }
 
@@ -247,13 +247,10 @@ std::string formatBytes(uint64_t bytes) {
     return msg.str();
 }
 
-std::string IP_string(uint32_t ipaddr) {
-    std::string retval;
-    retval += std::to_string(uint8_t((ipaddr >> 00) & 0xff)) + ".";
-    retval += std::to_string(uint8_t((ipaddr >> 8) & 0xff)) + ".";
-    retval += std::to_string(uint8_t((ipaddr >> 16) & 0xff)) + ".";
-    retval += std::to_string(uint8_t((ipaddr >> 24) & 0xff));
-    return retval;
+std::string IP_string(const ip_addr_t& ipaddr) {
+    char tmp[65];
+    auto result = ipaddr_ntoa_r(&ipaddr, tmp, 64);
+    return result;
 }
 
 void replace_string_in_place(std::string& subject, const std::string& search, const std::string& replace) {

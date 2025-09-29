@@ -39,7 +39,7 @@
 #include "../System.h"      // mpos_to_steps() etc
 #include "Driver/PwmPin.h"  // pwmInit(), etc.
 #include "../Pin.h"
-#include "../Limits.h"  // limitsMaxPosition
+#include "../AxisLimits.h"  // limitsMaxPosition
 
 namespace MotorDrivers {
 

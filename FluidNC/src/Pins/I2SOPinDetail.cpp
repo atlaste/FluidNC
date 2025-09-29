@@ -1,12 +1,11 @@
 // Copyright (c) 2021 -  Stefan de Bruijn
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
-#ifdef ESP32
-#    include "I2SOPinDetail.h"
+#include "I2SOPinDetail.h"
 
-#    include "Driver/i2s_out.h"  // i2s_out_write() etc
-#    include "../Assert.h"
-#    include <esp_attr.h>  // IRAM_ATTR
+#include "Driver/i2s_out.h"  // i2s_out_write() etc
+#include "../Assertion.h"
+#include <esp_attr.h>  // IRAM_ATTR
 
 namespace Pins {
     std::vector<bool> I2SOPinDetail::_claimed(nI2SOPins, false);
@@ -92,5 +91,3 @@ namespace Pins {
         return s;
     }
 }
-
-#endif

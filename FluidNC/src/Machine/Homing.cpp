@@ -3,7 +3,7 @@
 #include "../System.h"    // sys.*
 #include "../Stepper.h"   // st_wake
 #include "../Protocol.h"  // protocol_handle_events
-#include "../Limits.h"    // ambiguousLimit
+#include "../AxisLimits.h"    // ambiguousLimit
 #include "../Machine/Axes.h"
 #include "../Machine/MachineConfig.h"  // config
 

@@ -13,7 +13,7 @@
 #include "Machine/MachineConfig.h"
 #include "Machine/Homing.h"
 #include "Report.h"         // report_feedback_message
-#include "Limits.h"         // limits_get_state, soft_limit
+#include "AxisLimits.h"         // limits_get_state, soft_limit
 #include "Planner.h"        // plan_get_current_block
 #include "MotionControl.h"  // PARKING_MOTION_LINE_NUMBER
 
@@ -58,8 +58,8 @@ volatile bool runLimitLoop;  // Interface to show_limits()
 
 static void protocol_exec_rt_suspend();
 
-static char line[LINE_BUFFER_SIZE];     // Line to be executed. Zero-terminated.
-static char comment[LINE_BUFFER_SIZE];  // Line to be executed. Zero-terminated.
+// static char line[LINE_BUFFER_SIZE];     // Line to be executed. Zero-terminated.
+// static char comment[LINE_BUFFER_SIZE];  // Line to be executed. Zero-terminated.
 
 // Spindle stop override control states.
 struct SpindleStopBits {
@@ -93,7 +93,7 @@ static void request_safety_door() {
 
 TaskHandle_t outputTask = nullptr;
 
-xQueueHandle message_queue;
+QueueHandle_t message_queue;
 
 void drain_messages() {
     while (uxQueueMessagesWaiting(message_queue)) {
@@ -552,6 +552,11 @@ void protocol_do_motion_cancel() {
         case State::Hold:
         case State::SafetyDoor:
             break;
+
+        default:
+            // Held
+            // Critical
+            break;
     }
     sys.suspend.bit.motionCancel = true;
 }
@@ -575,6 +580,7 @@ static void protocol_do_feedhold() {
             // XXX maybe feedhold should stop homing
             log_info("Feedhold ignored while homing; use Reset instead");
             return;
+
         case State::Hold:
             break;
 
@@ -589,6 +595,10 @@ static void protocol_do_feedhold() {
         case State::Jog:
             protocol_cancel_jogging();
             return;  // Do not change the state to Hold
+
+        default:
+            // Held
+            break;
     }
     set_state(State::Hold);
 }
@@ -640,6 +650,10 @@ static void protocol_do_safety_door() {
         case State::Jog:
             protocol_cancel_jogging();
             break;
+
+        default:
+            // Held
+            break;
     }
     if (!sys.suspend.bit.jogCancel) {
         // If jogging, leave the safety door event pending until the jog cancel completes
@@ -675,6 +689,9 @@ static void protocol_do_sleep() {
         case State::Hold:
         case State::Homing:
         case State::SafetyDoor:
+            break;
+
+        default:
             break;
     }
     set_state(State::Sleep);
@@ -747,6 +764,7 @@ static void protocol_do_cycle_start() {
         case State::Sleep:
         case State::Cycle:
         case State::Jog:
+        default:
             break;
     }
 }
@@ -832,6 +850,10 @@ void protocol_do_cycle_stop() {
         case State::Homing:
             Machine::Homing::cycleStop();
             break;
+                        
+        default:
+            // Held
+            break;
     }
 }
 
@@ -873,6 +895,7 @@ void protocol_exec_rt_system() {
         case State::CheckMode:
         case State::Idle:
         case State::Sleep:
+        default: 
             break;
         case State::Cycle:
         case State::Hold:
@@ -1170,7 +1193,7 @@ const NoArgEvent rtResetEvent { protocol_do_rt_reset };
 // Event statusReportEvent { protocol_do_status_report(XXX) };
 const ArgEvent alarmEvent { (void (*)(void*))protocol_do_alarm };
 
-xQueueHandle event_queue;
+QueueHandle_t event_queue;
 
 void protocol_init() {
     event_queue   = xQueueCreate(10, sizeof(EventItem));

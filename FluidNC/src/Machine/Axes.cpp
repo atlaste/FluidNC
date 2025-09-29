@@ -6,7 +6,7 @@
 #include "../MotionControl.h"
 #include "../Stepper.h"     // stepper_id_t
 #include "MachineConfig.h"  // config->
-#include "../Limits.h"
+#include "../AxisLimits.h"
 
 const EnumItem axisType[] = { { 0, "X" }, { 1, "Y" }, { 2, "Z" }, { 3, "A" }, { 4, "B" }, { 5, "C" }, EnumItem(0) };
 

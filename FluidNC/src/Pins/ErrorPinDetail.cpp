@@ -3,7 +3,7 @@
 
 #include "ErrorPinDetail.h"
 #include "../Config.h"
-#include "../Assert.h"
+#include "../Assertion.h"
 
 namespace Pins {
     ErrorPinDetail::ErrorPinDetail(std::string_view descr) : PinDetail(0), _description(descr) {}

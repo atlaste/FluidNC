@@ -2,7 +2,7 @@
 // Copyright (c) 2018 -	Bart Dring
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
-#include "Limits.h"
+#include "AxisLimits.h"
 
 #include "Machine/MachineConfig.h"
 #include "MotionControl.h"  // mc_critical
@@ -11,11 +11,12 @@
 #include "Platform.h"       // WEAK_LINK
 #include "Machine/Axis.h"
 
+#include <freertos/FreeRtOS.h>
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <atomic>  // fence
 
-xQueueHandle limit_sw_queue;  // used by limit switch debouncing
+QueueHandle_t limit_sw_queue;  // used by limit switch debouncing
 
 void limits_init() {
 #ifdef LATER  // We need to rethink debouncing

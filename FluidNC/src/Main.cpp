@@ -11,7 +11,7 @@
 #    include "Report.h"
 #    include "Settings.h"
 #    include "SettingsDefinitions.h"
-#    include "Limits.h"
+#    include "AxisLimits.h"
 #    include "Protocol.h"
 #    include "System.h"
 #    include "UartChannel.h"
@@ -21,14 +21,14 @@
 #    include "Module.h"
 
 #    include "Driver/localfs.h"
-#    include "esp32-hal.h"  // disableCore0WDT
+// #    include "esp32-hal.h"  // disableCore0WDT --> SDKConfig
 
 #    include "src/ToolChangers/atc.h"
 
 extern void make_user_commands();
 
 void setup() {
-    disableCore0WDT();
+    // disableCore0WDT();
     try {
         timing_init();
         uartInit();  // Setup serial port

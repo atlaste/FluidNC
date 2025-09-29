@@ -4,7 +4,7 @@
 #pragma once
 
 #include "../Config.h"
-#include "../Assert.h"
+#include "../Assertion.h"
 #include "../Configuration/GenericFactory.h"
 #include "../Configuration/HandlerBase.h"
 #include "../Configuration/Configurable.h"

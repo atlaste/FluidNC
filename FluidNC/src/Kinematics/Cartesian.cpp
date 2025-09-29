@@ -2,7 +2,7 @@
 
 #include "src/Machine/MachineConfig.h"
 #include "src/Machine/Axes.h"  // ambiguousLimit()
-#include "src/Limits.h"
+#include "src/AxisLimits.h"
 
 namespace Kinematics {
     void Cartesian::init() {

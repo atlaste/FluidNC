@@ -56,7 +56,7 @@ namespace Machine {
 
         // The homing cycles are 1,2,3 etc.  0 means not homed as part of home-all,
         // but you can still home it manually with e.g. $HA
-        int      _cycle             = 0;     // what auto-homing cycle does this axis home on?
+        int32_t  _cycle             = 0;     // what auto-homing cycle does this axis home on?
         bool     _allow_single_axis = true;  // Allow use of $H<axis> command on this axis
         bool     _positiveDirection = true;
         float    _mpos              = 0.0f;    // After homing this will be the mpos of the switch location

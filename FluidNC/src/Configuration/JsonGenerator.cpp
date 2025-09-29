@@ -58,7 +58,7 @@ namespace Configuration {
         leave();
     }
 
-    void JsonGenerator::item(const char* name, int& value, const int32_t minValue, const int32_t maxValue) {
+    void JsonGenerator::item(const char* name, int32_t& value, const int32_t minValue, const int32_t maxValue) {
         enter(name);
         char buf[32];
         itoa(value, buf, 10);
