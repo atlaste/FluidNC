@@ -1059,5 +1059,8 @@
     <Text Include="X86TestSupport\TestSupport\TODO.txt">
       <Filter>X86TestSupport</Filter>
     </Text>
+    <Text Include="FluidNC\src\Configuration\CMakeLists.txt">
+      <Filter>src\Configuration</Filter>
+    </Text>
   </ItemGroup>
 </Project>

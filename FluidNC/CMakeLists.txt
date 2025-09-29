@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.17.0)
 
 find_package (Python COMPONENTS Interpreter)
+# TODO FIXME: run git-version.py in this working folder.
 
 set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig")
 

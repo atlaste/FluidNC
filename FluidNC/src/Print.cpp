@@ -51,13 +51,13 @@ size_t Print::print(long long int n) {
     return print(str);
 }
 
-size_t Print::print(double number, int digits = 2) {
+size_t Print::print(double number, int digits) {
     size_t n = 0;
 
-    if (isnan(number)) {
+    if (std::isnan(number)) {
         return print("nan");
     }
-    if (isinf(number)) {
+    if (std::isinf(number)) {
         return print("inf");
     }
     if (number > 4294967040.0) {

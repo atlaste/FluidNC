@@ -372,6 +372,7 @@
     <None Include="FluidNC\test\UnitTests.md" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="FluidNC\src\Configuration\CMakeLists.txt" />
     <Text Include="X86TestSupport\TestSupport\TODO.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
