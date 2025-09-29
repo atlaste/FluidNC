@@ -37,6 +37,9 @@
 
 #include "src/Config.h"
 #include "esp32/tmc_spi_support.h"
+#ifndef ARDUINO
+#    include "src/Stream.h"  // MUST be included before TMCStepper.h
+#endif
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 
 // Replace the library's weak definition of TMC2130Stepper::write()
