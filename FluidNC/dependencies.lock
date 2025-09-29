@@ -1,0 +1,18 @@
+dependencies:
+  esp32async/asynctcp:
+    component_hash: 4dc8e45e434459d236aa4400aa30101b947461fd61e6f94f6bc65ec6c488639c
+    dependencies: []
+    source:
+      pre_release: true
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.4.8
+  idf:
+    source:
+      type: idf
+    version: 5.3.1
+direct_dependencies:
+- esp32async/asynctcp
+manifest_hash: 31e6fecfc17f9e0270506d216b37688f777919e7282796c917dd4c1e80d677ab
+target: esp32s3
+version: 2.0.0

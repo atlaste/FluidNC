@@ -1,6 +1,8 @@
 #pragma once
 
-#ifdef ENABLE_LITTLEFS
+#include <sdkconfig.h>
+
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
 
 extern const char* littlefs_label;
 

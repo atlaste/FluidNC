@@ -1,4 +1,4 @@
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
 
 #include "esp_partition.h"
 #include "esp_littlefs.h"

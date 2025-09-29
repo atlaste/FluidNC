@@ -1,0 +1,5 @@
+## IDF Component Manager Manifest File
+dependencies:
+  esp32async/asynctcp:
+    version: "*"
+    pre_release: true

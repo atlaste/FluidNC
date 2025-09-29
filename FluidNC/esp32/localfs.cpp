@@ -1,14 +1,14 @@
 #include "Driver/localfs.h"
 #include "Driver/spiffs.h"  // spiffs_format
 
-#ifdef ENABLE_LITTLEFS
-#    include "Driver/littlefs.h"  // littlefs_format
-#endif
-
 #include <cstddef>  // NULL
 #include <cstring>
 #include "src/Config.h"
 #include "esp_partition.h"
+
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
+#    include "Driver/littlefs.h"  // littlefs_format
+#endif
 
 const char* localfsName = NULL;
 
@@ -24,7 +24,7 @@ bool localfs_mount() {
             return false;
         }
 
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
         // Migration - littlefs in spiffs partition
         if (!littlefs_mount(spiffsName, false)) {
             localfsName = littlefsName;
@@ -41,7 +41,7 @@ bool localfs_mount() {
         return true;
     }
 
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
     if (has_partition(littlefsName)) {
         // Mount LittleFS, create if necessary
         if (!littlefs_mount(littlefsName, true)) {
@@ -62,7 +62,7 @@ void localfs_unmount() {
         return;
     }
 
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
     if (localfsName == littlefsName) {
         littlefs_unmount();
         return;
@@ -83,7 +83,7 @@ bool localfs_format(const char* fsname) {
             }
         }
     }
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
     if (!strcasecmp(fsname, littlefsName)) {
         localfs_unmount();
         if (!littlefs_format(littlefsName)) {
@@ -164,7 +164,7 @@ const char* canonicalPath(const char* filename, const char* defaultFs) {
     // Map file system names to canonical form.  The input name is case-independent,
     // while the canonical name is lower case.
     if (!(replacedFsName(path, "localfs", localfsName) || replacedFsName(path, spiffsName, localfsName) ||
-#ifdef ENABLE_LITTLEFS
+#ifdef CONFIG_LITTLEFS_PAGE_SIZE
           replacedFsName(path, littlefsName, localfsName) ||
 #endif
           // The following looks like a no-op but it is not because of case independence
