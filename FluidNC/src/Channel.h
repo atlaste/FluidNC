@@ -25,7 +25,7 @@
 #include "src/Pins/PinAttributes.h"
 #include "src/Machine/EventPin.h"
 
-#include <Stream.h>
+#include "src/Stream.h"
 #include <freertos/FreeRTOS.h>  // TickType_T
 #include <queue>
 

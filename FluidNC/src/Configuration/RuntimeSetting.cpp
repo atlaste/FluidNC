@@ -24,7 +24,7 @@ namespace Configuration {
 
         start_ = setting_;
         // Read fence for config. Shouldn't be necessary, but better safe than sorry.
-        std::atomic_thread_fence(std::memory_order::memory_order_seq_cst);
+        std::atomic_thread_fence(std::memory_order::seq_cst);
     }
 
     std::string RuntimeSetting::setting_prefix() {
@@ -151,7 +151,7 @@ namespace Configuration {
 
             } else {
                 if (isdigit(newValue_.front())) {  // if the first char is a number. assume it is an index of a webui enum list
-                    int indexVal = 0;
+                    int32_t indexVal = 0;
                     string_util::from_decimal(newValue_, indexVal);
                     for (auto e2 = e; e2->name; ++e2) {
                         if (e2->value == indexVal) {
@@ -232,7 +232,7 @@ namespace Configuration {
                 if (value.size() == 0) {
                     out_ << "None";
                 } else {
-                    String separator = "";
+                    std::string separator = "";
                     for (float n : value) {
                         out_ << separator.c_str();
                         out_ << n;
@@ -279,8 +279,10 @@ namespace Configuration {
             if (newValue_.empty()) {
                 log_stream(out_, setting_prefix() << IP_string(value));
             } else {
-                String ipStr = std::string(newValue_).c_str();
-                Assert(value.fromString(ipStr), "Expected an IP address like 192.168.0.100");
+                std::string ipStr = std::string(newValue_).c_str();
+
+                IPAddress addr;
+                Assert(ipaddr_aton(ipStr.c_str(), &addr) == 0, "Expected an IP address like 192.168.0.100");
             }
         }
     }
@@ -323,6 +325,6 @@ namespace Configuration {
     }
 
     RuntimeSetting::~RuntimeSetting() {
-        std::atomic_thread_fence(std::memory_order::memory_order_seq_cst);  // Write fence for config
+        std::atomic_thread_fence(std::memory_order::seq_cst);  // Write fence for config
     }
 }

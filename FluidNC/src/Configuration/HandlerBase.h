@@ -11,7 +11,7 @@
 #include "src/UartTypes.h"
 #include "src/Macro.h"
 
-#include <IPAddress.h>
+#include "src/IPAddress.h"
 #include <string>
 
 namespace Configuration {

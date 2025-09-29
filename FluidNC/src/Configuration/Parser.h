@@ -9,10 +9,10 @@
 #include "../EnumItem.h"
 #include "../UartTypes.h"
 #include "HandlerBase.h"
+#include "src/IPAddress.h"
 
 #include <stack>
 #include <cstring>
-#include <IPAddress.h>
 
 namespace Configuration {
     class Parser : public Tokenizer {

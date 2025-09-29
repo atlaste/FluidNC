@@ -2,8 +2,6 @@
 // Copyright (c) 2018 -	Bart Dring
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
-#ifndef UNIT_TEST
-
 #    include "Main.h"
 #    include "Machine/MachineConfig.h"
 
@@ -186,4 +184,11 @@ int main() {
 }
 #    endif
 
-#endif
+extern "C" {
+void app_main() {
+    setup();
+    while (1) {
+        loop();
+    }
+}
+}

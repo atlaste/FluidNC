@@ -13,7 +13,7 @@
 
 namespace Configuration {
     JsonGenerator::JsonGenerator(JSONencoder& encoder) : _encoder(encoder) {
-        std::atomic_thread_fence(std::memory_order::memory_order_seq_cst);
+        std::atomic_thread_fence(std::memory_order::seq_cst);
     }
 
     void JsonGenerator::enter(const char* name) {

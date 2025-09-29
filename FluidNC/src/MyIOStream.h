@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <Print.h>
-#include <IPAddress.h>
+#include "src/Print.h"
+#include "src/IPAddress.h"
 #include <string>
 #include <string_view>
 

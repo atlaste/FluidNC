@@ -8,7 +8,6 @@
 #include <functional>
 #include <string_view>
 #include <map>
-#include <nvs.h>
 
 // forward declarations
 namespace Machine {
@@ -118,7 +117,6 @@ protected:
     const char* _keyName;
 
 public:
-    static nvs_handle _handle;
     static void       init();
 
     // Setting::List is a vector of all settings,
@@ -127,30 +125,8 @@ public:
 
     Error check_state();
 
-    static Error report_nvs_stats(const char* value, AuthenticationLevel auth_level, Channel& out) {
-        nvs_stats_t stats;
-        if (esp_err_t err = nvs_get_stats(NULL, &stats)) {
-            log_error("Getting NVS stats failed with error: " << esp_err_to_name(err));
-            return Error::NvsGetStatsFailed;
-        }
-
-        log_info("NVS Used:" << stats.used_entries << " Free:" << stats.free_entries << " Total:" << stats.total_entries);
-#if 0  // The SDK we use does not have this yet
-        nvs_iterator_t it = nvs_entry_find(NULL, NULL, NVS_TYPE_ANY);
-        while (it != NULL) {
-            nvs_entry_info_t info;
-            nvs_entry_info(it, &info);
-            it = nvs_entry_next(it);
-            log_info("namespace:"<<info.namespace_name<<" key:"<<info.key<<" type:"<< info.type);
-        }
-#endif
-        return Error::Ok;
-    }
-
-    static Error eraseNVS(const char* value, AuthenticationLevel auth_level, Channel& out) {
-        nvs_erase_all(_handle);
-        return Error::Ok;
-    }
+    static Error report_nvs_stats(const char* value, AuthenticationLevel auth_level, Channel& out);
+    static Error eraseNVS(const char* value, AuthenticationLevel auth_level, Channel& out);
 
     ~Setting() {}
     Setting(const char* description, type_t type, permissions_t permissions, const char* grblName, const char* fullName);

@@ -10,7 +10,12 @@
 #include <cstring>
 #include <vector>
 #include <charconv>
-#include <nvs.h>
+// #include <nvs.h>
+#include <nvs_flash.h>
+
+namespace {
+    nvs_handle_t _handle = 0;
+}
 
 std::vector<Setting*> Setting::List __attribute__((init_priority(101))) = {};
 std::vector<Command*> Command::List __attribute__((init_priority(102))) = {};
@@ -56,6 +61,32 @@ bool allowConfigStates() {
     return !state_is(State::Idle) && !state_is(State::Alarm) && !state_is(State::ConfigAlarm) && !state_is(State::Critical);
 }
 
+Error Setting::report_nvs_stats(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    nvs_stats_t stats;
+    if (esp_err_t err = nvs_get_stats(NULL, &stats)) {
+        log_error("Getting NVS stats failed with error: " << esp_err_to_name(err));
+        return Error::NvsGetStatsFailed;
+    }
+
+    log_info("NVS Used:" << stats.used_entries << " Free:" << stats.free_entries << " Total:" << stats.total_entries);
+#if 0  // The SDK we use does not have this yet
+        nvs_iterator_t it = nvs_entry_find(NULL, NULL, NVS_TYPE_ANY);
+        while (it != NULL) {
+            nvs_entry_info_t info;
+            nvs_entry_info(it, &info);
+            it = nvs_entry_next(it);
+            log_info("namespace:"<<info.namespace_name<<" key:"<<info.key<<" type:"<< info.type);
+        }
+#endif
+    return Error::Ok;
+}
+
+Error Setting::eraseNVS(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    nvs_erase_all(_handle);
+    return Error::Ok;
+}
+
+
 Word::Word(type_t type, permissions_t permissions, const char* description, const char* grblName, const char* fullName) :
     _description(description), _grblName(grblName), _fullName(fullName), _type(type), _permissions(permissions) {}
 
@@ -98,8 +129,6 @@ Error Setting::check_state() {
     }
     return Error::Ok;
 }
-
-nvs_handle Setting::_handle = 0;
 
 void Setting::init() {
     if (!_handle) {
@@ -419,7 +448,7 @@ Coordinates* coords[CoordIndex::End];
 
 bool Coordinates::load() {
     size_t len;
-    switch (nvs_get_blob(Setting::_handle, _name, _currentValue, &len)) {
+    switch (nvs_get_blob(_handle, _name, _currentValue, &len)) {
         case ESP_OK:
             return true;
         case ESP_ERR_NVS_INVALID_LENGTH:
@@ -442,7 +471,7 @@ void Coordinates::set(float value[MAX_N_AXIS]) {
     if (FORCE_BUFFER_SYNC_DURING_NVS_WRITE) {
         protocol_buffer_synchronize();
     }
-    nvs_set_blob(Setting::_handle, _name, _currentValue, sizeof(_currentValue));
+    nvs_set_blob(_handle, _name, _currentValue, sizeof(_currentValue));
 }
 
 IPaddrSetting::IPaddrSetting(
