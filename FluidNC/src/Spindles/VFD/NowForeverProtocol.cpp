@@ -119,7 +119,6 @@ namespace Spindles {
 
         void NowForeverProtocol::updateRPM(VFDSpindle* spindle) {
             if (_minFrequency > _maxFrequency) {
-                uint16_t tmp  = _minFrequency;
                 _minFrequency = _maxFrequency;
                 _maxFrequency = _minFrequency;
             }
@@ -150,8 +149,6 @@ namespace Spindles {
         */
 
             return [](const uint8_t* response, VFDSpindle* vfd, VFDProtocol* detail) -> bool {
-                uint16_t currentHz = 0;
-
                 if (response[1] != 0x03) {
                     return false;
                 }

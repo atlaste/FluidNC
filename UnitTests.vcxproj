@@ -35,6 +35,16 @@
   <ItemGroup>
     <ClInclude Include="FluidNC\src\SettingsDefinitions.h" />
     <ClInclude Include="FluidNC\src\PinUsers\PwmPin.h" />
+    <ClInclude Include="FluidNC\src\Spindles\LaserSpindle.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\DanfossVLT2800Protocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\GenericProtocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\H100Protocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\H2AProtocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\NowForeverProtocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\SiemensV20Protocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\VFDProtocol.h" />
+    <ClInclude Include="FluidNC\src\Spindles\VFD\YL620Protocol.h" />
     <ClInclude Include="FluidNC\src\WebUI\BTConfig.h" />
     <ClInclude Include="FluidNC\src\Config.h" />
     <ClInclude Include="FluidNC\src\Machine\Macros.h" />
@@ -64,7 +74,6 @@
     <ClInclude Include="FluidNC\src\Configuration\LegacySettingRegistry.h" />
     <ClInclude Include="FluidNC\src\Pins\DebugPinDetail.h" />
     <ClInclude Include="FluidNC\src\StackTrace\debug_helpers.h" />
-    <ClInclude Include="FluidNC\src\Spindles\Laser.h" />
     <ClInclude Include="FluidNC\src\WebUI\JSONEncoder.h" />
     <ClInclude Include="FluidNC\src\Control.h" />
     <ClInclude Include="FluidNC\src\Machine\LimitPin.h" />
@@ -83,7 +92,6 @@
     <ClInclude Include="FluidNC\src\Machine\WifiAPConfig.h" />
     <ClInclude Include="FluidNC\src\Configuration\HandlerBase.h" />
     <ClInclude Include="FluidNC\src\Motors\Solenoid.h" />
-    <ClInclude Include="FluidNC\src\Spindles\HuanyangSpindle.h" />
     <ClInclude Include="FluidNC\src\NutsBolts.h" />
     <ClInclude Include="FluidNC\src\Motors\RcServo.h" />
     <ClInclude Include="FluidNC\src\Configuration\Generator.h" />
@@ -97,7 +105,6 @@
     <ClInclude Include="FluidNC\src\Pins\I2SOPinDetail.h" />
     <ClInclude Include="FluidNC\src\StringStream.h" />
     <ClInclude Include="FluidNC\src\Configuration\AfterParse.h" />
-    <ClInclude Include="FluidNC\src\UserOutput.h" />
     <ClInclude Include="X86TestSupport\TestSupport\driver\ledc.h" />
     <ClInclude Include="FluidNC\src\Motors\MotorDriver.h" />
     <ClInclude Include="X86TestSupport\TestSupport\driver\rmt.h" />
@@ -153,7 +160,6 @@
     <ClInclude Include="FluidNC\src\WebUI\WifiServices.h" />
     <ClInclude Include="FluidNC\src\Configuration\Completer.h" />
     <ClInclude Include="FluidNC\src\Spindles\BESCSpindle.h" />
-    <ClInclude Include="FluidNC\src\Spindles\YL620Spindle.h" />
     <ClInclude Include="FluidNC\src\WebUI\WifiConfig.h" />
     <ClInclude Include="FluidNC\src\InputFile.h" />
     <ClInclude Include="FluidNC\src\WebUI\TelnetServer.h" />
@@ -170,7 +176,6 @@
     <ClInclude Include="FluidNC\src\Configuration\TokenState.h" />
     <ClInclude Include="FluidNC\src\WebUI\Serial2Socket.h" />
     <ClInclude Include="FluidNC\src\Pins\ErrorPinDetail.h" />
-    <ClInclude Include="FluidNC\src\Spindles\H2ASpindle.h" />
     <ClInclude Include="FluidNC\src\Protocol.h" />
     <ClInclude Include="X86TestSupport\TestSupport\Esp.h" />
     <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-cpu.h" />
@@ -210,6 +215,16 @@
     <ClInclude Include="X86TestSupport\TestSupport\xtensa\core-macros.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FluidNC\src\Spindles\LaserSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\DanfossVLT2800Protocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\GenericProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\H100Protocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\H2AProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\NowForeverProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\SiemensV20Protocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\VFDProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\YL620Protocol.cpp" />
     <ClCompile Include="FluidNC\src\System.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\BESCSpindle.cpp" />
     <ClCompile Include="FluidNC\src\SettingsDefinitions.cpp" />
@@ -233,14 +248,11 @@
     <ClCompile Include="FluidNC\src\Kinematics\CoreXY.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\DacSpindle.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\HuanyangSpindle.cpp" />
     <ClCompile Include="FluidNC\src\Report.cpp" />
     <ClCompile Include="FluidNC\src\NutsBolts.cpp" />
     <ClCompile Include="FluidNC\src\WebUI\WebClient.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\H2ASpindle.cpp" />
     <ClCompile Include="FluidNC\src\Motors\Dynamixel2.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\RuntimeSetting.cpp" />
-    <ClCompile Include="FluidNC\src\UserOutput.cpp" />
     <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp" />
     <ClCompile Include="FluidNC\src\PinMapper.cpp" />
     <ClCompile Include="FluidNC\src\Uart.cpp" />
@@ -299,7 +311,6 @@
     <ClCompile Include="FluidNC\src\Logging.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\driver\ledc.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Generator.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\Laser.cpp" />
     <ClCompile Include="FluidNC\src\WebUI\TelnetServer.cpp" />
     <ClCompile Include="FluidNC\src\Probe.cpp" />
     <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp" />
@@ -313,7 +324,6 @@
     <ClCompile Include="FluidNC\src\Configuration\LegacySettingRegistry.cpp" />
     <ClCompile Include="FluidNC\src\Serial.cpp" />
     <ClCompile Include="FluidNC\src\WebUI\WebServer.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\YL620Spindle.cpp" />
     <ClCompile Include="FluidNC\src\SDCard.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\RelaySpindle.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\10vSpindle.cpp" />
@@ -352,9 +362,10 @@
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
     <None Include="FluidNC\src\Configuration\Parser.md" />
-    <None Include="FluidNC\src\Spindles\H2ASpindle.md" />
     <None Include="FluidNC\src\Configuration\_Overview.md" />
     <None Include="FluidNC\src\Configuration\ConfigurationHandlers.md" />
+    <None Include="FluidNC\src\Spindles\VFD\H100Protocol.md" />
+    <None Include="FluidNC\src\Spindles\VFD\H2AProtocol.md" />
     <None Include="FluidNC\src\user_io.md" />
     <None Include="FluidNC\src\Stepper.md" />
     <None Include="FluidNC\src\Configuration\GenericFactory.md" />

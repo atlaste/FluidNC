@@ -305,7 +305,7 @@ namespace Spindles {
                     return [](const uint8_t* response, VFDSpindle* vfd, VFDProtocol* detail) -> bool {
                         uint16_t value = (response[4] << 8) | response[5];
 
-                        auto huanyang = static_cast<HuanyangProtocol*>(detail);
+                        // auto huanyang = static_cast<HuanyangProtocol*>(detail);
                         log_info("Huanyang PD014 Accel:" << float(value) / 10.0);
                         return true;
                     };
@@ -316,7 +316,7 @@ namespace Spindles {
                     return [](const uint8_t* response, VFDSpindle* vfd, VFDProtocol* detail) -> bool {
                         uint16_t value = (response[4] << 8) | response[5];
 
-                        auto huanyang = static_cast<HuanyangProtocol*>(detail);
+                        // auto huanyang = static_cast<HuanyangProtocol*>(detail);
                         log_info("Huanyang PD015 Decel:" << float(value) / 10.0);
                         return true;
                     };

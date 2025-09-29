@@ -46,6 +46,9 @@
     <Filter Include="test\Pins">
       <UniqueIdentifier>{dc4ba3bc-4342-4a67-aea2-f68877f1ee69}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Spindles\VFD">
+      <UniqueIdentifier>{68eec84c-8d69-4099-b366-f730c12d548e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\SettingsDefinitions.h">
@@ -141,9 +144,6 @@
     <ClInclude Include="FluidNC\src\StackTrace\debug_helpers.h">
       <Filter>src\StackTrace</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\Laser.h">
-      <Filter>src\Spindles</Filter>
-    </ClInclude>
     <ClInclude Include="FluidNC\src\WebUI\JSONEncoder.h">
       <Filter>src\WebUI</Filter>
     </ClInclude>
@@ -183,9 +183,6 @@
     <ClInclude Include="FluidNC\src\Motors\Solenoid.h">
       <Filter>src\Motors</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\HuanyangSpindle.h">
-      <Filter>src\Spindles</Filter>
-    </ClInclude>
     <ClInclude Include="FluidNC\src\NutsBolts.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -224,9 +221,6 @@
     </ClInclude>
     <ClInclude Include="FluidNC\src\Configuration\AfterParse.h">
       <Filter>src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\UserOutput.h">
-      <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="FluidNC\src\Motors\MotorDriver.h">
       <Filter>src\Motors</Filter>
@@ -384,9 +378,6 @@
     <ClInclude Include="FluidNC\src\Spindles\BESCSpindle.h">
       <Filter>src\Spindles</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\YL620Spindle.h">
-      <Filter>src\Spindles</Filter>
-    </ClInclude>
     <ClInclude Include="FluidNC\src\WebUI\WifiConfig.h">
       <Filter>src\WebUI</Filter>
     </ClInclude>
@@ -434,9 +425,6 @@
     </ClInclude>
     <ClInclude Include="FluidNC\src\Pins\ErrorPinDetail.h">
       <Filter>src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\H2ASpindle.h">
-      <Filter>src\Spindles</Filter>
     </ClInclude>
     <ClInclude Include="FluidNC\src\Protocol.h">
       <Filter>src</Filter>
@@ -573,6 +561,36 @@
     <ClInclude Include="X86TestSupport\TestSupport\soc\uart_reg.h">
       <Filter>X86TestSupport</Filter>
     </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\LaserSpindle.h">
+      <Filter>src\Spindles</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\H100Protocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\NowForeverProtocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\SiemensV20Protocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\VFDProtocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\YL620Protocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\DanfossVLT2800Protocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\GenericProtocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Spindles\VFD\H2AProtocol.h">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\System.cpp">
@@ -644,9 +662,6 @@
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp">
       <Filter>src\Pins</Filter>
     </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\HuanyangSpindle.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
     <ClCompile Include="FluidNC\src\Report.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -656,17 +671,11 @@
     <ClCompile Include="FluidNC\src\WebUI\WebClient.cpp">
       <Filter>src\WebUI</Filter>
     </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\H2ASpindle.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
     <ClCompile Include="FluidNC\src\Motors\Dynamixel2.cpp">
       <Filter>src\Motors</Filter>
     </ClCompile>
     <ClCompile Include="FluidNC\src\Configuration\RuntimeSetting.cpp">
       <Filter>src\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\UserOutput.cpp">
-      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp">
       <Filter>src\StackTrace</Filter>
@@ -800,9 +809,6 @@
     <ClCompile Include="FluidNC\src\Configuration\Generator.cpp">
       <Filter>src\Configuration</Filter>
     </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\Laser.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
     <ClCompile Include="FluidNC\src\WebUI\TelnetServer.cpp">
       <Filter>src\WebUI</Filter>
     </ClCompile>
@@ -835,9 +841,6 @@
     </ClCompile>
     <ClCompile Include="FluidNC\src\WebUI\WebServer.cpp">
       <Filter>src\WebUI</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\YL620Spindle.cpp">
-      <Filter>src\Spindles</Filter>
     </ClCompile>
     <ClCompile Include="FluidNC\src\SDCard.cpp">
       <Filter>src</Filter>
@@ -989,6 +992,36 @@
     <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp">
       <Filter>X86TestSupport</Filter>
     </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\LaserSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\H100Protocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\NowForeverProtocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\SiemensV20Protocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\VFDProtocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\YL620Protocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\DanfossVLT2800Protocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\GenericProtocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\H2AProtocol.cpp">
+      <Filter>src\Spindles\VFD</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md">
@@ -996,9 +1029,6 @@
     </None>
     <None Include="FluidNC\src\Configuration\Parser.md">
       <Filter>src\Configuration</Filter>
-    </None>
-    <None Include="FluidNC\src\Spindles\H2ASpindle.md">
-      <Filter>src\Spindles</Filter>
     </None>
     <None Include="FluidNC\src\Configuration\_Overview.md">
       <Filter>src\Configuration</Filter>
@@ -1017,6 +1047,12 @@
     </None>
     <None Include="FluidNC\test\UnitTests.md">
       <Filter>test</Filter>
+    </None>
+    <None Include="FluidNC\src\Spindles\VFD\H100Protocol.md">
+      <Filter>src\Spindles\VFD</Filter>
+    </None>
+    <None Include="FluidNC\src\Spindles\VFD\H2AProtocol.md">
+      <Filter>src\Spindles\VFD</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

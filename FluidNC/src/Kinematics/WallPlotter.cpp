@@ -63,7 +63,6 @@ namespace Kinematics {
         position = an n_axis array of where the machine is starting from for this move
     */
     bool WallPlotter::cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
-        float    dx, dy, dz;     // segment distances in each cartesian axis
         uint32_t segment_count;  // number of segments the move will be broken in to.
 
         auto n_axis = Axes::_numberAxis;
@@ -89,12 +88,12 @@ namespace Kinematics {
         float cartesian_segment_length = total_cartesian_distance / segment_count;
 
         // Calc length of each cartesian segment - the same for all segments
-        float cartesian_segment_components[n_axis];
+        float cartesian_segment_components[MAX_N_AXIS];
         for (size_t axis = X_AXIS; axis < n_axis; axis++) {
             cartesian_segment_components[axis] = (target[axis] - position[axis]) / segment_count;
         }
 
-        float cartesian_segment_end[n_axis];
+        float cartesian_segment_end[MAX_N_AXIS];
         copyAxes(cartesian_segment_end, position);
 
         // Calculate desired cartesian feedrate distance ratio. Same for each seg.
@@ -108,7 +107,7 @@ namespace Kinematics {
             }
 
             // Convert cartesian space coords to motor space
-            float motor_segment_end[n_axis];
+            float motor_segment_end[MAX_N_AXIS];
             xy_to_lengths(cartesian_segment_end[X_AXIS], cartesian_segment_end[Y_AXIS], motor_segment_end[0], motor_segment_end[1]);
             for (size_t axis = Z_AXIS; axis < n_axis; axis++) {
                 motor_segment_end[axis] = cartesian_segment_end[axis];
@@ -142,7 +141,7 @@ namespace Kinematics {
             // In that case we stop sending segments to the planner.
             // Note that the left motor runs backward.
             // TODO: It might be better to adjust motor direction in .yaml file by inverting direction pin??
-            float cables[n_axis];
+            float cables[MAX_N_AXIS];
             cables[0] = 0 - (motor_segment_end[0] - zero_left);
             cables[1] = 0 + (motor_segment_end[1] - zero_right);
             for (size_t axis = Z_AXIS; axis < n_axis; axis++) {

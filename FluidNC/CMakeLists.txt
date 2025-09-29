@@ -12,7 +12,12 @@ list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_SOURCE_DIR}/lib/TMCStepper/src"
 								 "${CMAKE_SOURCE_DIR}/src" 
 								 "${CMAKE_SOURCE_DIR}/esp32"
 								 "${CMAKE_SOURCE_DIR}/src/Configuration" 
-								 "${CMAKE_SOURCE_DIR}/src/Pins")
+								 "${CMAKE_SOURCE_DIR}/src/Kinematics" 
+								 "${CMAKE_SOURCE_DIR}/src/Machine" 
+								 "${CMAKE_SOURCE_DIR}/src/Motors" 
+								 "${CMAKE_SOURCE_DIR}/src/Pins"
+								 "${CMAKE_SOURCE_DIR}/src/Spindles" 
+								 "${CMAKE_SOURCE_DIR}/src/ToolChangers" )
 
 # Other config:
 idf_build_set_property(CXX_COMPILE_OPTIONS "-Wno-deprecated-enum-enum-conversion" APPEND)

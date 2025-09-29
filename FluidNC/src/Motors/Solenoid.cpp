@@ -35,9 +35,9 @@
 
 #include "Solenoid.h"
 
+#include "Driver/PwmPin.h"  // pwmInit(), etc.
 #include "../Machine/MachineConfig.h"
 #include "../System.h"      // mpos_to_steps() etc
-#include "Driver/PwmPin.h"  // pwmInit(), etc.
 #include "../Pin.h"
 #include "../AxisLimits.h"  // limitsMaxPosition
 

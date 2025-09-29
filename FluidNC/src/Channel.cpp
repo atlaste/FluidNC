@@ -137,7 +137,7 @@ void Channel::autoReport() {
             _lastJobActive = Job::active();
 
             _nextReportTime = xTaskGetTickCount() + _reportInterval;
-            report_realtime_status(*this);
+            report_realtime_status(this);
         }
         if (_reportNgc != CoordIndex::End) {
             report_ngc_coord(_reportNgc, *this);

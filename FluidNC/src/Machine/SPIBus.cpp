@@ -17,11 +17,9 @@ namespace Machine {
     }
 
     void SPIBus::init() {
-        pinnum_t mosiPin           = 23;
-        pinnum_t misoPin           = 19;
-        pinnum_t sckPin            = 18;
-        int8_t   sckDriveDtrength  = -1;
-        int8_t   mosiDriveDtrength = -1;
+        pinnum_t mosiPin = 23;
+        pinnum_t misoPin = 19;
+        pinnum_t sckPin  = 18;
 
         if (_miso.defined() || _mosi.defined() || _sck.defined()) {  // validation ensures the rest is also defined.
             log_info("SPI SCK:" << _sck.name() << " MOSI:" << _mosi.name() << " MISO:" << _miso.name());

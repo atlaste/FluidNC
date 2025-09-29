@@ -37,11 +37,9 @@ namespace MotorDrivers {
         }
 
     protected:
-        Uart* _uart = nullptr;
-
-        Pin _cs_pin;
-
-        int _uart_num = -1;
+        Uart*   _uart = nullptr;
+        Pin     _cs_pin;
+        int32_t _uart_num = -1;
 
         static bool _uart_started;
         void        config_message() override;

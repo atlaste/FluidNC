@@ -5,12 +5,12 @@
 namespace MotorDrivers {
     class Solenoid : public RcServo {
     protected:
-        int _timer_ms = 50;
+        int32_t _timer_ms = 50; // SdB TODO FIXME: This *HIDES* RcServo::_timer_ms. That's probably a big bug!
 
         void config_message() override;
         void update() override;
 
-        static constexpr uint8_t _update_rate_ms = 50;
+        static const uint8_t _update_rate_ms = 50;
 
         float    _off_percent  = 0.0;
         float    _pull_percent = 100.0;

@@ -48,13 +48,13 @@ namespace Kinematics {
         float last_motor_segment_end[MAX_N_AXIS];
 
         // Parameters
-        int   _left_axis     = 0;
-        float _left_anchor_x = -100;
-        float _left_anchor_y = 100;
+        int32_t _left_axis     = 0;
+        float   _left_anchor_x = -100;
+        float   _left_anchor_y = 100;
 
-        int   _right_axis     = 1;
-        float _right_anchor_x = 100;
-        float _right_anchor_y = 100;
-        float _segment_length = 10;
+        int32_t _right_axis     = 1;
+        float   _right_anchor_x = 100;
+        float   _right_anchor_y = 100;
+        float   _segment_length = 10;
     };
 }  //  namespace Kinematics

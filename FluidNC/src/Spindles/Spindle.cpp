@@ -15,8 +15,7 @@ namespace Spindles {
     // ========================= Spindle ==================================
 
     void Spindle::init_atc() {
-        ATCs::ATC* candidate = nullptr;
-        auto       atcs      = ATCs::ATCFactory::objects();
+        auto atcs = ATCs::ATCFactory::objects();
         _atc_name = string_util::trim(_atc_name);
         for (auto a : atcs) {
             if (_atc_name == a->name()) {
@@ -27,8 +26,7 @@ namespace Spindles {
         }
         if (!_atc_name.empty()) {
             _atc_info = " atc: '" + _atc_name + "' not found";
-        }
-        else if (!_m6_macro._gcode.empty()) {
+        } else if (!_m6_macro._gcode.empty()) {
             _atc_info = " with m6_macro";
         }
     }
@@ -206,6 +204,7 @@ namespace Spindles {
     void Spindle::spindleDelay(SpindleState state, SpindleSpeed speed) {
         uint32_t up = 0, down = 0;
         switch (state) {
+            default:
             case SpindleState::Unknown:
                 // Unknown is only used for an initializer value,
                 // never as a new target state.
@@ -221,7 +220,10 @@ namespace Spindles {
                     case SpindleState::Ccw:
                         down = _current_speed;
                         break;
+                    default:
+                        break;
                 }
+                break; // SdB: This is a bug
             case SpindleState::Cw:
                 switch (_current_state) {
                     case SpindleState::Unknown:
@@ -241,7 +243,10 @@ namespace Spindles {
                         down = _current_speed;
                         up   = speed;
                         break;
+                    default:
+                        break;
                 }
+                break; // SdB: This is a bug
             case SpindleState::Ccw:
                 switch (_current_state) {
                     case SpindleState::Unknown:
@@ -261,14 +266,19 @@ namespace Spindles {
                             down = speed - _current_speed;
                         }
                         break;
+                    default:
+                        break;
                 }
+                break; // SdB: This is a bug
         }
+
         if (down) {
             dwell_ms(down < maxSpeed() ? _spindown_ms * down / maxSpeed() : _spindown_ms, DwellMode::SysSuspend);
         }
         if (up) {
             dwell_ms(up < maxSpeed() ? _spinup_ms * up / maxSpeed() : _spinup_ms, DwellMode::SysSuspend);
         }
+
         _current_state = state;
         _current_speed = speed;
     }

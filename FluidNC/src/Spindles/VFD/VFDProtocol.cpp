@@ -100,6 +100,7 @@ namespace Spindles {
                                         break;
                                     }
                                     // fall through if get_current_speed did not return a parser
+                                    [[fallthrough]];
                                 case 2:
                                     parser = impl->get_current_direction(next_cmd);
                                     if (parser) {
@@ -107,6 +108,7 @@ namespace Spindles {
                                         break;
                                     }
                                     // fall through if get_current_direction did not return a parser
+                                    [[fallthrough]];
                                 case 3:
                                 default:
                                     parser  = impl->get_status_ok(next_cmd);

@@ -193,7 +193,7 @@ void Uart::config_message(const char* prefix, const char* usage) {
 }
 
 int Uart::rx_buffer_available(void) {
-    return UART_FIFO_LEN - available();
+    return UART_FIFO_LEN - available(); // SdB: Should be UART_HW_FIFO_LEN but that doesn't compile. UART_FIFO_LEN is deprecated.
 }
 
 int Uart::peek() {

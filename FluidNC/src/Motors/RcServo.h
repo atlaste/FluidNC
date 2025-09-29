@@ -9,7 +9,19 @@
 namespace MotorDrivers {
     class RcServo : public Servo {
     protected:
-        int _timer_ms = 20;
+        static const uint32_t SERVO_PWM_FREQ_DEFAULT = 50;  // 50Hz ...This is a standard analog servo value. Digital ones can repeat faster
+        static const uint32_t SERVO_PWM_FREQ_MIN     = 50;
+        static const uint32_t SERVO_PWM_FREQ_MAX     = 200;
+
+        static const int32_t  SERVO_PULSE_US_MIN_DEFAULT = 1000;
+        static const int32_t  SERVO_PULSE_US_MAX_DEFAULT = 2000;
+        static const uint32_t SERVO_PULSE_US_MIN         = 500;
+        static const uint32_t SERVO_PULSE_US_MAX         = 2500;
+
+        static const int32_t TIMER_MS_MIN = 20;
+        static const int32_t TIMER_MS_MAX = 250;
+
+        int32_t _timer_ms = 20;
 
         void config_message() override;
 

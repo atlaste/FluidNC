@@ -2,6 +2,8 @@
 
 #include "../System.h"  // sys.abort
 
+#include <esp_timer.h>
+
 /*
 
 PlasmaSpindle:
@@ -54,7 +56,6 @@ namespace Spindles {
             return;  // Block during abort.
         }
 
-        uint32_t dev_speed = speed;  // no mapping
         if (state == SpindleState::Disable) {
             _arc_on = false;
             set_enable(false);
@@ -84,8 +85,8 @@ namespace Spindles {
     }
 
     bool IRAM_ATTR PlasmaSpindle::wait_for_arc_ok() {
-        uint32_t wait_until_ms = millis() + _max_arc_wait;
-        while (millis() < wait_until_ms) {
+        auto     wait_until    = esp_timer_get_time() + _max_arc_wait * 1000;
+        while (esp_timer_get_time() < wait_until) {
             if (_arcOkEventPin.get()) {
                 _arc_on = true;
                 return true;

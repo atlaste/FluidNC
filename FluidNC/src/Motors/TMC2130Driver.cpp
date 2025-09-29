@@ -6,7 +6,9 @@
 */
 
 #include "TMC2130Driver.h"
-#include "../Machine/MachineConfig.h"
+#include "src/Machine/MachineConfig.h"
+#include "src/NutsBolts.h"
+
 #include <atomic>
 
 namespace MotorDrivers {
@@ -80,7 +82,7 @@ namespace MotorDrivers {
                     tmc2130->THIGH(calc_tstep(60));
                     tmc2130->sfilt(1);
                     tmc2130->diag1_stall(true);  // stallguard i/o is on diag1
-                    tmc2130->sgt(constrain(_stallguard, -64, 63));
+                    tmc2130->sgt(myConstrain(_stallguard, int32_t(-64), int32_t(63)));
                 }
                 break;
         }
@@ -100,7 +102,7 @@ namespace MotorDrivers {
         float feedrate = Stepper::get_realtime_rate();  //* settings.microsteps[axis_index] / 60.0 ; // convert mm/min to Hz
 
         log_info(axisName() << " Stallguard " << tmc2130->stallguard() << "   SG_Val:" << tmc2130->sg_result() << " Rate:" << feedrate
-                            << " mm/min SG_Setting:" << constrain(_stallguard, -64, 63));
+                            << " mm/min SG_Setting:" << myConstrain(_stallguard, int32_t(-64), int32_t(63)));
     }
 
     void TMC2130Driver::set_disable(bool disable) {

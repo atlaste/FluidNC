@@ -62,7 +62,7 @@ void report_init_message(Channel& channel);
 void report_echo_line_received(const char* line, Channel& channel);
 
 // Prints realtime status report
-void report_realtime_status(Channel& channel);
+void report_realtime_status(Channel* channel);
 
 // Prints recorded probe position
 void report_probe_parameters(Channel& channel);

@@ -3,8 +3,12 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "UserOutputs.h"
-#include "../Config.h"      // log_*
-#include <esp32-hal-cpu.h>  // getApbFrequency()
+#include "../Config.h"  // log_*
+#ifdef ARDUINO
+#    include <esp32-hal-cpu.h>  // getApbFrequency()
+#else
+#    include "soc/rtc.h"
+#endif
 
 namespace Machine {
     UserOutputs::UserOutputs() {
@@ -23,8 +27,14 @@ namespace Machine {
                 log_info("User Digital Output: " << i << " on Pin:" << pin.name());
             }
         }
+        
         // determine the highest resolution (number of precision bits) allowed by frequency
+
+#ifdef ARDUINO
         uint32_t apb_frequency = getApbFrequency();
+#else
+        uint32_t apb_frequency = rtc_clk_apb_freq_get();
+#endif
 
         for (int i = 0; i < MaxUserAnalogPin; ++i) {
             uint8_t resolution_bits;

@@ -65,8 +65,9 @@ namespace Kinematics {
     float f;   // sized of fixed side triangel
     float e;   // size of end effector side triangle
 
-    static float last_angle[MAX_N_AXIS]     = { 0.0 };  // A place to save the previous motor angles for distance/feed rate calcs
-    static float last_cartesian[MAX_N_AXIS] = { 0.0 };  // A place to save the previous motor angles for distance/feed rate calcs
+    static float last_angle[MAX_N_AXIS] = {
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+    };  // A place to save the previous motor angles for distance/feed rate calcs
 
     void ParallelDelta::group(Configuration::HandlerBase& handler) {
         handler.item("crank_mm", rf, 50.0, 500.0);
@@ -288,10 +289,10 @@ namespace Kinematics {
     bool ParallelDelta::kinematics_homing(AxisMask& axisMask) {
         // only servos use custom homing. Steppers use limit switches
         if (!_use_servos)
-            false;
+            return false; // SdB: This was probably a bug.
 
-        auto axes   = config->_axes;
-        auto n_axis = axes->_numberAxis;
+        // auto axes   = config->_axes;
+        // auto n_axis = axes->_numberAxis; --> see TODO below.
 
         Axes::set_disable(false);
 
@@ -317,7 +318,7 @@ namespace Kinematics {
         if (d < 0) {
             //log_warn("Kinematics: Target unreachable");
             return false;
-        }                                                 // non-existing point
+        }  // non-existing point
         float yj = (y1 - a * b - sqrt(d)) / (b * b + 1);  // choosing outer point
         float zj = a + b * yj;
 

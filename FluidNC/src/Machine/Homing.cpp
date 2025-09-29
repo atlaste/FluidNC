@@ -103,7 +103,7 @@ namespace Machine {
             // Cycle stop while approaching means that we did not hit
             // a limit switch in the programmed distance
             fail(ExecAlarm::HomingFailApproach);
-            report_realtime_status(allChannels);
+            report_realtime_status(&allChannels);
             return;
         }
 
@@ -183,8 +183,8 @@ namespace Machine {
 
             settle_ms = std::max(settle_ms, homing->_settle_ms);
 
-            float axis_rate;
-            float travel;
+            float axis_rate = 1.0f;
+            float travel = 0.0f;
             switch (phase) {
                 case Machine::Homing::Phase::FastApproach:
                     axis_rate = homing->_seekRate;
@@ -209,6 +209,8 @@ namespace Machine {
                         Stepping::block(axis, 0);
                     }
                     // All motors will be unblocked later by set_homing_mode()
+                    break;
+                default:
                     break;
             }
 
@@ -242,6 +244,9 @@ namespace Machine {
                 case Machine::Homing::Phase::Pulloff1:
                 case Machine::Homing::Phase::Pulloff2:
                     distance[axis] = homing->_positiveDirection ? -travel : travel;
+                    break;
+                
+                default: // None, CycleDone.
                     break;
             }
 
@@ -510,8 +515,6 @@ namespace Machine {
             _remainingCycles.push(axisMask);
         } else {
             // Run all homing cycles
-            bool someAxisHomed = false;
-
             for (int cycle = 1; cycle <= MAX_N_AXIS; cycle++) {
                 // Set axisMask to the axes that home on this cycle
                 axisMask = axis_mask_from_cycle(cycle);

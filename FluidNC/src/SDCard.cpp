@@ -15,7 +15,7 @@
 SDCard::SDCard() : _state(State::Idle) {}
 
 void SDCard::init() {
-    static bool init_message = true;  // used to show messages only once.
+    // static bool init_message = true;  // used to show messages only once.
     pinnum_t    csPin;
     int         csFallback;
 
@@ -24,7 +24,7 @@ void SDCard::init() {
             log_error("SD needs SPI defined");
         } else {
             log_info("SD Card cs_pin:" << _cs.name() << " detect:" << _cardDetect.name() << " freq:" << _frequency_hz);
-            init_message = false;
+            // init_message = false;
         }
         _cs.setAttr(Pin::Attr::Output);
         csPin = _cs.getNative(Pin::Capabilities::Output | Pin::Capabilities::Native);

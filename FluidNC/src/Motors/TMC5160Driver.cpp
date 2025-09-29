@@ -2,7 +2,9 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "TMC5160Driver.h"
-#include "../Machine/MachineConfig.h"
+#include "src/Machine/MachineConfig.h"
+#include "src/NutsBolts.h"
+
 #include <atomic>
 
 namespace MotorDrivers {
@@ -81,7 +83,7 @@ namespace MotorDrivers {
                     tmc5160->THIGH(calc_tstep(60));
                     tmc5160->sfilt(1);
                     tmc5160->diag1_stall(true);  // stallguard i/o is on diag1
-                    tmc5160->sgt(constrain(_stallguard, -64, 63));
+                    tmc5160->sgt(myConstrain(_stallguard, int32_t(-64), int32_t(63)));
                     break;
                 }
         }
@@ -109,7 +111,7 @@ namespace MotorDrivers {
         float feedrate = Stepper::get_realtime_rate();  //* settings.microsteps[axis_index] / 60.0 ; // convert mm/min to Hz
 
         log_info(axisName() << " Stallguard " << tmc5160->stallguard() << "   SG_Val:" << tmc5160->sg_result() << " Rate:" << feedrate
-                            << " mm/min SG_Setting:" << constrain(_stallguard, -64, 63));
+                            << " mm/min SG_Setting:" << myConstrain(_stallguard, int32_t(-64), int32_t(63)));
     }
 
     void TMC5160Driver::set_disable(bool disable) {

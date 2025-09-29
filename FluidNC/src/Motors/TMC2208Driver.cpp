@@ -37,7 +37,7 @@ namespace MotorDrivers {
             return;
         }
 
-        TrinamicMode _mode = static_cast<TrinamicMode>(trinamicModes[isHoming ? _homing_mode : _run_mode].value);
+        // TrinamicMode _mode = static_cast<TrinamicMode>(trinamicModes[isHoming ? _homing_mode : _run_mode].value);
 
         // Run and hold current configuration items are in (float) Amps,
         // but the TMCStepper library expresses run current as (uint16_t) mA
