@@ -39,7 +39,7 @@ int i2c_write(int bus_number, uint8_t address, const uint8_t* data, size_t count
         i2c_cmd_handle_t cmd = NULL;
 
         //short implementation does not support zero size writes (example when scanning) PR in IDF?
-        //ret =  i2c_master_write_to_device((i2c_port_t)bus_number, address, buff, size, timeOutMillis / portTICK_RATE_MS);
+        //ret =  i2c_master_write_to_device((i2c_port_t)bus_number, address, buff, size, timeOutMillis / portTICK_PERIOD_MS);
 
         uint8_t cmd_buff[I2C_LINK_RECOMMENDED_SIZE(1)] = { 0 };
 
@@ -62,7 +62,7 @@ int i2c_write(int bus_number, uint8_t address, const uint8_t* data, size_t count
         if (ret != ESP_OK) {
             goto end;
         }
-        ret = i2c_master_cmd_begin((i2c_port_t)bus_number, cmd, 10 / portTICK_RATE_MS);
+        ret = i2c_master_cmd_begin((i2c_port_t)bus_number, cmd, 10 / portTICK_PERIOD_MS);
 
     end:
         if (cmd != NULL) {
@@ -70,11 +70,11 @@ int i2c_write(int bus_number, uint8_t address, const uint8_t* data, size_t count
         }
         return ret ? -1 : count;
 #else
-    return i2c_master_write_to_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_RATE_MS) ? -1 : count;
+    return i2c_master_write_to_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_PERIOD_MS) ? -1 : count;
 #endif
 }
 
 // cppcheck-suppress unusedFunction
 int i2c_read(int bus_number, uint8_t address, uint8_t* data, size_t count) {
-    return i2c_master_read_from_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_RATE_MS) ? -1 : count;
+    return i2c_master_read_from_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_PERIOD_MS) ? -1 : count;
 }

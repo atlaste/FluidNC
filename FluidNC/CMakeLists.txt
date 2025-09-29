@@ -8,7 +8,10 @@ message(CMAKE_SOURCE_DIR ="${CMAKE_SOURCE_DIR}")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/Configuration")
+list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_SOURCE_DIR}/src" 
+								 "${CMAKE_SOURCE_DIR}/esp32"
+								 "${CMAKE_SOURCE_DIR}/src/Configuration" 
+								 "${CMAKE_SOURCE_DIR}/src/Pins")
 
 # Other config:
 idf_build_set_property(CXX_COMPILE_OPTIONS "-Wno-deprecated-enum-enum-conversion" APPEND)

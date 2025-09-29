@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <Driver/fluidnc_uart.h>
 
-// #include <driver/uart.h>
+#include <driver/uart.h>
 #include "fnc_idf_uart.h"
 #include <esp_ipc.h>
 #include "hal/uart_hal.h"
@@ -39,7 +39,7 @@ void uart_register_input_pin(int uart_num, uint8_t pinnum, InputPin* object) {
 }
 
 static void uart_driver_n_install(void* arg) {
-    uart_port_t port = (uart_port_t)arg;
+    auto port = *((uart_port_t*)arg); // SdB: Bug in original source.
     if (port) {
         fnc_uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
     } else {
@@ -50,7 +50,7 @@ static void uart_driver_n_install(void* arg) {
 void uart_init(int uart_num) {
     // We init UARTs on core 0 so the interrupt handler runs there,
     // thus avoiding conflict with the StepTimer interrupt
-    esp_ipc_call_blocking(0, uart_driver_n_install, (void*)uart_num);
+    esp_ipc_call_blocking(0, uart_driver_n_install, &uart_num);
     if (uart_num) {
         fnc_uart_set_data_callback((uart_port_t)uart_num, uart_data_callback);
     }
@@ -124,9 +124,9 @@ void uart_sw_flow_control(int uart_num, bool on, int xon_threshold, int xoff_thr
 bool uart_pins(int uart_num, int tx_pin, int rx_pin, int rts_pin, int cts_pin) {
     uart_port_t port = (uart_port_t)uart_num;
     if (port) {
-        return fnc_uart_set_pin(uart_num, tx_pin, rx_pin, rts_pin, cts_pin) != ESP_OK;
+        return fnc_uart_set_pin(port, tx_pin, rx_pin, rts_pin, cts_pin) != ESP_OK;
     } else {
-        return uart_set_pin(uart_num, tx_pin, rx_pin, rts_pin, cts_pin) != ESP_OK;
+        return uart_set_pin(port, tx_pin, rx_pin, rts_pin, cts_pin) != ESP_OK;
     }
 }
 int uart_buflen(int uart_num) {

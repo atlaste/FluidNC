@@ -1,6 +1,8 @@
 // Copyright (c) 2024 -  Mitch Bradley
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
+#ifdef ARDUINO
+
 // Stepping engine that uses the ESP32 RMT hardware to time step pulses, thus avoiding
 // the need to wait for the end of step pulses.
 
@@ -8,7 +10,6 @@
 #include "Driver/fluidnc_gpio.h"
 #include "Driver/StepTimer.h"
 #include <driver/rmt.h>
-#include <esp32-hal-gpio.h>
 #include <esp_attr.h>  // IRAM_ATTR
 
 static uint32_t _pulse_delay_us;
@@ -142,7 +143,10 @@ static step_engine_t engine = {
     max_pulses_per_sec,
     set_timer_ticks,
     start_timer,
-    stop_timer
+    stop_timer,
+    nullptr
 };
 
 REGISTER_STEP_ENGINE(RMT, &engine);
+
+#endif

@@ -9,7 +9,6 @@
 #include <stddef.h>
 #include "esp_err.h"
 #include "esp_private/panic_internal.h"
-#include "esp_core_dump_summary_port.h"
 
 #ifdef __cplusplus
 extern "C" {

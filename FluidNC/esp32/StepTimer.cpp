@@ -3,6 +3,8 @@
 // Interface to the ESP32 alarm timer for step timing
 // Uses the timer_ll API from ESP-IDF v4.4.1
 
+#ifdef ARDUINO
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -80,4 +82,6 @@ void stepTimerInit(uint32_t frequency, bool (*callback)(void)) {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

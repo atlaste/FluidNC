@@ -10,6 +10,8 @@
 // just far enough ahead so the information is always ready, but not so far ahead to cause
 // latency problems.
 
+#if defined(CONFIG_IDF_TARGET_ESP32)
+
 #include "Driver/step_engine.h"
 #include "Driver/i2s_out.h"
 #include "Driver/StepTimer.h"
@@ -497,3 +499,5 @@ step_engine_t i2s_engine = {
 };
 // clang-format on
 REGISTER_STEP_ENGINE(I2S, &i2s_engine);
+
+#endif

@@ -5,7 +5,7 @@
 #undef CONFIG_LOG_MAXIMUM_LEVEL
 #define CONFIG_LOG_MAXIMUM_LEVEL CORE_DEBUG_LEVEL
 
-#include "vfs_api.h"
+// #include "vfs_api.h"
 #include "esp_vfs_fat.h"
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"

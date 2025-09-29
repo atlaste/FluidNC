@@ -1,7 +1,11 @@
 #include "Driver/localfs.h"
-#include "Driver/spiffs.h"    // spiffs_format
-#include "Driver/littlefs.h"  // littlefs_format
-#include <cstddef>            // NULL
+#include "Driver/spiffs.h"  // spiffs_format
+
+#ifdef ENABLE_LITTLEFS
+#    include "Driver/littlefs.h"  // littlefs_format
+#endif
+
+#include <cstddef>  // NULL
 #include <cstring>
 #include "src/Config.h"
 #include "esp_partition.h"
@@ -19,11 +23,15 @@ bool localfs_mount() {
             localfsName = spiffsName;
             return false;
         }
+
+#ifdef ENABLE_LITTLEFS
         // Migration - littlefs in spiffs partition
         if (!littlefs_mount(spiffsName, false)) {
             localfsName = littlefsName;
             return false;
         }
+#endif
+
         // Try to create a SPIFFS filesystem
         if (!spiffs_mount(spiffsName, true)) {
             localfsName = spiffsName;
@@ -32,6 +40,8 @@ bool localfs_mount() {
         log_error("Cannot mount or create a local filesystem in the spiffs partition");
         return true;
     }
+
+#ifdef ENABLE_LITTLEFS
     if (has_partition(littlefsName)) {
         // Mount LittleFS, create if necessary
         if (!littlefs_mount(littlefsName, true)) {
@@ -41,6 +51,8 @@ bool localfs_mount() {
         log_error("Cannot mount or create a local filesystem in the littlefs partition");
         return true;
     }
+#endif
+
     log_error("The partition map has neither a spiffs partition nor a littlefs partition");
     return true;
 }
@@ -49,10 +61,13 @@ void localfs_unmount() {
         spiffs_unmount();
         return;
     }
+
+#ifdef ENABLE_LITTLEFS
     if (localfsName == littlefsName) {
         littlefs_unmount();
         return;
     }
+#endif
     localfsName = NULL;
 }
 bool localfs_format(const char* fsname) {
@@ -68,6 +83,7 @@ bool localfs_format(const char* fsname) {
             }
         }
     }
+#ifdef ENABLE_LITTLEFS
     if (!strcasecmp(fsname, littlefsName)) {
         localfs_unmount();
         if (!littlefs_format(littlefsName)) {
@@ -85,6 +101,8 @@ bool localfs_format(const char* fsname) {
         localfs_mount();
         return true;
     }
+#endif
+
     localfsName = "";
     return true;
 }
@@ -146,7 +164,9 @@ const char* canonicalPath(const char* filename, const char* defaultFs) {
     // Map file system names to canonical form.  The input name is case-independent,
     // while the canonical name is lower case.
     if (!(replacedFsName(path, "localfs", localfsName) || replacedFsName(path, spiffsName, localfsName) ||
+#ifdef ENABLE_LITTLEFS
           replacedFsName(path, littlefsName, localfsName) ||
+#endif
           // The following looks like a no-op but it is not because of case independence
           replacedFsName(path, sdName, sdName))) {
         if (*filename != '/') {

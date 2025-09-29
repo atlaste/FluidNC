@@ -1,3 +1,5 @@
+#ifdef ENABLE_LITTLEFS
+
 #include "esp_partition.h"
 #include "esp_littlefs.h"
 #include "esp_log.h"
@@ -36,3 +38,5 @@ bool littlefs_mount(const char* label, bool format) {
 void littlefs_unmount() {
     esp_vfs_littlefs_unregister(littlefs_label);
 }
+
+#endif

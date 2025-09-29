@@ -9,7 +9,13 @@
 static TaskHandle_t wdt_task_handle = nullptr;
 
 static void get_wdt_task_handle() {
+#ifdef ARDUINO
+    // xTaskGetIdleTaskHandleForCPU() is only available if INCLUDE_xTaskGetIdleTaskHandle is set to 1 in FreeRTOSConfig.h.
     TaskHandle_t idle_0 = xTaskGetIdleTaskHandleForCPU(0);
+#else
+    // NOTE: ESP-IDF manages WDT through menuconfig as well.
+    TaskHandle_t idle_0 = xTaskGetIdleTaskHandleForCore(0);
+#endif
     esp_err_t    err;
     err = esp_task_wdt_status(idle_0);
     switch (err) {

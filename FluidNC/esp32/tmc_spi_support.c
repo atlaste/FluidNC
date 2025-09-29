@@ -14,6 +14,8 @@
 #    define SPI2 GPSPI2
 #endif
 
+#define SPI_LL_PERIPH_CLK_FREQ (80 * 1000000)
+
 spi_dev_t* hw = &SPI2;
 
 static spi_ll_clock_val_t clk_reg_val = 0;
@@ -61,7 +63,11 @@ void tmc_spi_transfer_data(const uint8_t* out, int out_bitlen, uint8_t* in, int 
     }
 
     spi_ll_clear_int_stat(hw);
+    #ifdef ARDUINO
     spi_ll_master_user_start(hw);
+    #else
+    spi_ll_user_start(hw);
+    #endif
     while (!spi_ll_usr_is_done(hw)) {}
 
     spi_ll_read_buffer(hw, in, in_bitlen);  // No-op if in_bitlen is 0
