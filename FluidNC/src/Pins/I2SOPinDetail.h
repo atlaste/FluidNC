@@ -5,6 +5,8 @@
 
 #    include "PinDetail.h"
 
+#if defined(CONFIG_IDF_TARGET_ESP32)
+
 namespace Pins {
     class I2SOPinDetail : public PinDetail {
         PinCapabilities _capabilities;
@@ -35,3 +37,4 @@ namespace Pins {
     };
 }
 
+#endif

@@ -4,4 +4,4 @@ idf_component_register(SRCS 10vSpindle.cpp BESCSpindle.cpp DacSpindle.cpp HBridg
                             VFD/NowForeverProtocol.cpp VFD/SiemensV20Protocol.cpp VFD/VFDProtocol.cpp VFD/YL620Protocol.cpp
                        INCLUDE_DIRS "." "../.." "../../include"
                        REQUIRES esp_driver_uart 
-                       PRIV_REQUIRES esp_timer)
+                       PRIV_REQUIRES esp_timer Configuration Pins)

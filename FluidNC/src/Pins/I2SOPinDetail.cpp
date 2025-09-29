@@ -3,6 +3,8 @@
 
 #include "I2SOPinDetail.h"
 
+#if defined(CONFIG_IDF_TARGET_ESP32)
+
 #include "Driver/i2s_out.h"  // i2s_out_write() etc
 #include "../Assertion.h"
 #include <esp_attr.h>  // IRAM_ATTR
@@ -91,3 +93,5 @@ namespace Pins {
         return s;
     }
 }
+
+#endif

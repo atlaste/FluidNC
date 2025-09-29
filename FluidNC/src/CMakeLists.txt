@@ -9,4 +9,4 @@ idf_component_register(SRCS BTConfig.cpp Channel.cpp Control.cpp ControlPin.cpp 
                             version.cpp
                        INCLUDE_DIRS "." ".." "../include/"
                        REQUIRES driver fatfs vfs 
-                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls)
+                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls Configuration esp32)

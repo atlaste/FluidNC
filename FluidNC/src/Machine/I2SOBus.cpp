@@ -50,7 +50,9 @@ namespace Machine {
             params.bck_drive_strength  = _bck.driveStrength();
             params.data_drive_strength = _data.driveStrength();
 
+#ifdef ARDUINO // TODO FIXME: ESP-IDF needs something else.
             i2s_out_init(&params);
+#endif
         }
     }
 }

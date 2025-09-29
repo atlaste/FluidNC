@@ -5,7 +5,7 @@
 
 #include <string>
 
-#ifdef ESP32
+#if defined(ESP32) || defined(ESP_PLATFORM)
 class AssertionFailed {
 public:
     std::string stackTrace;

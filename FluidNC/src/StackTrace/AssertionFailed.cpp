@@ -6,7 +6,7 @@
 #include <cstdarg>
 #include <cstring>
 
-#ifdef ESP32
+#if defined(ESP32) || defined(ESP_PLATFORM)
 
 #    ifdef BACKTRACE_ON_ASSERT
 #        include "esp_debug_helpers.h"
