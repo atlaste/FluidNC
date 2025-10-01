@@ -151,4 +151,5 @@ idf_component_register(SRCS BTConfig.cpp
                             version.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "../lib/SSD1306/src" "../lib/arduinoWebSockets/src"
                        REQUIRES driver fatfs vfs sdmmc spiffs
-                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 esp32 lib app_update)
+                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 esp32 lib app_update
+					   WHOLE_ARCHIVE)
