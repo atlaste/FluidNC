@@ -323,6 +323,8 @@ void OLED::parse_status_report() {
         }
         if (tag == "A") {
             // SCFM
+            /* SdB: Not sure what the idea here was...
+            
             int  spindle = 0;
             bool flood   = false;
             bool mist    = false;
@@ -342,6 +344,7 @@ void OLED::parse_status_report() {
                         break;
                 }
             }
+            */
             continue;
         }
         if (tag == "SD") {
@@ -397,7 +400,6 @@ void OLED::parse_STA() {
     _radio_info  = _report.substr(start, _report.size() - start - 1);
 
     _oled->clear();
-    auto fh = font_height(ArialMT_Plain_10);
     wrapped_draw_string(0, _radio_info, ArialMT_Plain_10);
     _oled->display();
 }

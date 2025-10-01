@@ -518,8 +518,6 @@ namespace Machine {
             _remainingCycles.push(axisMask);
         } else {
             // Run all homing cycles
-            bool someAxisHomed = false;
-
             for (int cycle = 1; cycle <= MAX_N_AXIS; cycle++) {
                 // Set axisMask to the axes that home on this cycle
                 axisMask = axis_mask_from_cycle(cycle);

@@ -2,6 +2,7 @@
 #include "EnumItem.h"
 #include "Stepping.h"
 #include "Machine/MachineConfig.h"  // config
+#include "Platform.h"
 
 #include <atomic>
 

@@ -58,9 +58,6 @@ volatile bool runLimitLoop;  // Interface to show_limits()
 
 static void protocol_exec_rt_suspend();
 
-static char line[LINE_BUFFER_SIZE];     // Line to be executed. Zero-terminated.
-static char comment[LINE_BUFFER_SIZE];  // Line to be executed. Zero-terminated.
-
 // Spindle stop override control states.
 struct SpindleStopBits {
     uint8_t enabled : 1;
@@ -1211,13 +1208,18 @@ void protocol_do_pin_inactive(void* vpEventPin) {
     }
 }
 
+void report_realtime_status_wrap(void* arg) {
+    Channel* chan = (Channel*)arg;
+    return report_realtime_status(*chan);
+}
+
 const ArgEvent feedOverrideEvent { protocol_do_feed_override };
 const ArgEvent rapidOverrideEvent { protocol_do_rapid_override };
 const ArgEvent spindleOverrideEvent { protocol_do_spindle_override };
 const ArgEvent accessoryOverrideEvent { protocol_do_accessory_override };
 const ArgEvent limitEvent { protocol_do_limit };
 const ArgEvent faultPinEvent { protocol_do_fault_pin };
-const ArgEvent reportStatusEvent { (void (*)(void*))report_realtime_status };
+const ArgEvent reportStatusEvent { report_realtime_status_wrap };
 const ArgEvent pinActiveEvent { protocol_do_pin_active };
 const ArgEvent pinInactiveEvent { protocol_do_pin_inactive };
 

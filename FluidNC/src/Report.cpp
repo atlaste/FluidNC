@@ -441,6 +441,7 @@ const char* state_name() {
             if (!(sys.suspend().bit.jogCancel)) {
                 return sys.suspend().bit.holdComplete ? "Hold:0" : "Hold:1";
             }  // Continues to print jog state during jog cancel.
+            [[fallthrough]];
         case State::Jog:
             return "Jog";
         case State::Homing:
@@ -554,6 +555,7 @@ void report_realtime_status(Channel& channel) {
             case State::Jog:
             case State::SafetyDoor:
                 report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1);  // Reset counter for slow refresh
+                break;
             default:
                 report_wco_counter = (REPORT_WCO_REFRESH_IDLE_COUNT - 1);
                 break;
@@ -574,6 +576,7 @@ void report_realtime_status(Channel& channel) {
             case State::Jog:
             case State::SafetyDoor:
                 report_ovr_counter = (REPORT_OVR_REFRESH_BUSY_COUNT - 1);  // Reset counter for slow refresh
+                break;
             default:
                 report_ovr_counter = (REPORT_OVR_REFRESH_IDLE_COUNT - 1);
                 break;

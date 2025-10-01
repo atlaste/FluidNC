@@ -30,6 +30,6 @@ idf_component_register(SRCS AssertionFailed.cpp
                             esp32s3/GPIOCapabilities.cpp
                             esp32s3/USBCDCChannel.cpp
                             esp32s3/i2s_engine_dedicated.c
-                       INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src"
+                       INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "esp32s3"
                        REQUIRES esp_driver_uart driver fatfs vfs spiffs esp_driver_sdspi esp_timer arduino-esp32 src nvs_flash esp_driver_gpio 
                        PRIV_REQUIRES espcoredump)

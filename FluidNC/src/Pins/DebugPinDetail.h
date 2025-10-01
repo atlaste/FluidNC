@@ -15,8 +15,8 @@ namespace Pins {
 
         struct CallbackHandler {
             void (*callback)(void* arg, bool v);
-            void*           argument;
-            DebugPinDetail* _myPin;
+            void*           argument = nullptr;
+            DebugPinDetail* _myPin   = nullptr;
 
             static void handle(void* arg);
         } _isrHandler;
@@ -28,7 +28,7 @@ namespace Pins {
     public:
         explicit DebugPinDetail(PinDetail* implementation) :
             PinDetail(implementation->number()), _implementation(implementation), _lastEvent(0), _eventCount(0), _isHigh(false),
-            _isrHandler({ 0 }) {}
+            _isrHandler({}) {}
 
         PinCapabilities capabilities() const override { return _implementation->capabilities(); }
 

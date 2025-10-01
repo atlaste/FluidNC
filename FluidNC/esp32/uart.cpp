@@ -149,7 +149,11 @@ bool uart_pins(int uart_num, int tx_pin, int rx_pin, int rts_pin, int cts_pin) {
     }
 }
 int uart_bufavail(int uart_num) {
+#ifdef UART_HW_FIFO_LEN // Apparently not all uarts have the same FIFO buffer.
+    return UART_HW_FIFO_LEN(uart_num) - uart_buflen(uart_num);
+#else
     return UART_FIFO_LEN - uart_buflen(uart_num);
+#endif
 }
 int uart_buflen(int uart_num) {
     size_t      size;

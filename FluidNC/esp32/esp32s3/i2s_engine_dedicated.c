@@ -51,7 +51,6 @@ static void setup_dedicated_gpios(pinnum_t bck_pin, pinnum_t data_pin, pinnum_t 
         },
     };
     ESP_ERROR_CHECK(dedic_gpio_new_bundle(&bundle_config, &bundle));
-    uint32_t* b = (uint32_t*)bundle; // TODO FIXME?
 }
 static inline __attribute__((always_inline)) void oneclock(int32_t data) {
     cpu_ll_write_dedic_gpio_mask(3, data < 0);  // Set bck to 0 and data to the data bit
@@ -286,7 +285,8 @@ static step_engine_t engine = {
     max_pulses_per_sec,
     set_timer_ticks,
     start_timer,
-    stop_timer
+    stop_timer,
+    NULL
 };
 
 REGISTER_STEP_ENGINE(I2S, &engine);

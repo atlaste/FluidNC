@@ -73,7 +73,12 @@ namespace WebUI {
 
         //check if there are any new clients
         if (_wifiServer->hasClient()) {
+#ifdef IDFBUILD
+            WiFiClient* tcpClient = new WiFiClient(_wifiServer->accept());
+#else
+            // 'NetworkClient NetworkServer::available()' is deprecated: Renamed to accept()
             WiFiClient* tcpClient = new WiFiClient(_wifiServer->available());
+#endif
             if (!tcpClient) {
                 log_error("Creating telnet client failed");
             }

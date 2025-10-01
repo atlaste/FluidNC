@@ -66,7 +66,6 @@ namespace Kinematics {
     float e;   // size of end effector side triangle
 
     static float last_angle[MAX_N_AXIS]     = { 0.0 };  // A place to save the previous motor angles for distance/feed rate calcs
-    static float last_cartesian[MAX_N_AXIS] = { 0.0 };  // A place to save the previous motor angles for distance/feed rate calcs
 
     void ParallelDelta::group(Configuration::HandlerBase& handler) {
         handler.item("crank_mm", rf, 50.0, 500.0);
@@ -291,8 +290,8 @@ namespace Kinematics {
             return false;
         }
 
-        auto axes   = config->_axes;
-        auto n_axis = axes->_numberAxis;
+        // auto axes   = config->_axes;
+        // auto n_axis = axes->_numberAxis; --> not supported.
 
         Axes::set_disable(false);
 

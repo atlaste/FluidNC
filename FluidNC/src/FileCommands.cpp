@@ -223,7 +223,6 @@ static Error fileSendJson(const char* parameter, AuthenticationLevel auth_level,
         j.begin_member("result");
 
         char  fileLine[101];
-        Error res;
         int   len;
 
         while ((len = theFile->read(fileLine, 100)) > 0) {

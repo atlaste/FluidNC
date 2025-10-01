@@ -48,7 +48,7 @@ namespace Pins {
     int PinOption::iValue() const {
         // Parse to integer
         int num;
-        auto [ptr, ec] = std::from_chars(_value.data(), _value.data() + _value.length(), num);
+        std::from_chars(_value.data(), _value.data() + _value.length(), num);
         return num;
     }
 
