@@ -3,6 +3,11 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #pragma once
+
+#include <sdkconfig.h>
+
+#ifdef CONFIG_BT_ENABLED  // BT enabled in SDKConfig
+
 #include "Configuration/Configurable.h"
 #include "lineedit.h"
 #include "Module.h"
@@ -84,3 +89,5 @@ namespace WebUI {
         }
     };
 }
+
+#endif

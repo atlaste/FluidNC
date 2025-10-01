@@ -3,6 +3,8 @@
 
 #include "USBCDCChannel.h"
 
+#ifdef CONFIG_ESP_CONSOLE_USB_CDC
+
 #include "Machine/MachineConfig.h"  // config
 #include "Serial.h"                 // allChannels
 #include "esp32-hal-tinyusb.h"      // usb_persist_restart
@@ -236,3 +238,9 @@ size_t USBCDCChannel::timedReadBytes(char* buffer, size_t length, TickType_t tim
     }
     return 0;
 }
+
+#else
+
+NullChannel CDCChannel;
+
+#endif

@@ -38,7 +38,7 @@ namespace Machine {
         for (size_t i = 0; i < Axis::MAX_MOTORS_PER_AXIS; i++) {
             auto m = _motors[i];
             if (m) {
-                log_info("  Motor" << i);
+                log_info("  Motor" << int(i));
                 m->init();
             }
         }

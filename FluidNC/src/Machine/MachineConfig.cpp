@@ -197,7 +197,7 @@ namespace Machine {
             buffer[filesize] = '\0';
             auto actual      = file.read(buffer.get(), filesize);
             if (actual != filesize) {
-                log_config_error("Configuration file:" << filename << " read error - expected " << filesize << " got " << actual);
+                log_config_error("Configuration file:" << filename << " read error - expected " << uint32_t(filesize) << " got " << uint32_t(actual));
                 return;
             }
             log_info("Configuration file:" << filename);

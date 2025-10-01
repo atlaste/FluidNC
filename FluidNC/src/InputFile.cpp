@@ -37,12 +37,12 @@ Error InputFile::readLine(char* line, int maxlen) {
 
 void InputFile::ack(Error status) {
     if (status != Error::Ok) {
-        log_error(static_cast<int>(status) << " (" << errorString(status) << ") in " << name() << " at line " << lineNumber());
+        log_error(int(status) << " (" << errorString(status) << ") in " << name() << " at line " << uint32_t(lineNumber()));
         if (status != Error::GcodeUnsupportedCommand) {
             // Do not stop on unsupported commands because most senders do not stop.
             // Stop the file job on other errors
             notifyf("File job error", "Error:%d in %s at line: %d", status, name(), lineNumber());
-            _pending_error == status;
+            _pending_error = status;
         }
     }
 }

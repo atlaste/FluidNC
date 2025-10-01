@@ -27,7 +27,7 @@ class AllChannels : public Channel {
     std::vector<Channel*> _channelq;
 
     Channel*     _lastChannel = nullptr;
-    xQueueHandle _killQueue;
+    QueueHandle_t _killQueue;
 
     static std::mutex _mutex_general;
     static std::mutex _mutex_pollLine;

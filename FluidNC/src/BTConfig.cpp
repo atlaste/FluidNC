@@ -3,6 +3,8 @@
 
 #include "BTConfig.h"
 
+#ifdef CONFIG_BT_ENABLED // BT enabled in SDKConfig
+
 #include "Machine/MachineConfig.h"
 #include "Report.h"  // CLIENT_*
 #include "Channel.h"
@@ -172,3 +174,5 @@ namespace WebUI {
 
     ModuleFactory::InstanceBuilder<BTConfig> bt_module("bt", true);
 }
+
+#endif

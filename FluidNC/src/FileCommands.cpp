@@ -144,7 +144,7 @@ static Error fileShowSome(const char* parameter, AuthenticationLevel auth_level,
         error = "Cannot open file";
     } else {
         char  fileLine[255];
-        Error res;
+        Error res = Error::Ok;
         for (int linenum = 0; linenum < lastline && (res = theFile->readLine(fileLine, 255)) == Error::Ok; ++linenum) {
             if (linenum >= firstline) {
                 j.string(fileLine);
@@ -309,10 +309,13 @@ static Error listFilesystem(const char* fs, const char* value, AuthenticationLev
         auto      space = stdfs::space(fpath);
         for (auto const& dir_entry : iter) {
             if (dir_entry.is_directory()) {
-                log_stream(out, "[DIR:" << std::string(iter.depth(), ' ').c_str() << dir_entry.path().filename().u8string());
+                log_stream(out,
+                           "[DIR:" << std::string(iter.depth(), ' ').c_str()
+                                   << dir_entry.path().filename().string());
             } else {
                 log_stream(out,
-                           "[FILE: " << std::string(iter.depth(), ' ').c_str() << dir_entry.path().filename().u8string()
+                           "[FILE: " << std::string(iter.depth(), ' ').c_str()
+                                     << dir_entry.path().filename().string()
                                      << "|SIZE:" << dir_entry.file_size());
             }
         }
@@ -320,8 +323,8 @@ static Error listFilesystem(const char* fs, const char* value, AuthenticationLev
         auto freeBytes  = space.available;
         auto usedBytes  = totalBytes - freeBytes;
         log_stream(out,
-                   "[" << fpath.u8string().c_str() << " Free:" << formatBytes(freeBytes) << " Used:" << formatBytes(usedBytes)
-                       << " Total:" << formatBytes(totalBytes));
+                   "[" << fpath.string().c_str() << " Free:" << formatBytes(freeBytes)
+                       << " Used:" << formatBytes(usedBytes) << " Total:" << formatBytes(totalBytes));
     } catch (std::filesystem::filesystem_error const& ex) {
         log_error_to(out, ex.what());
         return Error::FsFailedMount;
@@ -350,7 +353,7 @@ static Error listFilesystemJSON(const char* fs, const char* value, Authenticatio
         j.begin_array("files");
         for (auto const& dir_entry : iter) {
             j.begin_object();
-            j.member("name", dir_entry.path().filename().u8string());
+            j.member("name", dir_entry.path().filename().string());
             j.member("size", dir_entry.is_directory() ? -1 : dir_entry.file_size());
             j.end_object();
         }
@@ -407,9 +410,9 @@ static Error listGCodeFiles(const char* parameter, AuthenticationLevel auth_leve
             for (auto const& dir_entry : iter) {
                 auto fn     = dir_entry.path().filename();
                 auto is_dir = dir_entry.is_directory();
-                if (out.is_visible(fn.stem().u8string(), fn.extension().u8string(), is_dir)) {
+                if (out.is_visible(fn.stem().string(), fn.extension().string(), is_dir)) {
                     j.begin_object();
-                    j.member("name", dir_entry.path().filename().u8string());
+                    j.member("name", dir_entry.path().filename().string());
                     j.member("size", is_dir ? -1 : dir_entry.file_size());
                     j.end_object();
                 }
@@ -528,10 +531,10 @@ static Error copyDir(const char* iDir, const char* oDir, Channel& out) {  // No 
         } else {
             std::string opath(oDir);
             opath += "/";
-            opath += dir_entry.path().filename().u8string();
+            opath += dir_entry.path().filename().string();
             std::string ipath(iDir);
             ipath += "/";
-            ipath += dir_entry.path().filename().u8string();
+            ipath += dir_entry.path().filename().string();
             log_info_to(out, ipath << " -> " << opath);
             auto err1 = copyFile(ipath.c_str(), opath.c_str(), out);
             if (err1 != Error::Ok) {

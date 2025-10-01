@@ -29,7 +29,7 @@ namespace Machine {
             if (pin.defined()) {
                 pin.setAttr(Pin::Attr::PWM, _analogFrequency[i]);
                 pin.setDuty(0);
-                log_info("User Analog Output: " << i << " on Pin:" << pin.name() << " Freq:" << _analogFrequency[i] << "Hz");
+                log_info("User Analog Output: " << i << " on Pin:" << pin.name() << " Freq:" << int(_analogFrequency[i]) << "Hz");
             }
         }
     }

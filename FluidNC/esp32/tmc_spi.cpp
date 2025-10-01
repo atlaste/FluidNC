@@ -37,6 +37,7 @@
 
 #include "Config.h"
 #include "tmc_spi_support.h"
+#include <cstdint> // MUST be before TMCStepper.h
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 
 // Replace the library's weak definition of TMC2130Stepper::write()

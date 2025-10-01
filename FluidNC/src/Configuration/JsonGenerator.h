@@ -35,7 +35,7 @@ namespace Configuration {
         explicit JsonGenerator(JSONencoder& encoder);
 
         void item(const char* name, bool& value) override;
-        void item(const char* name, int& value, const int32_t minValue, const int32_t maxValue) override;
+        void item(const char* name, int32_t& value, const int32_t minValue, const int32_t maxValue) override;
         void item(const char* name, uint32_t& value, const uint32_t minValue, const uint32_t maxValue) override;
         void item(const char* name, float& value, const float minValue, const float maxValue) override;
         void item(const char* name, std::vector<speedEntry>& value) override;

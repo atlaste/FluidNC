@@ -95,7 +95,7 @@ PwmPin::PwmPin(int gpio, bool isActiveLow, uint32_t frequency) : _gpio(gpio), _f
     int attempt = 0;
     for (attempt = 0; attempt < 5; ++attempt) {
         if (ledc_timer_config(&ledc_timer) != ESP_OK) {
-            log_error("ledc timer setup failed. Frequency: " << frequency << " hz; duty resolution: " << bits);
+            log_error("ledc timer setup failed. Frequency: " << int(frequency) << " hz; duty resolution: " << bits);
             --bits;
         } else {
             break;
@@ -118,7 +118,7 @@ PwmPin::PwmPin(int gpio, bool isActiveLow, uint32_t frequency) : _gpio(gpio), _f
                                            .flags      = { .output_invert = isActiveLow } };
 
     if (ledc_channel_config(&ledc_channel) != ESP_OK) {
-        log_error("ledc channel setup failed. Frequency: " << frequency << " hz; duty resolution: " << bits
+        log_error("ledc channel setup failed. Frequency: " << int(frequency) << " hz; duty resolution: " << int(bits)
                                                            << "; channel: " << int(_channel));
     }
 

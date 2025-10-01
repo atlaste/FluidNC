@@ -59,7 +59,7 @@ namespace Configuration {
         leave();
     }
 
-    void JsonGenerator::item(const char* name, int& value, const int32_t minValue, const int32_t maxValue) {
+    void JsonGenerator::item(const char* name, int32_t& value, const int32_t minValue, const int32_t maxValue) {
         enter(name);
         char buf[32];
         itoa(value, buf, 10);
@@ -71,7 +71,7 @@ namespace Configuration {
     void JsonGenerator::item(const char* name, uint32_t& value, const uint32_t minValue, const uint32_t maxValue) {
         enter(name);
         char buf[32];
-        snprintf(buf, 32, "%u", value);
+        snprintf(buf, 32, "%u", static_cast<unsigned int>(value));
         _encoder.begin_webui(_currentPath, "I", buf, minValue, maxValue);
         _encoder.end_object();
         leave();

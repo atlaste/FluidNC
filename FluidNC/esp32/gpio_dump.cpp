@@ -318,7 +318,7 @@ static void show_matrix(Print& out) {
     for (p = gpio_matrix; p->num != -1; ++p) {
         uint32_t in_sel = gpio_in_sel(p->num);
         if (in_sel & 0x80) {
-            out << p->num << " " << p->in << " " << (in_sel & 0x3f);
+            out << p->num << " " << p->in << " " << int(in_sel & 0x3f);
             if (in_sel & 0x40) {
                 out << " invert";
             }

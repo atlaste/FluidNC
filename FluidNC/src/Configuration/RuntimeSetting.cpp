@@ -78,7 +78,7 @@ namespace Configuration {
         if (is(name)) {
             isHandled_ = true;
             if (newValue_.empty()) {
-                log_stream(out_, setting_prefix() << value);
+                log_stream(out_, setting_prefix() << int(value));
             } else {
                 string_util::from_decimal(newValue_, value);
             }
@@ -151,7 +151,7 @@ namespace Configuration {
 
             } else {
                 if (isdigit(newValue_.front())) {  // if the first char is a number. assume it is an index of a webui enum list
-                    int indexVal = 0;
+                    int32_t indexVal = 0;
                     string_util::from_decimal(newValue_, indexVal);
                     for (auto e2 = e; e2->name; ++e2) {
                         if (e2->value == indexVal) {

@@ -181,7 +181,7 @@ namespace WebUI {
         }
 #endif
 
-        log_info("HTTP started on port " << WebUI::http_port->get());
+        log_info("HTTP started on port " << int(WebUI::http_port->get()));
         //start webserver
         _webserver->begin();
 
@@ -912,7 +912,7 @@ namespace WebUI {
                                 last_upload_update = upload.totalSize;
                             }
 
-                            log_info("Update " << last_upload_update << "%");
+                            log_info("Update " << int(last_upload_update) << "%");
                         }
                         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
                             _upload_status = UploadStatus::FAILED;
@@ -974,7 +974,7 @@ namespace WebUI {
             if (path[path.length() - 1] == '/') {
                 path = path.substr(0, path.length() - 1);
             }
-            if (path.length() & path[0] == '/') {
+            if (path.length() != 0 && path[0] == '/') {
                 path = path.substr(1);
             }
         }
@@ -1049,8 +1049,8 @@ namespace WebUI {
                 j.begin_array("files");
                 for (auto const& dir_entry : iter) {
                     j.begin_object();
-                    j.member("name", dir_entry.path().filename().u8string());
-                    j.member("shortname", dir_entry.path().filename().u8string());
+                    j.member("name", dir_entry.path().filename().string());
+                    j.member("shortname", dir_entry.path().filename().string());
                     j.member("size", dir_entry.is_directory() ? -1 : dir_entry.file_size());
                     j.member("datetime", "");
                     j.end_object();
@@ -1162,7 +1162,7 @@ namespace WebUI {
                 if (filesize != actual_size) {
                     _upload_status = UploadStatus::FAILED;
                     pushError(ESP_ERROR_UPLOAD, "File upload mismatch");
-                    log_info("Upload failed - size mismatch - exp " << filesize << " got " << actual_size);
+                    log_info("Upload failed - size mismatch - exp " << uint32_t(filesize) << " got " << uint32_t(actual_size));
                 }
             }
         } else {
@@ -1242,12 +1242,12 @@ namespace WebUI {
     static bool endsWithCI(const char* suffix, const char* test) {
         size_t slen = strlen(suffix);
         size_t tlen = strlen(test);
-        if (slen > tlen) {
+        if (slen > tlen || slen == 0) {
             return false;
         }
         const char* s = suffix + slen;
         const char* t = test + tlen;
-        while (--s != s) {
+        while (--s != suffix) {
             if (tolower(*s) != tolower(*--t)) {
                 return false;
             }

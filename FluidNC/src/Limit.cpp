@@ -15,7 +15,7 @@
 #include <freertos/queue.h>
 #include <atomic>  // fence
 
-xQueueHandle limit_sw_queue;  // used by limit switch debouncing
+QueueHandle_t limit_sw_queue;  // used by limit switch debouncing
 
 void limits_init() {
 #ifdef LATER  // We need to rethink debouncing
@@ -51,7 +51,7 @@ bool limits_startup_check() {  // return true if there is a hard limit error.
         for (size_t axis = 0; axis < n_axis; axis++) {
             for (size_t motor = 0; motor < 2; motor++) {
                 if (bitnum_is_true(lim_pin_state, Machine::Axes::motor_bit(axis, motor))) {
-                    log_warn("Active limit switch on " << Axes::axisName(axis) << " axis motor " << motor);
+                    log_warn("Active limit switch on " << Axes::axisName(axis) << " axis motor " << int(motor));
                 }
             }
         }

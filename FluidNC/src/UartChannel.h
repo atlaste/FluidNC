@@ -12,8 +12,8 @@ private:
     Lineedit* _lineedit;
     Uart*     _uart;
 
-    int _uart_num           = 0;
-    int _report_interval_ms = 0;
+    int32_t _uart_num           = 0;
+    int32_t _report_interval_ms = 0;
 
     static constexpr int _ack_timeout = 2000;
 

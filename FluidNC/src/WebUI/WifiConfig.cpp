@@ -25,6 +25,52 @@
 
 #include <esp_ota_ops.h>
 
+// For modern compilers, we need some different function calls. Rather than
+// attempting to rewrite everything, let's just define the problem away:
+#ifdef IDFBUILD
+#    include <esp_wifi.h>
+
+#    define tcpip_adapter_dhcp_status_t esp_netif_dhcp_status_t
+#    define tcpip_adapter_dhcpc_get_status esp_netif_dhcpc_get_status
+#    define tcpip_adapter_get_ip_info esp_netif_get_ip_info
+
+#    define tcpip_adapter_dhcps_get_status esp_netif_dhcps_get_status
+#    define tcpip_adapter_ip_info_t esp_netif_ip_info_t
+#    define tcpip_adapter_sta_list_t wifi_sta_list_t
+#    define tcpip_adapter_get_sta_list(station, list) esp_wifi_ap_get_sta_list(list)
+
+#    define SYSTEM_EVENT_WIFI_READY WIFI_EVENT_WIFI_READY
+#    define SYSTEM_EVENT_SCAN_DONE WIFI_EVENT_SCAN_DONE
+#    define SYSTEM_EVENT_STA_START WIFI_EVENT_STA_START
+#    define SYSTEM_EVENT_STA_STOP WIFI_EVENT_STA_STOP
+#    define SYSTEM_EVENT_STA_CONNECTED WIFI_EVENT_STA_CONNECTED
+#    define SYSTEM_EVENT_STA_DISCONNECTED WIFI_EVENT_STA_DISCONNECTED
+#    define SYSTEM_EVENT_STA_AUTHMODE_CHANGE WIFI_EVENT_STA_AUTHMODE_CHANGE
+#    define SYSTEM_EVENT_STA_GOT_IP IP_EVENT_STA_GOT_IP
+#    define SYSTEM_EVENT_STA_LOST_IP IP_EVENT_STA_LOST_IP
+#    define SYSTEM_EVENT_STA_WPS_ER_SUCCESS WIFI_EVENT_STA_WPS_ER_SUCCESS
+#    define SYSTEM_EVENT_STA_WPS_ER_FAILED WIFI_EVENT_STA_WPS_ER_FAILED
+#    define SYSTEM_EVENT_STA_WPS_ER_TIMEOUT WIFI_EVENT_STA_WPS_ER_TIMEOUT
+#    define SYSTEM_EVENT_STA_WPS_ER_PIN WIFI_EVENT_STA_WPS_ER_PIN
+#    define SYSTEM_EVENT_AP_START WIFI_EVENT_AP_START
+#    define SYSTEM_EVENT_AP_STOP WIFI_EVENT_AP_STOP
+#    define SYSTEM_EVENT_AP_STACONNECTED WIFI_EVENT_AP_STACONNECTED
+#    define SYSTEM_EVENT_AP_STADISCONNECTED WIFI_EVENT_AP_STADISCONNECTED
+#    define SYSTEM_EVENT_AP_PROBEREQRECVED WIFI_EVENT_AP_PROBEREQRECVED
+#    define SYSTEM_EVENT_ETH_GOT_IP IP_EVENT_ETH_GOT_IP
+
+#    define TCPIP_ADAPTER_DHCP_STARTED ESP_NETIF_DHCP_STARTED
+#    define TCPIP_ADAPTER_DHCP_STOPPED ESP_NETIF_DHCP_STOPPED
+
+// This doesn't make any sense.
+#    define GetIPAddr(x) "0.0.0.0"
+
+esp_netif_t* TCPIP_ADAPTER_IF_AP  = nullptr;
+esp_netif_t* TCPIP_ADAPTER_IF_STA = nullptr;
+#else
+#    define GetIPAddr(x) IP_string(IPAddress(x.ip.addr))
+#endif
+
 namespace WebUI {
     enum WiFiStartupMode {
         WiFiOff = 0,
@@ -324,9 +370,7 @@ namespace WebUI {
                     j.id_value_object("Connected channels", station.num);
 
                     for (int i = 0; i < station.num; i++) {
-                        j.id_value_object("",
-                                          std::string("") + mac2str(tcpip_sta_list.sta[i].mac) + " " +
-                                              IP_string(IPAddress(tcpip_sta_list.sta[i].ip.addr)));
+                        j.id_value_object("", std::string("") + mac2str(tcpip_sta_list.sta[i].mac) + " " + GetIPAddr(tcpip_sta_list.sta[i]));
                     }
                     j.id_value_object("Disabled Mode", std::string("STA (") + WiFi.macAddress().c_str() + ")");
                     break;
@@ -365,7 +409,7 @@ namespace WebUI {
 
                     if (WiFi.isConnected()) {  //in theory no need but ...
                         log_stream(out, "Connected to: " << WiFi.SSID().c_str());
-                        log_stream(out, "Signal: " << getSignal(WiFi.RSSI()) << "%");
+                        log_stream(out, "Signal: " << int(getSignal(WiFi.RSSI())) << "%");
 
                         uint8_t PhyMode;
                         esp_wifi_get_protocol(WIFI_IF_STA, &PhyMode);
@@ -384,7 +428,7 @@ namespace WebUI {
                                 phyModeName = "???";
                         }
                         log_stream(out, "Phy Mode: " << phyModeName);
-                        log_stream(out, "Channel: " << WiFi.channel());
+                        log_stream(out, "Channel: " << int(WiFi.channel()));
 
                         tcpip_adapter_dhcp_status_t dhcp_status;
                         tcpip_adapter_dhcpc_get_status(TCPIP_ADAPTER_IF_STA, &dhcp_status);
@@ -453,7 +497,7 @@ namespace WebUI {
                     log_stream(out, "Connected channels: " << station.num);
 
                     for (int i = 0; i < station.num; i++) {
-                        log_stream(out, mac2str(tcpip_sta_list.sta[i].mac) << " " << IP_string(IPAddress(tcpip_sta_list.sta[i].ip.addr)));
+                        log_stream(out, mac2str(tcpip_sta_list.sta[i].mac) << " " << GetIPAddr(tcpip_sta_list.sta[i]));
                     }
                     print_mac(out, "Disabled Mode: STA", WiFi.macAddress().c_str());
                     break;
@@ -868,9 +912,7 @@ namespace WebUI {
             return result;
         }
 
-        static bool isOn() {
-            return !(WiFi.getMode() == WIFI_OFF);
-        }
+        static bool isOn() { return !(WiFi.getMode() == WIFI_OFF); }
 
         // Used by js/scanwifidlg.js
 
@@ -920,7 +962,12 @@ namespace WebUI {
         }
 
     public:
-        WiFiConfig(const char* name) : Module(name) {}
+        WiFiConfig(const char* name) : Module(name) {
+#ifdef IDFBUILD
+            TCPIP_ADAPTER_IF_AP  = esp_netif_create_default_wifi_ap();
+            TCPIP_ADAPTER_IF_STA = esp_netif_create_default_wifi_sta();
+#endif
+        }
 
         void init() {
             _sta_ssid    = new StringSetting("Station SSID", WEBSET, WA, "ESP100", "Sta/SSID", "", MIN_SSID_LENGTH, MAX_SSID_LENGTH);
@@ -969,6 +1016,7 @@ namespace WebUI {
                         delay_ms(100);
                     }
                     // fall through to fallback to AP mode
+                    [[fallthrough]];
                 case WiFiAP:
                     if (StartAP()) {
                         goto wifi_on;
@@ -994,9 +1042,7 @@ namespace WebUI {
             //        wifi_services.begin();
         }
 
-        void deinit() override {
-            StopWiFi();
-        }
+        void deinit() override { StopWiFi(); }
 
         void build_info(Channel& channel) {
             std::string sti = station_info();
@@ -1024,13 +1070,9 @@ namespace WebUI {
             }
         }
 
-        bool is_radio() override {
-            return true;
-        }
+        bool is_radio() override { return true; }
 
-        ~WiFiConfig() {
-            deinit();
-        }
+        ~WiFiConfig() { deinit(); }
     };
 
     ModuleFactory::InstanceBuilder<WiFiConfig> __attribute__((init_priority(105))) wifi_module("wifi", true);

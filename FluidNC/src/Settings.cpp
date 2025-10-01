@@ -65,8 +65,7 @@ Command::Command(const char*   description,
                  const char*   fullName,
                  bool (*cmdChecker)(),
                  bool synchronous) :
-    Word(type, permissions, description, grblName, fullName),
-    _cmdChecker(cmdChecker), _synchronous(synchronous) {
+    Word(type, permissions, description, grblName, fullName), _synchronous(synchronous), _cmdChecker(cmdChecker) {
     List.insert(List.begin(), this);
 }
 
@@ -87,7 +86,7 @@ Setting::Setting(const char* description, type_t type, permissions_t permissions
         }
 
         char* hashName = (char*)malloc(16);  // Intentionally not freed
-        sprintf(hashName, "%.7s%08x", fullName, hash);
+        sprintf(hashName, "%.7s%08x", fullName, static_cast<unsigned int>(hash));
         _keyName = hashName;
     }
 }
@@ -173,7 +172,7 @@ Error IntSetting::setStringValue(std::string_view s) {
 
 const char* IntSetting::getDefaultString() {
     static char strval[32];
-    sprintf(strval, "%d", _defaultValue);
+    sprintf(strval, "%d", int(_defaultValue));
     return strval;
 }
 

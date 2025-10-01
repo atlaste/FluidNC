@@ -93,7 +93,7 @@ static void request_safety_door() {
 
 TaskHandle_t outputTask = nullptr;
 
-xQueueHandle message_queue;
+QueueHandle_t message_queue;
 
 void drain_messages() {
     while (uxQueueMessagesWaiting(message_queue)) {
@@ -185,7 +185,7 @@ void polling_loop(void* unused) {
                         if (Job::leader) {
                             log_error_to(*Job::leader,
                                          static_cast<int>(status) << " (" << errorString(status) << ") in " << channel->name()
-                                                                  << " at line " << channel->lineNumber());
+                                                                  << " at line " << int(channel->lineNumber()));
                         }
                         Job::abort();
                         break;
@@ -567,6 +567,9 @@ void protocol_do_motion_cancel() {
         case State::Hold:
         case State::SafetyDoor:
             break;
+
+        default:
+            break;
     }
 
     auto suspend             = sys.suspend();
@@ -607,6 +610,9 @@ static void protocol_do_feedhold() {
         case State::Jog:
             protocol_cancel_jogging();
             return;  // Do not change the state to Hold
+
+        default:
+            break;
     }
     set_state(State::Hold);
 }
@@ -665,6 +671,9 @@ static void protocol_do_safety_door() {
         case State::Jog:
             protocol_cancel_jogging();
             break;
+
+        default:
+            break;
     }
     if (!sys.suspend().bit.jogCancel) {
         // If jogging, leave the safety door event pending until the jog cancel completes
@@ -707,6 +716,9 @@ static void protocol_do_sleep() {
         case State::Hold:
         case State::Homing:
         case State::SafetyDoor:
+            break;
+
+        default:
             break;
     }
     set_state(State::Sleep);
@@ -788,6 +800,9 @@ static void protocol_do_cycle_start() {
         case State::Cycle:
         case State::Jog:
             break;
+
+        default:
+            break;
     }
 }
 
@@ -846,6 +861,7 @@ void protocol_do_cycle_stop() {
                 break;
             }
             // Fall through
+            [[fallthrough]];
         case State::ConfigAlarm:
         case State::Alarm:
             break;
@@ -878,6 +894,8 @@ void protocol_do_cycle_stop() {
             break;
         case State::Homing:
             Machine::Homing::cycleStop();
+            break;
+        default:  // Held, Critical
             break;
     }
 }
@@ -920,6 +938,7 @@ void protocol_exec_rt_system() {
         case State::CheckMode:
         case State::Idle:
         case State::Sleep:
+        default:  // Held, Critical
             break;
         case State::Cycle:
         case State::Hold:
@@ -1221,7 +1240,7 @@ const NoArgEvent rtResetEvent { protocol_do_rt_reset };
 // Event statusReportEvent { protocol_do_status_report(XXX) };
 const ArgEvent alarmEvent { (void (*)(void*))protocol_do_alarm };
 
-xQueueHandle event_queue;
+QueueHandle_t event_queue;
 
 void protocol_init() {
     event_queue   = xQueueCreate(10, sizeof(EventItem));

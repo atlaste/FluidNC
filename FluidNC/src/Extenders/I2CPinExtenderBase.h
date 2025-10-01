@@ -61,7 +61,7 @@ namespace Extenders {
         uint64_t         _claimed   = 0;
 
         Machine::I2CBus* _i2cBus;
-        int              _i2cBusId = 0;
+        int32_t          _i2cBusId = 0;
 
         static uint8_t IRAM_ATTR I2CGetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg);
         static void IRAM_ATTR    I2CSetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg, uint8_t value);

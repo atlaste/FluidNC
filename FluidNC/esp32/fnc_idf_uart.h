@@ -6,35 +6,37 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef IDFBUILD
 
-#include "esp_err.h"
-#include "esp_intr_alloc.h"
-#include "soc/soc_caps.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/ringbuf.h"
-#include "hal/uart_types.h"
+#    ifdef __cplusplus
+extern "C" {
+#    endif
+
+#    include "esp_err.h"
+#    include "esp_intr_alloc.h"
+#    include "soc/soc_caps.h"
+#    include "freertos/FreeRTOS.h"
+#    include "freertos/semphr.h"
+#    include "freertos/task.h"
+#    include "freertos/queue.h"
+#    include "freertos/ringbuf.h"
+#    include "hal/uart_types.h"
 
 // Valid UART port number
-#define UART_NUM_0 (0) /*!< UART port 0 */
-#define UART_NUM_1 (1) /*!< UART port 1 */
-#if SOC_UART_NUM > 2
-#    define UART_NUM_2 (2) /*!< UART port 2 */
-#endif
-#define UART_NUM_MAX (SOC_UART_NUM) /*!< UART port max */
+#    define UART_NUM_0 (0) /*!< UART port 0 */
+#    define UART_NUM_1 (1) /*!< UART port 1 */
+#    if SOC_UART_NUM > 2
+#        define UART_NUM_2 (2) /*!< UART port 2 */
+#    endif
+#    define UART_NUM_MAX (SOC_UART_NUM) /*!< UART port max */
 
 /* @brief When calling `uart_set_pin`, instead of GPIO number, `UART_PIN_NO_CHANGE`
  *        can be provided to keep the currently allocated pin.
  */
-#define UART_PIN_NO_CHANGE (-1)
+#    define UART_PIN_NO_CHANGE (-1)
 
-#define UART_FIFO_LEN SOC_UART_FIFO_LEN        ///< Length of the UART HW FIFO
-#define UART_BITRATE_MAX SOC_UART_BITRATE_MAX  ///< Maximum configurable bitrate
+#    define UART_FIFO_LEN SOC_UART_FIFO_LEN        ///< Length of the UART HW FIFO
+#    define UART_BITRATE_MAX SOC_UART_BITRATE_MAX  ///< Maximum configurable bitrate
 
 typedef void (*uart_data_callback_t)(uart_port_t uart_num, uint8_t* rx_buf, int* len);
 
@@ -45,7 +47,7 @@ typedef void (*uart_data_callback_t)(uart_port_t uart_num, uint8_t* rx_buf, int*
  */
 void fnc_uart_set_data_callback(uart_port_t uart_num, uart_data_callback_t uart_data_callback);
 
-#if 0
+#    if 0
 /**
  * @brief UART interrupt configuration parameters for uart_intr_config function
  */
@@ -83,7 +85,7 @@ typedef struct {
 
 typedef intr_handle_t uart_isr_handle_t;
 
-#endif
+#    endif
 
 /**
  * @brief Install UART driver and set the UART to the default configuration.
@@ -620,7 +622,7 @@ esp_err_t fnc_uart_get_buffered_data_len(uart_port_t uart_num, size_t* size);
  */
 esp_err_t fnc_uart_disable_pattern_det_intr(uart_port_t uart_num);
 
-#if CONFIG_IDF_TARGET_ESP32
+#    if CONFIG_IDF_TARGET_ESP32
 /**
  * @brief UART enable pattern detect function.
  *        Designed for applications like 'AT commands'.
@@ -644,7 +646,7 @@ esp_err_t fnc_uart_disable_pattern_det_intr(uart_port_t uart_num);
  */
 esp_err_t fnc_uart_enable_pattern_det_intr(uart_port_t uart_num, char pattern_chr, uint8_t chr_num, int chr_tout, int post_idle, int pre_idle)
     __attribute__((deprecated));
-#endif
+#    endif
 
 /**
  * @brief UART enable pattern detect function.
@@ -859,7 +861,7 @@ esp_err_t fnc_uart_wait_tx_idle_polling(uart_port_t uart_num);
   * @brief Configure TX signal loop back to RX module, just for the test usage.
   *
   * @param uart_num UART number
-  * @param loop_back_en Set true to enable the loop back function, else set it false.
+  * @param loop_back_en Set ture to enable the loop back function, else set it false.
   *
   * * @return
   *      - ESP_OK on success
@@ -882,6 +884,67 @@ esp_err_t fnc_uart_set_loop_back(uart_port_t uart_num, bool loop_back_en);
   */
 void fnc_uart_set_always_rx_timeout(uart_port_t uart_num, bool always_rx_timeout_en);
 
-#ifdef __cplusplus
+#    ifdef __cplusplus
 }
+#    endif
+
+#else
+
+#    include <driver/uart.h>
+
+#    ifdef __cplusplus
+extern "C" {
+#    endif
+
+typedef void (*uart_data_callback_t)(uart_port_t uart_num, uint8_t* rx_buf, int* len);
+
+/**
+ * @brief Set data callback function
+ * @param uart_num UART port number
+ * @param uart_data_callback callback function
+ */
+void fnc_uart_set_data_callback(uart_port_t uart_num, uart_data_callback_t uart_data_callback);
+
+esp_err_t fnc_uart_driver_install(
+    uart_port_t uart_num, int rx_buffer_size, int tx_buffer_size, int queue_size, QueueHandle_t* uart_queue, int intr_alloc_flags);
+#    ifdef __cplusplus
+}
+#    endif
+
+#    define fnc_uart_set_word_length uart_set_word_length
+#    define fnc_uart_get_word_length uart_get_word_length
+#    define fnc_uart_set_stop_bits uart_set_stop_bits
+#    define fnc_uart_get_stop_bits uart_get_stop_bits
+#    define fnc_uart_set_parity uart_set_parity
+#    define fnc_uart_get_parity uart_get_parity
+#    define fnc_uart_set_baudrate uart_set_baudrate
+#    define fnc_uart_get_baudrate uart_get_baudrate
+#    define fnc_uart_set_line_inverse uart_set_line_inverse
+#    define fnc_uart_set_hw_flow_ctrl uart_set_hw_flow_ctrl
+#    define fnc_uart_set_sw_flow_ctrl uart_set_sw_flow_ctrl
+#    define fnc_uart_get_hw_flow_ctrl uart_get_hw_flow_ctrl
+
+#    define fnc_uart_wait_tx_done uart_wait_tx_done
+#    define fnc_uart_set_pin uart_set_pin
+#    define fnc_uart_flush_input uart_flush_input
+#    define fnc_uart_get_buffered_data_len uart_get_buffered_data_len
+#    define fnc_uart_write_bytes uart_write_bytes
+#    define fnc_uart_read_bytes uart_read_bytes
+#    define fnc_uart_param_config uart_param_config
+
+#    define fnc_uart_enable_pattern_det_baud_intr uart_enable_pattern_det_baud_intr
+#    define fnc_uart_pattern_pop_pos uart_pattern_pop_pos
+#    define fnc_uart_pattern_get_pos uart_pattern_get_pos
+#    define fnc_uart_pattern_queue_reset uart_pattern_queue_reset
+#    define fnc_uart_set_mode uart_set_mode
+#    define fnc_uart_set_rx_full_threshold uart_set_rx_full_threshold
+#    define fnc_uart_set_tx_empty_threshold uart_set_tx_empty_threshold
+#    define fnc_uart_set_rx_timeout uart_set_rx_timeout
+#    define fnc_uart_get_collision_flag uart_get_collision_flag
+#    define fnc_uart_set_wakeup_threshold uart_set_wakeup_threshold
+#    define fnc_uart_get_wakeup_threshold uart_get_wakeup_threshold
+#    define fnc_uart_wait_tx_idle_polling uart_wait_tx_idle_polling
+#    define fnc_uart_set_loop_back uart_set_loop_back
+#    define fnc_uart_set_always_rx_timeout uart_set_always_rx_timeout
+
 #endif

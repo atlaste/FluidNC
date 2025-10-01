@@ -7,6 +7,7 @@
 
 #include "TrinamicSpiDriver.h"
 #include "Machine/MachineConfig.h"
+#include <cstdint> // MUST be before TMCStepper.h
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 #include <atomic>
 
@@ -42,7 +43,7 @@ namespace MotorDrivers {
     */
     void TrinamicSpiDriver::config_message() {
         log_info("    " << name() << " Step:" << _step_pin.name() << " Dir:" << _dir_pin.name() << " CS:" << _cs_pin.name()
-                        << " Disable:" << _disable_pin.name() << " Index:" << _spi_index << " R:" << _r_sense);
+                        << " Disable:" << _disable_pin.name() << " Index:" << int(_spi_index) << " R:" << _r_sense);
     }
 
     uint8_t TrinamicSpiDriver::toffValue() {

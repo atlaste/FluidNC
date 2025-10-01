@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <type_traits>
 #include "Logging.h"
 #include "Driver/delay_usecs.h"
 
@@ -112,7 +113,11 @@ T mapConstrain(T x, const T in_min, const T in_max, T out_min, T out_max) {
 template <typename T>
 bool constrain_with_message(T& value, const T min, const T max, const char* name = "") {
     if (value < min || value > max) {
-        log_warn(name << " value " << value << " constrained to range (" << min << "," << max << ")");
+        if constexpr (std::is_same_v<T, int32_t>) {
+            log_warn(name << " value " << int(value) << " constrained to range (" << int(min) << "," << int(max) << ")");
+        } else {
+            log_warn(name << " value " << value << " constrained to range (" << min << "," << max << ")");
+        }
         value = myConstrain(value, min, max);
         return false;
     }

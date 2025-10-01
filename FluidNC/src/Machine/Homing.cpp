@@ -186,8 +186,8 @@ namespace Machine {
 
             settle_ms = std::max(settle_ms, homing->_settle_ms);
 
-            float axis_rate;
-            float travel;
+            float axis_rate = 1.0f;
+            float travel = 0.0f;
             switch (phase) {
                 case Machine::Homing::Phase::FastApproach:
                     axis_rate = homing->_seekRate;
@@ -212,6 +212,8 @@ namespace Machine {
                         Stepping::block(axis, 0);
                     }
                     // All motors will be unblocked later by set_homing_mode()
+                    break;
+                default: // None, CycleDone.
                     break;
             }
 
@@ -245,6 +247,9 @@ namespace Machine {
                 case Machine::Homing::Phase::Pulloff1:
                 case Machine::Homing::Phase::Pulloff2:
                     distance[axis] = homing->_positiveDirection ? -travel : travel;
+                    break;
+
+                default:  // None, CycleDone.
                     break;
             }
 

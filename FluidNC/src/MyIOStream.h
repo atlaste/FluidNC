@@ -35,7 +35,7 @@ inline Print& operator<<(Print& lhs, int v) {
     return lhs;
 }
 
-inline Print& operator<<(Print& lhs, unsigned int v) {
+inline Print& operator<<(Print& lhs, uint32_t v) {
     lhs.print(v);
     return lhs;
 }

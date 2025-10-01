@@ -36,12 +36,12 @@ public:
     // E.g. some uses require an RTS pin.
 
     // Configurable.  If the console is Uart0, it uses a fixed configuration
-    int        _baud     = 115200;
+    int32_t    _baud     = 115200;
     UartData   _dataBits = UartData::Bits8;
     UartParity _parity   = UartParity::None;
     UartStop   _stopBits = UartStop::Bits1;
 
-    int        _passthrough_baud     = 0;
+    int32_t    _passthrough_baud     = 0;
     UartData   _passthrough_databits = UartData::Bits8;
     UartParity _passthrough_parity   = UartParity::Even;
     UartStop   _passthrough_stopbits = UartStop::Bits1;

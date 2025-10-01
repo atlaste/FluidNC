@@ -47,7 +47,7 @@ namespace Spindles {
         } else {
             _uart = config->_uarts[_uart_num];
             if (!_uart) {
-                log_error("VFDSpindle: Missing uart" << _uart_num << " section");
+                log_error("VFDSpindle: Missing uart" << int(_uart_num) << " section");
                 return;
             }
         }

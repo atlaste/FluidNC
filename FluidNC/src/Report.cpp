@@ -462,6 +462,8 @@ const char* state_name() {
             return "Door:2";  // Retracting
         case State::Sleep:
             return "Sleep";
+        default: // Held
+            break;
     }
     return "";
 }
@@ -536,7 +538,7 @@ void report_realtime_status(Channel& channel) {
     if (config->_reportInches) {
         rate /= MM_PER_INCH;
     }
-    msg << "|FS:" << setprecision(0) << rate << "," << sys.spindle_speed();
+    msg << "|FS:" << setprecision(0) << rate << "," << int(sys.spindle_speed());
 
     if (report_pin_string.length()) {
         msg << "|Pn:" << report_pin_string;

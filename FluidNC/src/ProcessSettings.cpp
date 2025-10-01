@@ -134,7 +134,7 @@ static void show_setting(const char* name, const char* value, const char* descri
 void settings_restore(uint8_t restore_flag) {
     if (restore_flag & SettingsRestore::Wifi) {
         for (Setting* s : Setting::List) {
-            if (!s->getType() != WEBSET) {
+            if (s->getType() != WEBSET) {
                 s->setDefault();
             }
         }
@@ -606,10 +606,10 @@ static Error listAlarms(const char* value, AuthenticationLevel auth_level, Chann
         }
         const char* alarmName = alarmString(static_cast<ExecAlarm>(alarmNumber));
         if (alarmName) {
-            log_stream(out, alarmNumber << ": " << alarmName);
+            log_stream(out, int(alarmNumber) << ": " << alarmName);
             return Error::Ok;
         } else {
-            log_stream(out, "Unknown alarm number: " << alarmNumber);
+            log_stream(out, "Unknown alarm number: " << int(alarmNumber));
             return Error::InvalidValue;
         }
     }
@@ -627,17 +627,17 @@ const char* errorString(Error errorNumber) {
 
 static Error listErrors(const char* value, AuthenticationLevel auth_level, Channel& out) {
     if (value) {
-        int errorNumber;
+        int32_t errorNumber;
         if (!string_util::from_decimal(value, errorNumber)) {
             log_stream(out, "Malformed error number: " << value);
             return Error::InvalidValue;
         }
         const char* errorName = errorString(static_cast<Error>(errorNumber));
         if (errorName) {
-            log_stream(out, errorNumber << ": " << errorName);
+            log_stream(out, int(errorNumber) << ": " << errorName);
             return Error::Ok;
         } else {
-            log_stream(out, "Unknown error number: " << errorNumber);
+            log_stream(out, "Unknown error number: " << int(errorNumber));
             return Error::InvalidValue;
         }
     }
@@ -761,7 +761,7 @@ static Error showGPIOs(const char* value, AuthenticationLevel auth_level, Channe
 #include "UartTypes.h"
 
 static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, Channel& out) {
-    int         timeout = 2000;
+    int32_t     timeout = 2000;
     std::string uart_name("auto");
     int         uart_num;
 
@@ -936,7 +936,7 @@ static Error setReportInterval(const char* value, AuthenticationLevel auth_level
     if (!value) {
         uint32_t actual = out.getReportInterval();
         if (actual) {
-            log_info_to(out, out.name() << " auto report interval is " << actual << " ms");
+            log_info_to(out, out.name() << " auto report interval is " << int(actual) << " ms");
         } else {
             log_info_to(out, out.name() << " auto reporting is off");
         }
@@ -950,7 +950,7 @@ static Error setReportInterval(const char* value, AuthenticationLevel auth_level
 
     uint32_t actual = out.setReportInterval(intValue);
     if (actual) {
-        log_info(out.name() << " auto report interval set to " << actual << " ms");
+        log_info(out.name() << " auto report interval set to " << int(actual) << " ms");
     } else {
         log_info(out.name() << " auto reporting turned off");
     }
@@ -971,7 +971,7 @@ static Error sendAlarm(const char* value, AuthenticationLevel auth_level, Channe
 }
 
 static Error showHeap(const char* value, AuthenticationLevel auth_level, Channel& out) {
-    log_info("Heap free: " << xPortGetFreeHeapSize() << " min: " << heapLowWater);
+    log_info("Heap free: " << int(xPortGetFreeHeapSize()) << " min: " << int(heapLowWater));
     return Error::Ok;
 }
 

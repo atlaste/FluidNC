@@ -106,7 +106,7 @@ namespace MotorDrivers {
         float feedrate = Stepper::get_realtime_rate();  //* settings.microsteps[axis_index] / 60.0 ; // convert mm/min to Hz
 
         if (tmc2209) {
-            log_info(axisName() << " SG_Val: " << tmc2209->SG_RESULT() << "   Rate: " << feedrate << " mm/min SG_Setting:" << _stallguard);
+            log_info(axisName() << " SG_Val: " << tmc2209->SG_RESULT() << "   Rate: " << feedrate << " mm/min SG_Setting:" << int(_stallguard));
         }
 
         _cs_pin.synchronousWrite(false);

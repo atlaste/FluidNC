@@ -14,6 +14,7 @@
 #include "Machine/MachineConfig.h"
 #include "Uart.h"
 
+#include <cstdint> // MUST be before TMCStepper.h
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 #include <atomic>
 
@@ -33,7 +34,7 @@ namespace MotorDrivers {
         log_info(" UART CS:" << );
     */
     void TrinamicUartDriver::config_message() {  //TODO: The RX/TX pin could be added to the msg.
-        log_info("    " << name() << " UART" << _uart_num << " Addr:" << _addr << " CS:" << _cs_pin.name() << " Step:" << _step_pin.name()
+        log_info("    " << name() << " UART" << int(_uart_num) << " Addr:" << _addr << " CS:" << _cs_pin.name() << " Step:" << _step_pin.name()
                         << " Dir:" << _dir_pin.name() << " Disable:" << _disable_pin.name() << " R:" << _r_sense);
     }
 

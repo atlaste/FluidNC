@@ -19,6 +19,14 @@
 #include "driver/dedic_gpio.h"
 #include "hal/cpu_ll.h"
 
+#ifdef IDFBUILD
+// Hmm. We might as well just use asm volatile("ee.wr_mask_gpio_out %0, %1" : : "r"(value), "r"(mask):);
+// The API isn't as stable as I would like
+#    include "hal/dedic_gpio_cpu_ll.h"
+#    define cpu_ll_write_dedic_gpio_mask dedic_gpio_cpu_ll_write_mask
+#endif
+
+
 static int i2s_out_initialized = 0;
 
 static uint32_t _pulse_delay_us;
@@ -43,9 +51,8 @@ static void setup_dedicated_gpios(pinnum_t bck_pin, pinnum_t data_pin, pinnum_t 
         },
     };
     ESP_ERROR_CHECK(dedic_gpio_new_bundle(&bundle_config, &bundle));
-    uint32_t* b = (uint32_t*)bundle;
+    uint32_t* b = (uint32_t*)bundle; // TODO FIXME?
 }
-
 static inline __attribute__((always_inline)) void oneclock(int32_t data) {
     cpu_ll_write_dedic_gpio_mask(3, data < 0);  // Set bck to 0 and data to the data bit
     __asm__ __volatile__("nop");                // Delay to reduce bck rate to about 21Mhz

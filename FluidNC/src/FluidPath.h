@@ -34,7 +34,8 @@ private:
 };
 
 #include <Print.h>
+
 inline Print& operator<<(Print& lhs, FluidPath path) {
-    lhs.print(path.u8string().c_str());
+    lhs.print((const char*)(path.u8string().c_str()));
     return lhs;
 }
