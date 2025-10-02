@@ -425,6 +425,23 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
         // Finish up by recalculating the plan with the new block.
         planner_recalculate();
     }
+
+    if (pl_data->modal.feed_rate == FeedRate::UnitsPerRev) {
+        block->spindle_sync = true;
+
+        // Store feed rate (which is in units/rev)
+        block->programmed_rate = pl_data->feed_rate;
+
+        // For planning purposes, convert units/rev to units/min
+        float spindle_rpm = spindle->getSpeed();
+        if (spindle_rpm > 0) {
+            pl_data->feed_rate *= spindle_rpm;
+        } else {
+            // Handle zero/low spindle speed
+            pl_data->feed_rate = config->_kinematics->minimumFeedRate();
+        }
+    }
+
     return true;
 }
 

@@ -21,6 +21,7 @@ struct PlMotion {
     uint8_t systemMotion : 1;    // Single motion. Circumvents planner state. Used by home/park.
     uint8_t noFeedOverride : 1;  // Motion does not honor feed override.
     uint8_t inverseTime : 1;     // Interprets feed rate value as inverse time when set.
+    uint8_t spindleSync : 1;     // Set to 1 for spindle-synchronized motion
 };
 
 // This struct stores a linear movement of a g-code block motion with its critical "nominal" values
@@ -57,6 +58,7 @@ struct plan_block_t {
     SpindleSpeed spindle_speed;  // Block spindle speed. Copied from pl_line_data.
 
     bool is_jog;
+    bool spindle_sync;  // True if spindle-synchronized motion
 };
 
 // Planner data prototype. Must be used when passing new motions to the planner.

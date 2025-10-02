@@ -585,6 +585,9 @@ Error gc_execute_line(const char* input_line) {
                         // gc_block.modal.control = ControlMode::ExactPath; // G61
                         mg_word_bit = ModalGroup::MG13;
                         break;
+                    case 95:  // Feed per revolution
+                        gc_block.modal.feed_rate = FeedRate::UnitsPerRev;
+                        break;
                     default:
                         return Error::GcodeUnsupportedCommand;  // [Unsupported G command]
                 }
@@ -1494,6 +1497,16 @@ Error gc_execute_line(const char* input_line) {
             }
         }
     }
+
+    // Spindle sync mode handling
+    if (gc_state.modal.feed_rate == FeedRate::UnitsPerRev) {
+        // Enable spindle sync mode if switching to units per rev
+        Stepper::setSpindleSyncMode(true);
+    } else if (previous_feed_mode == FeedRate::UnitsPerRev) {
+        // Disable spindle sync mode if switching away from units per rev
+        Stepper::setSpindleSyncMode(false);
+    }
+
     // [21. Program flow ]: No error checks required.
     // [0. Non-specific error-checks]: Complete unused value words check, i.e. IJK used when in arc
     // radius mode, or axis words that aren't used in the block.

@@ -117,6 +117,7 @@ enum class ProgramFlow : uint8_t {
 enum class FeedRate : gcodenum_t {
     UnitsPerMin = 940,  // G94 Default
     InverseTime = 930,  // G93
+    UnitsPerRev = 950,  // G95
 };
 
 // Modal Group G6: Units mode

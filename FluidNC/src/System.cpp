@@ -127,3 +127,58 @@ bool inMotionState() {
     return state_is(State::Cycle) || state_is(State::Homing) || state_is(State::Jog) ||
            (state_is(State::Hold) && !sys.suspend().bit.holdComplete);
 }
+
+// TODO FIXME: Put the following in some class in Machine:
+
+// Encoder pins
+const int ENCODER_A_PIN = GPIO_NUM_1;  // Set your pins
+const int ENCODER_B_PIN = GPIO_NUM_2;
+
+// Configure PCNT for the encoder
+void setupEncoderInterrupt() {
+    // Configure PCNT unit for quadrature mode
+    pcnt_config_t pcnt_config = {
+        .pulse_gpio_num = ENCODER_A_PIN,
+        .ctrl_gpio_num  = ENCODER_B_PIN,
+        .channel        = PCNT_CHANNEL_0,
+        .unit           = PCNT_UNIT_0,
+        .pos_mode       = PCNT_COUNT_INC,     // Count up on A rising if B=0
+        .neg_mode       = PCNT_COUNT_DEC,     // Count down on A falling if B=0
+        .lctrl_mode     = PCNT_MODE_REVERSE,  // Reverse counting direction if B=1
+        .hctrl_mode     = PCNT_MODE_KEEP,     // Keep counting direction if B=0
+        .counter_h_lim  = 32767,
+        .counter_l_lim  = -32768,
+    };
+
+    // Initialize PCNT
+    pcnt_unit_config(&pcnt_config);
+
+    // Set up counter filter to debounce input
+    pcnt_set_filter_value(PCNT_UNIT_0, 100);
+    pcnt_filter_enable(PCNT_UNIT_0);
+
+    // Set up interrupt service
+    pcnt_isr_service_install(0);
+    pcnt_isr_handler_add(PCNT_UNIT_0, encoder_pulse_isr, NULL);
+
+    // Initially, we'll just set up the PCNT but not enable interrupts
+    // We'll configure the threshold later when we have a segment to execute
+
+    // Initially disable interrupts until needed
+    pcnt_intr_disable(PCNT_UNIT_0);
+
+    // Start counting
+    pcnt_counter_clear(PCNT_UNIT_0);
+    pcnt_counter_resume(PCNT_UNIT_0);
+}
+
+// Interrupt handler for encoder pulses
+void IRAM_ATTR encoder_pulse_isr(void* arg) {
+    // Clear interrupt
+    PCNT.int_clr.val = BIT(PCNT_UNIT_0);
+
+    // Call stepper pulse function if in sync mode
+    if (Stepper::spindle_sync_active) {
+        Stepper::pulse_func();
+    }
+}

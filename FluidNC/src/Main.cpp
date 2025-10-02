@@ -47,6 +47,8 @@ void setup() {
         // Load settings from non-volatile storage
         settings_init();  // requires config
 
+        setupEncoderInterrupt();
+
         log_info("FluidNC " << git_info << " " << git_url);
 
         if (localfs_mount()) {

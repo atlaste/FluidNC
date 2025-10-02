@@ -926,6 +926,11 @@ void protocol_exec_rt_system() {
         protocol_do_safety_door();
     }
 
+    if (sys.state() == State::Idle && Stepper::spindle_sync_active) {
+        // If we're done executing motion and sync is still active, disable it
+        Stepper::setSpindleSyncMode(false);
+    }
+
     protocol_handle_events();
 
     // Reload step segment buffer

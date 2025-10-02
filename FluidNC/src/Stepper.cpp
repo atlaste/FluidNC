@@ -41,11 +41,12 @@ static volatile st_block_t* st_block_buffer = nullptr;
 // the planner, where the remaining planner block steps still can.
 struct segment_t {
     uint16_t     n_step;             // Number of step events to be executed for this segment
-    uint16_t     isrPeriod;          // Time to next ISR tick, in units of timer ticks
     uint8_t      st_block_index;     // Stepper block data index. Uses this information to execute this segment.
     uint8_t      amass_level;        // AMASS level for the ISR to execute this segment
+    uint32_t     isrPeriod;          // Time to next ISR tick, in units of timer ticks
     uint32_t     spindle_dev_speed;  // Spindle speed scaled to the device
     SpindleSpeed spindle_speed;      // Spindle speed in GCode units
+    bool         spindle_sync;       // Flag for spindle sync mode
 };
 static segment_t* segment_buffer = nullptr;
 
@@ -119,6 +120,9 @@ typedef struct {
 
 } st_prep_t;
 static st_prep_t prep;
+
+bool Stepper::spindle_sync_active = false; // TODO FIXME? Not sure if this is right.
+
 
 /* "The Stepper Driver Interrupt" - This timer interrupt is the workhorse, employing
    the venerable Bresenham line algorithm to manage and exactly synchronize multi-axis moves.
@@ -211,7 +215,19 @@ bool IRAM_ATTR Stepper::pulse_func() {
         if (segment_buffer_head != segment_buffer_tail) {
             // Initialize new step segment and load number of steps to execute
             st.exec_segment = &segment_buffer[segment_buffer_tail];
-            // Initialize step segment timing per step and load number of steps to execute.
+
+            if (st.exec_segment->spindle_sync) {
+                // Configure PCNT to generate interrupt after the exact number
+                // of pulses needed for this segment
+                configureEncoderThreshold(st.exec_segment->isrPeriod);
+            } else {
+                // For normal segments, set timer period:
+                // Initialize step segment timing per step and load number of steps to execute.
+                config->_stepping->setTimerPeriod(st.exec_segment->isrPeriod);
+            }
+
+            st.step_count = st.exec_segment->n_step;  // NOTE: Can sometimes be zero when moving slow.
+            
             Stepping::setTimerPeriod(st.exec_segment->isrPeriod);
             st.step_count = st.exec_segment->n_step;  // NOTE: Can sometimes be zero when moving slow.
             // If the new segment starts a new planner block, initialize stepper variables and counters.
@@ -247,6 +263,22 @@ bool IRAM_ATTR Stepper::pulse_func() {
             Stepping::unstep();
             return false;  // Nothing to do but exit.
         }
+    }
+
+    // For spindle-sync mode, increment pulse counter and check if steps should be taken
+    if (st.exec_segment->spindle_sync) {
+        // Increment the pulse counter (add 1.0 in fixed-point)
+        st.exec_segment->counter_x += 65536;
+
+        // Only produce steps if we've accumulated enough pulses
+        uint32_t steps_to_take = (st.exec_segment->counter_x * st.exec_segment->isrPeriod) >> 16;
+        if (steps_to_take == 0) {
+            config->_axes->unstep();
+            return true;  // Continue but don't step yet
+        }
+
+        // Decrement counter by consumed pulses
+        st.exec_segment->counter_x -= steps_to_take << 16;
     }
 
     for (int axis = 0; axis < n_axis; axis++) {
@@ -731,6 +763,26 @@ void Stepper::prep_buffer() {
         // largest value that will fit in a uint16_t.
         prep_segment->isrPeriod = timerTicks > 0xffff ? 0xffff : timerTicks;
 
+        // In the segment preparation code:
+        if (pl_block->spindle_sync) {
+            // Flag this segment as spindle-synchronized
+            prep_segment->spindle_sync = true;
+
+            // Calculate steps per encoder pulse based on existing plan data
+            float steps_per_mm = prep.step_per_mm;
+            float mm_per_rev   = pl_block->programmed_rate;  // Already stored as mm/rev
+
+            // Calculate steps per encoder pulse
+            const float ENCODER_PPR           = 5000.0f;
+            float       steps_per_pulse_float = steps_per_mm * mm_per_rev / ENCODER_PPR;
+
+            // Store in isrPeriod field as fixed-point value (Q16.16)
+            prep_segment->isrPeriod = (uint32_t)(steps_per_pulse_float * 65536.0f);
+
+            // Reset pulse tracking - use existing counter fields
+            prep_segment->counter_x = 0;  // Repurpose as pulse accumulator
+        }
+
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
         auto lastseg        = segment_next_head;
         segment_next_head   = segment_next_head >= (Stepping::_segments - 1) ? 0 : segment_next_head + 1;
@@ -779,5 +831,39 @@ float Stepper::get_realtime_rate() {
             return prep.current_speed;
         default:
             return 0.0f;
+    }
+}
+
+// This function sets the PCNT threshold when a sync segment is loaded
+void IRAM_ATTR Stepper::configureEncoderThreshold(uint16_t pulse_count) {
+    // Set threshold to the pulse count needed for this segment
+    pcnt_set_event_value(PCNT_UNIT_0, PCNT_EVT_THRES_0, pulse_count);
+
+    // Enable threshold interrupt
+    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_THRES_0);
+
+    // Clear counter and enable interrupt
+    pcnt_counter_clear(PCNT_UNIT_0);
+    pcnt_intr_enable(PCNT_UNIT_0);
+}
+
+// set spindle sync mode
+void Stepper::setSpindleSyncMode(bool enable) {
+    if (enable && !spindle_sync_active) {
+        // Disable timer interrupts
+        config->_stepping->stopTimer();
+
+        // Configure initial PCNT behavior
+        // We'll set the specific threshold when a segment is loaded
+
+        spindle_sync_active = true;
+    } else if (!enable && spindle_sync_active) {
+        // Disable encoder interrupts
+        pcnt_intr_disable(PCNT_UNIT_0);
+
+        // Re-enable timer interrupts
+        config->_stepping->startTimer();
+
+        spindle_sync_active = false;
     }
 }
