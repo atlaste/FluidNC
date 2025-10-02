@@ -99,7 +99,7 @@ namespace Machine {
         _bitmask = Axes::axes_to_motors(Axes::motors_to_axes(_bitmask));
     }
 
-    void LimitPin::setExtraMotorLimit(int axis, int motorNum) {
+    void LimitPin::setExtraMotorLimit(uint8_t axis, uint8_t motorNum) {
         _pExtraLimited = Stepping::limit_var(axis, motorNum);
     }
 }

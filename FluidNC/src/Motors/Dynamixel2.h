@@ -55,7 +55,7 @@ namespace MotorDrivers {
 
         static std::vector<Dynamixel2*> _instances;
 
-        int _axis_index;
+        uint8_t _axis_index;
 
         static Uart* _uart;
 

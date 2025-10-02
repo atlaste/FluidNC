@@ -45,7 +45,7 @@ namespace Pins {
     }
 
     // cppcheck-suppress unusedFunction
-    int PinOption::iValue() const {
+    int32_t PinOption::iValue() const {
         // Parse to integer
         int num;
         std::from_chars(_value.data(), _value.data() + _value.length(), num);

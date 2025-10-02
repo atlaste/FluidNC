@@ -27,7 +27,7 @@ namespace MotorDrivers {
         uint32_t _min_pulse_cnt = 0;  // microseconds
         uint32_t _max_pulse_cnt = 0;  // microseconds
 
-        int _axis_index = -1;
+        uint8_t _axis_index = -1;
 
         bool _has_errors = false;
 

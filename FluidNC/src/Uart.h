@@ -19,7 +19,7 @@ private:
     // are handled.
     int _pushback = -1;
 
-    bool setPins(int tx_pin, int rx_pin, int rts_pin = -1, int cts_pin = -1);
+    bool setPins(pinnum_t tx_pin, pinnum_t rx_pin, pinnum_t rts_pin = -1, pinnum_t cts_pin = -1);
 
     int _uart_num = 0;  // Hardware UART engine number
 
@@ -54,9 +54,9 @@ public:
     // Name is required for the configuration factory to work.
     std::string name() { return _name; }
 
-    Uart(int uart_num = -1);
+    Uart(uint8_t uart_num = -1);
     void begin();
-    void begin(unsigned long baud, UartData dataBits, UartStop stopBits, UartParity parity);
+    void begin(uint32_t baud, UartData dataBits, UartStop stopBits, UartParity parity);
 
     // Stream methods - Uart must inherit from Stream because the TMCStepper library
     // needs a Stream instance.
@@ -85,7 +85,7 @@ public:
 
     void setSwFlowControl(bool on, int rx_threshold, int tx_threshold);
     void getSwFlowControl(bool& enabled, int& rx_threshold, int& tx_threshold);
-    void changeMode(unsigned long baud, UartData dataBits, UartParity parity, UartStop stopBits);
+    void changeMode(uint32_t baud, UartData dataBits, UartParity parity, UartStop stopBits);
     void restoreMode();
 
     void enterPassthrough();

@@ -47,7 +47,7 @@ namespace Machine {
         static void run_cycles(AxisMask axisMask);
         static void run_one_cycle(AxisMask axisMask);
 
-        static AxisMask axis_mask_from_cycle(int cycle);
+        static AxisMask axis_mask_from_cycle(uint32_t cycle);
         static void     run(MotorMask remainingMotors, Phase phase);
 
         static void startMove(AxisMask axisMask, MotorMask motors, Phase phase, uint32_t& settle_ms);

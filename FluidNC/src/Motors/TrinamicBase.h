@@ -5,7 +5,6 @@
 
 #include "StandardStepper.h"
 #include "EnumItem.h"
-#include <cstdint> // MUST be before TMCStepper.h
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 
 namespace MotorDrivers {
@@ -34,10 +33,10 @@ namespace MotorDrivers {
         TrinamicMode _mode     = TrinamicMode::StealthChop;
 
         // Configurable
-        int   _homing_mode = StealthChop;
-        int   _run_mode    = StealthChop;
-        float _r_sense     = 0;
-        bool  _use_enable  = false;
+        uint32_t _homing_mode = StealthChop;
+        uint32_t _run_mode    = StealthChop;
+        float    _r_sense     = 0;
+        bool     _use_enable  = false;
 
         float   _run_current         = 0.50;
         float   _hold_current        = 0.50;

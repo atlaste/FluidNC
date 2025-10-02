@@ -93,7 +93,7 @@ namespace Extenders {
             bool        _hasISR          = false;
             ISRCallback _isrCallback[16] = { 0 };
             void*       _isrArgument[16] = { 0 };
-            int         _isrMode[16]     = { 0 };
+            uint8_t     _isrMode[16]     = { 0 };
 
             void IRAM_ATTR updateValueFromDevice();
         };
@@ -123,7 +123,7 @@ namespace Extenders {
         bool IRAM_ATTR readPin(pinnum_t index) override;
         void IRAM_ATTR flushWrites() override;
 
-        void attachInterrupt(pinnum_t index, void (*callback)(void*, bool), void* arg, int mode) override;
+        void attachInterrupt(pinnum_t index, void (*callback)(void*, bool), void* arg, uint8_t mode) override;
         void detachInterrupt(pinnum_t index) override;
 
         ~I2CPinExtenderBase();

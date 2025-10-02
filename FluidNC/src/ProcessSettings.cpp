@@ -436,7 +436,7 @@ static Error home_all(const char* value, AuthenticationLevel auth_level, Channel
     // value can be a list of cycle numbers like "21", which will run homing cycle 2 then cycle 1,
     // or a list of axis names like "XZ", which will home the X and Z axes simultaneously
     if (value) {
-        int        ndigits  = 0;
+        uint8_t    ndigits  = 0;
         const auto lenValue = strlen(value);
         for (int i = 0; i < lenValue; i++) {
             char cycleName = value[i];
@@ -754,7 +754,7 @@ static Error showGPIOs(const char* value, AuthenticationLevel auth_level, Channe
 static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, Channel& out) {
     int32_t     timeout = 2000;
     std::string uart_name("auto");
-    int         uart_num;
+    int8_t      uart_num;
 
     if (value) {
         std::string_view rest(value);
@@ -820,6 +820,9 @@ static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, 
         channel = nullptr;  // Leave channel null if not found
     }
 
+    bool flow;
+    int  xon_threshold;
+    int  xoff_threshold;
 
     if (channel) {
         channel->pause();
@@ -949,7 +952,7 @@ static Error setReportInterval(const char* value, AuthenticationLevel auth_level
 }
 
 static Error sendAlarm(const char* value, AuthenticationLevel auth_level, Channel& out) {
-    int       intValue = value ? atoi(value) : 0;
+    int32_t   intValue = value ? atoi(value) : 0;
     ExecAlarm alarm    = static_cast<ExecAlarm>(intValue);
     log_debug("Sending alarm " << intValue << " " << alarmString(alarm));
     send_alarm(alarm);

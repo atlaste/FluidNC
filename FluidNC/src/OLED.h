@@ -58,7 +58,7 @@ private:
     void parse_WebUI();
 
     void parse_axes(std::string s, float* axes);
-    void parse_numbers(std::string s, float* nums, int maxnums);
+    void parse_numbers(std::string s, float* nums, uint8_t maxnums);
 
     void show_limits(bool probe, const bool* limits);
     void show_state();

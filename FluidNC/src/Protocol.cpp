@@ -1068,8 +1068,8 @@ static void protocol_exec_rt_suspend() {
 }
 
 static void protocol_do_feed_override(void* incrementvp) {
-    int increment = int((intptr_t)incrementvp);
-    int percent;
+    int32_t increment = int((intptr_t)incrementvp);
+    uint8_t percent;
     if (increment == FeedOverride::Default) {
         percent = FeedOverride::Default;
     } else {
@@ -1088,7 +1088,7 @@ static void protocol_do_feed_override(void* incrementvp) {
 }
 
 static void protocol_do_rapid_override(void* percentvp) {
-    int percent = intptr_t(percentvp);
+    uint8_t percent = uint8_t(intptr_t(percentvp));
     if (percent != sys.r_override()) {
         sys.set_r_override(percent);
         update_velocities();
@@ -1097,8 +1097,8 @@ static void protocol_do_rapid_override(void* percentvp) {
 }
 
 static void protocol_do_spindle_override(void* incrementvp) {
-    int percent;
-    int increment = intptr_t(incrementvp);
+    uint8_t percent;
+    int32_t increment = intptr_t(incrementvp);
     if (increment == SpindleSpeedOverride::Default) {
         percent = SpindleSpeedOverride::Default;
     } else {
