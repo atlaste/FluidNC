@@ -27,6 +27,8 @@
 
 extern void make_user_commands();
 
+void setupEncoderInterrupt();
+
 void setup() {
     platform_preinit();
 

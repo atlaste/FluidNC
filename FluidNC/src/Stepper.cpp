@@ -19,6 +19,9 @@
 
 using namespace Stepper;
 
+void        configureEncoderThreshold(uint16_t pulse_count);
+void        enableSpindleSync(bool enabled);
+
 static bool awake = false;
 
 // Stores the planner block Bresenham algorithm execution data for the segments in the segment
@@ -268,17 +271,17 @@ bool IRAM_ATTR Stepper::pulse_func() {
     // For spindle-sync mode, increment pulse counter and check if steps should be taken
     if (st.exec_segment->spindle_sync) {
         // Increment the pulse counter (add 1.0 in fixed-point)
-        st.exec_segment->counter_x += 65536;
+        st.exec_segment->n_step += 65536;
 
         // Only produce steps if we've accumulated enough pulses
-        uint32_t steps_to_take = (st.exec_segment->counter_x * st.exec_segment->isrPeriod) >> 16;
+        uint32_t steps_to_take = (st.exec_segment->n_step * st.exec_segment->isrPeriod) >> 16;
         if (steps_to_take == 0) {
-            config->_axes->unstep();
+            Stepping::unstep();
             return true;  // Continue but don't step yet
         }
 
         // Decrement counter by consumed pulses
-        st.exec_segment->counter_x -= steps_to_take << 16;
+        st.exec_segment->n_step -= steps_to_take << 16;
     }
 
     for (int axis = 0; axis < n_axis; axis++) {
@@ -780,7 +783,7 @@ void Stepper::prep_buffer() {
             prep_segment->isrPeriod = (uint32_t)(steps_per_pulse_float * 65536.0f);
 
             // Reset pulse tracking - use existing counter fields
-            prep_segment->counter_x = 0;  // Repurpose as pulse accumulator
+            prep_segment->n_step = 0;  // Repurpose as pulse accumulator
         }
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
@@ -834,36 +837,4 @@ float Stepper::get_realtime_rate() {
     }
 }
 
-// This function sets the PCNT threshold when a sync segment is loaded
-void IRAM_ATTR Stepper::configureEncoderThreshold(uint16_t pulse_count) {
-    // Set threshold to the pulse count needed for this segment
-    pcnt_set_event_value(PCNT_UNIT_0, PCNT_EVT_THRES_0, pulse_count);
 
-    // Enable threshold interrupt
-    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_THRES_0);
-
-    // Clear counter and enable interrupt
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_intr_enable(PCNT_UNIT_0);
-}
-
-// set spindle sync mode
-void Stepper::setSpindleSyncMode(bool enable) {
-    if (enable && !spindle_sync_active) {
-        // Disable timer interrupts
-        config->_stepping->stopTimer();
-
-        // Configure initial PCNT behavior
-        // We'll set the specific threshold when a segment is loaded
-
-        spindle_sync_active = true;
-    } else if (!enable && spindle_sync_active) {
-        // Disable encoder interrupts
-        pcnt_intr_disable(PCNT_UNIT_0);
-
-        // Re-enable timer interrupts
-        config->_stepping->startTimer();
-
-        spindle_sync_active = false;
-    }
-}

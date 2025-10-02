@@ -45,8 +45,8 @@ namespace Stepper {
     // Called by realtime status reporting if realtime rate reporting is enabled in config.h.
     float get_realtime_rate();
 
-    void setSpindleSyncMode(bool enable);
-
     extern uint32_t isr_count;
     extern bool     spindle_sync_active;
 }
+
+void setSpindleSyncMode(bool enable);

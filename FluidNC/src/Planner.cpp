@@ -247,21 +247,25 @@ uint8_t plan_check_full_buffer() {
 // Computes and returns block nominal speed based on running condition and override values.
 // NOTE: All system motion commands, such as homing/parking, are not subject to overrides.
 float plan_compute_profile_nominal_speed(plan_block_t* block) {
-    float nominal_speed = block->programmed_rate;
-    if (block->motion.rapidMotion) {
-        nominal_speed *= (0.01f * sys.r_override());
+    if (!block->spindle_sync) {
+        float nominal_speed = block->programmed_rate;
+        if (block->motion.rapidMotion) {
+            nominal_speed *= (0.01f * sys.r_override());
+        } else {
+            if (!(block->motion.noFeedOverride)) {
+                nominal_speed *= (0.01f * sys.f_override());
+            }
+            if (nominal_speed > block->rapid_rate) {
+                nominal_speed = block->rapid_rate;
+            }
+        }
+        if (nominal_speed > MINIMUM_FEED_RATE) {
+            return nominal_speed;
+        }
+        return MINIMUM_FEED_RATE;
     } else {
-        if (!(block->motion.noFeedOverride)) {
-            nominal_speed *= (0.01f * sys.f_override());
-        }
-        if (nominal_speed > block->rapid_rate) {
-            nominal_speed = block->rapid_rate;
-        }
+        return block->programmed_rate;
     }
-    if (nominal_speed > MINIMUM_FEED_RATE) {
-        return nominal_speed;
-    }
-    return MINIMUM_FEED_RATE;
 }
 
 // Computes and updates the max entry speed (sqr) of the block, based on the minimum of the junction's
@@ -426,7 +430,7 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
         planner_recalculate();
     }
 
-    if (pl_data->modal.feed_rate == FeedRate::UnitsPerRev) {
+    if (pl_data->motion.spindleSync) {
         block->spindle_sync = true;
 
         // Store feed rate (which is in units/rev)
@@ -434,11 +438,11 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
 
         // For planning purposes, convert units/rev to units/min
         float spindle_rpm = spindle->getSpeed();
-        if (spindle_rpm > 0) {
-            pl_data->feed_rate *= spindle_rpm;
+        if (spindle_rpm > MINIMUM_FEED_RATE) {
+            block->programmed_rate = pl_data->feed_rate * spindle_rpm;
         } else {
             // Handle zero/low spindle speed
-            pl_data->feed_rate = config->_kinematics->minimumFeedRate();
+            block->programmed_rate = MINIMUM_FEED_RATE;
         }
     }
 

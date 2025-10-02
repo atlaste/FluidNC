@@ -74,6 +74,16 @@ namespace Spindles {
         volatile SpindleState _current_state = SpindleState::Unknown;
         volatile SpindleSpeed _current_speed = 0;
 
+        inline int32_t getSpeed() {
+            if (_current_state == SpindleState::Cw) {
+                return int(_current_speed);
+            } else if (_current_state == SpindleState::Ccw) {
+                return -int(_current_speed);
+            } else {
+                return 0;
+            }
+        }
+
         // scaler units are ms/rpm * 2^16.
         // The computation is deltaRPM * scaler >> 16
         uint32_t _spinup_ms   = 0;

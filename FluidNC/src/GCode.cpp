@@ -1501,10 +1501,10 @@ Error gc_execute_line(const char* input_line) {
     // Spindle sync mode handling
     if (gc_state.modal.feed_rate == FeedRate::UnitsPerRev) {
         // Enable spindle sync mode if switching to units per rev
-        Stepper::setSpindleSyncMode(true);
-    } else if (previous_feed_mode == FeedRate::UnitsPerRev) {
+        setSpindleSyncMode(true);
+    } else {
         // Disable spindle sync mode if switching away from units per rev
-        Stepper::setSpindleSyncMode(false);
+        setSpindleSyncMode(false);
     }
 
     // [21. Program flow ]: No error checks required.

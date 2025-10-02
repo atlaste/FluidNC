@@ -305,6 +305,9 @@ void report_gcode_modes(Channel& channel) {
 #endif
 
     switch (gc_state.modal.feed_rate) {
+        case FeedRate::UnitsPerRev:
+            msg << " G95";
+            break;
         case FeedRate::UnitsPerMin:
             msg << " G94";
             break;

@@ -158,5 +158,9 @@ idf_component_register(SRCS BTConfig.cpp
 							Extra/ADC/NHB_AD7794.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "../lib/SSD1306/src" "../lib/arduinoWebSockets/src"
                        REQUIRES driver fatfs vfs sdmmc spiffs
-                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 esp32 lib app_update
+                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 esp32 lib app_update esp_driver_pcnt
 					   WHOLE_ARCHIVE)
+
+
+# Force a rebuild of the registry when source files change
+set_property(TARGET ${COMPONENT_LIB} PROPERTY ADDITIONAL_CLEAN_FILES ${REGISTRY_OUTPUT})

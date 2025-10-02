@@ -74,8 +74,6 @@ namespace Machine {
 
         static void set_disable(int axis, bool disable);
         static void set_disable(bool disable);
-        static void step(uint8_t step_mask, uint8_t dir_mask);
-        static void unstep();
         static void config_motors();
 
         static std::string maskToNames(AxisMask mask);

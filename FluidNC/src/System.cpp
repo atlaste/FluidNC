@@ -15,6 +15,8 @@
 #include <cstring>  // memset
 #include <cmath>    // roundf
 
+#include "driver/pulse_cnt.h"  // pctr
+
 // Declare system global variable structure
 system_t sys;
 int32_t  probe_steps[MAX_N_AXIS];  // Last probe position in steps.
@@ -128,57 +130,98 @@ bool inMotionState() {
            (state_is(State::Hold) && !sys.suspend().bit.holdComplete);
 }
 
-// TODO FIXME: Put the following in some class in Machine:
+// TODO FIXME: Put the following in some class in Machine. And fix the implementation; this is the general idea, but not good enough.
+pcnt_unit_handle_t pcnt_unit = NULL;
+int                watch_point = 32767;
 
-// Encoder pins
-const int ENCODER_A_PIN = GPIO_NUM_1;  // Set your pins
-const int ENCODER_B_PIN = GPIO_NUM_2;
+// Interrupt handler for encoder pulses
+bool IRAM_ATTR encoder_pulse_isr(pcnt_unit_handle_t unit, const pcnt_watch_event_data_t* edata, void* user_ctx) {
+    // Call stepper pulse function if in sync mode
+    if (Stepper::spindle_sync_active) {
+        Stepper::pulse_func();
+    }
+    return true;
+}
 
 // Configure PCNT for the encoder
 void setupEncoderInterrupt() {
     // Configure PCNT unit for quadrature mode
-    pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = ENCODER_A_PIN,
-        .ctrl_gpio_num  = ENCODER_B_PIN,
-        .channel        = PCNT_CHANNEL_0,
-        .unit           = PCNT_UNIT_0,
-        .pos_mode       = PCNT_COUNT_INC,     // Count up on A rising if B=0
-        .neg_mode       = PCNT_COUNT_DEC,     // Count down on A falling if B=0
-        .lctrl_mode     = PCNT_MODE_REVERSE,  // Reverse counting direction if B=1
-        .hctrl_mode     = PCNT_MODE_KEEP,     // Keep counting direction if B=0
-        .counter_h_lim  = 32767,
-        .counter_l_lim  = -32768,
+    log_info("Configuring encoder");
+
+    pcnt_unit_config_t unit_config = { .low_limit = -32767, .high_limit = 32767, .intr_priority = 12, .flags { .accum_count = 1 } };
+    pcnt_new_unit(&unit_config, &pcnt_unit);
+
+    pcnt_glitch_filter_config_t filter_config = {
+        .max_glitch_ns = 100,  // TODO: Calculate this based on max spindle speed and ppr.
     };
+    pcnt_unit_set_glitch_filter(pcnt_unit, &filter_config);
 
-    // Initialize PCNT
-    pcnt_unit_config(&pcnt_config);
+    pcnt_chan_config_t chan_a_config = {};
+    chan_a_config.edge_gpio_num      = 1;
+    chan_a_config.level_gpio_num     = 2;
+    pcnt_chan_config_t chan_b_config = {};
+    chan_b_config.edge_gpio_num      = chan_a_config.level_gpio_num;
+    chan_b_config.level_gpio_num     = chan_a_config.edge_gpio_num;
 
-    // Set up counter filter to debounce input
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
+    pcnt_channel_handle_t pcnt_chan_a = NULL;
+    pcnt_channel_handle_t pcnt_chan_b = NULL;
 
-    // Set up interrupt service
-    pcnt_isr_service_install(0);
-    pcnt_isr_handler_add(PCNT_UNIT_0, encoder_pulse_isr, NULL);
+    pcnt_new_channel(pcnt_unit, &chan_b_config, &pcnt_chan_b);
 
-    // Initially, we'll just set up the PCNT but not enable interrupts
-    // We'll configure the threshold later when we have a segment to execute
+    pcnt_channel_set_edge_action(pcnt_chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+    pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+    pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+    pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
 
-    // Initially disable interrupts until needed
-    pcnt_intr_disable(PCNT_UNIT_0);
+    watch_point = 32767;
+    pcnt_unit_add_watch_point(pcnt_unit, watch_point);
+    pcnt_unit_add_watch_point(pcnt_unit, -watch_point);
 
-    // Start counting
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
+    pcnt_event_callbacks_t cbs = {};
+    cbs.on_reach               = encoder_pulse_isr;
+    pcnt_unit_register_event_callbacks(pcnt_unit, &cbs, nullptr);
+
+    pcnt_unit_enable(pcnt_unit);
+    pcnt_unit_clear_count(pcnt_unit);
+    pcnt_unit_start(pcnt_unit);
+}
+void IRAM_ATTR enableSpindleSync(bool enabled) {
+    // TODO FIXME: Seems wrong.
+    if (enabled) {
+        pcnt_unit_enable(pcnt_unit);
+    } else {
+        pcnt_unit_disable(pcnt_unit);
+    }
 }
 
-// Interrupt handler for encoder pulses
-void IRAM_ATTR encoder_pulse_isr(void* arg) {
-    // Clear interrupt
-    PCNT.int_clr.val = BIT(PCNT_UNIT_0);
+// This function sets the PCNT threshold when a sync segment is loaded
+void IRAM_ATTR configureEncoderThreshold(uint16_t pulse_count) {
+    pcnt_unit_remove_watch_point(pcnt_unit, watch_point);
+    pcnt_unit_remove_watch_point(pcnt_unit, -watch_point);
+    pcnt_unit_add_watch_point(pcnt_unit, pulse_count);
+    pcnt_unit_add_watch_point(pcnt_unit, -pulse_count);
+    watch_point = pulse_count;
+}
 
-    // Call stepper pulse function if in sync mode
-    if (Stepper::spindle_sync_active) {
-        Stepper::pulse_func();
+// set spindle sync mode
+void setSpindleSyncMode(bool enable) {
+    if (enable && !Stepper::spindle_sync_active) {
+        // Disable timer interrupts
+        config->_stepping->stopTimer();
+
+        // Configure initial PCNT behavior
+        // We'll set the specific threshold when a segment is loaded
+
+        Stepper::spindle_sync_active = true;
+        pcnt_unit_enable(pcnt_unit);
+
+    } else if (!enable && Stepper::spindle_sync_active) {
+        // Disable encoder interrupts
+        pcnt_unit_disable(pcnt_unit);
+
+        // Re-enable timer interrupts
+        config->_stepping->startTimer();
+
+        Stepper::spindle_sync_active = false;
     }
 }
