@@ -1,8 +1,8 @@
-board: None
-name: Default (Test Drive no I/O)
-meta: 
+board: Stefans S3 board
+name: Stefans S3 lathe
+
 stepping:
-  engine: RMT
+  engine: I2S
   idle_ms: 255
   pulse_us: 4
   dir_delay_us: 0
@@ -10,27 +10,31 @@ stepping:
   segments: 12
 
 spi:
-  miso_pin: NO_PIN
-  mosi_pin: NO_PIN
-  sck_pin: NO_PIN
+  miso_pin: gpio.13
+  mosi_pin: gpio.11
+  sck_pin: gpio.12
 
 sdcard:
-  cs_pin: NO_PIN
+  cs_pin: gpio.0
   card_detect_pin: NO_PIN
   frequency_hz: 8000000
 
 kinematics:
   Cartesian:
-
+  
+i2so:
+  bck_pin: gpio.8
+  data_pin: gpio.14
+  ws_pin: gpio.21
+  min_pulse_us: 2
+  
 axes:
-  shared_stepper_disable_pin: NO_PIN
-  shared_stepper_reset_pin: NO_PIN
   homing_runs: 2
   x:
     steps_per_mm: 80.000000
     max_rate_mm_per_min: 1000.000000
     acceleration_mm_per_sec2: 25.000000
-    max_travel_mm: 1000.000000
+    max_travel_mm: 500.000000
     soft_limits: false
     motor0:
       limit_neg_pin: NO_PIN
@@ -68,18 +72,6 @@ axes:
       pulloff_mm: 1.000000
       null_motor:
 
-control:
-  safety_door_pin: NO_PIN
-  reset_pin: NO_PIN
-  feed_hold_pin: NO_PIN
-  cycle_start_pin: NO_PIN
-  macro0_pin: NO_PIN
-  macro1_pin: NO_PIN
-  macro2_pin: NO_PIN
-  macro3_pin: NO_PIN
-  fault_pin: NO_PIN
-  estop_pin: NO_PIN
-
 coolant:
   flood_pin: NO_PIN
   mist_pin: NO_PIN
@@ -90,17 +82,6 @@ probe:
   toolsetter_pin: NO_PIN
   check_mode_start: true
   hard_stop: false
-
-macros:
-  startup_line0:
-  startup_line1:
-  Macro0:
-  Macro1:
-  Macro2:
-  Macro3:
-  after_homing:
-  after_reset:
-  after_unlock:
 
 start:
   must_home: false
@@ -115,38 +96,6 @@ parking:
   pullout_distance_mm: 5.000000
   pullout_rate_mm_per_min: 250.000000
 
-user_outputs:
-  analog0_pin: NO_PIN
-  analog1_pin: NO_PIN
-  analog2_pin: NO_PIN
-  analog3_pin: NO_PIN
-  analog0_hz: 5000
-  analog1_hz: 5000
-  analog2_hz: 5000
-  analog3_hz: 5000
-  digital0_pin: NO_PIN
-  digital1_pin: NO_PIN
-  digital2_pin: NO_PIN
-  digital3_pin: NO_PIN
-  digital4_pin: NO_PIN
-  digital5_pin: NO_PIN
-  digital6_pin: NO_PIN
-  digital7_pin: NO_PIN
-
-user_inputs:
-  analog0_pin: NO_PIN
-  analog1_pin: NO_PIN
-  analog2_pin: NO_PIN
-  analog3_pin: NO_PIN
-  digital0_pin: NO_PIN
-  digital1_pin: NO_PIN
-  digital2_pin: NO_PIN
-  digital3_pin: NO_PIN
-  digital4_pin: NO_PIN
-  digital5_pin: NO_PIN
-  digital6_pin: NO_PIN
-  digital7_pin: NO_PIN
-
 arc_tolerance_mm: 0.002000
 junction_deviation_mm: 0.010000
 verbose_errors: true
@@ -154,3 +103,18 @@ report_inches: false
 enable_parking_override_control: false
 use_line_numbers: false
 planner_blocks: 16
+
+ODrive:
+  can_tx: gpio.47
+  can_rx: gpio.9
+  can_baud_kbit: 500
+  odrive_node_id: 1
+  spinup_ms: 0
+  spindown_ms: 0
+  tool_num: 0
+  speed_map: 0=0.000% 3000=100.000%
+  off_on_alarm: true
+  
+  # ODrive config: node_id = 1
+  # baud: 500000
+  # protocol: 1
