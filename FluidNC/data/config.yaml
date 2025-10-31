@@ -105,8 +105,8 @@ use_line_numbers: false
 planner_blocks: 16
 
 ODrive:
-  can_tx: gpio.47
-  can_rx: gpio.9
+  can_rx: gpio.47
+  can_tx: gpio.9
   can_baud_kbit: 500
   odrive_node_id: 1
   spinup_ms: 0

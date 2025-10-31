@@ -26,7 +26,7 @@ namespace Spindles
             ODriveSpindle::oDriveCommandQueue = xQueueCreate(ODRIVE_QUEUE_SIZE, sizeof(ODriveAction));
             xTaskCreatePinnedToCore(oDriveCommandTaskHelper,  // task
                                     "odriveTaskHandle",       // name for task
-                                    2048,                     // size of task stack
+                                    4096,                     // size of task stack
                                     this,                     // parameters
                                     1,                        // priority
                                     &oDriveCommandTaskHandle,
@@ -165,7 +165,7 @@ namespace Spindles
     {
         if (lastRequestedState == ODriveState::NotInitialized)
         {
-            log_info("Setting up ODrive spindle on " << canTx.name() << ", " << canRx.name() << ", " << baudKbit);
+            log_info("Setting up ODrive spindle on tx=" << canTx.name() << ", rx=" << canRx.name() << ", baud=" << baudKbit << "kb");
 
             // Register callbacks for the heartbeat and encoder feedback messages
             intf.onFeedback(onFeedback, this);

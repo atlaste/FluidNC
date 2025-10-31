@@ -38,7 +38,7 @@ void ODriveESP32::init(const Pin& txPin, const Pin& rxPin, int baudKbit) {
             t_config = TWAI_TIMING_CONFIG_1MBITS();
             break;
         default:
-            printf("Incorrect baud rate given. Falling back on 1 mbit.\n");
+            log_warn("Incorrect baud rate given. Falling back on 1 mbit.\n");
             t_config = TWAI_TIMING_CONFIG_1MBITS();
             break;
     }
@@ -46,35 +46,48 @@ void ODriveESP32::init(const Pin& txPin, const Pin& rxPin, int baudKbit) {
 
     // Install TWAI driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        printf("Driver installed\n");
+        log_info("Driver installed");
     } else {
-        printf("Failed to install driver\n");
+        log_error("Failed to install driver");
         return;
     }
 
     // Start TWAI driver
     if (twai_start() == ESP_OK) {
-        printf("Driver started\n");
+        log_info("Driver started\n");
     } else {
-        printf("Failed to start driver\n");
+        log_error("Failed to start driver");
         return;
     }
 }
 
-bool ODriveESP32::transmit(uint32_t id, uint8_t len, const uint8_t* buffer) {
+bool ODriveESP32::transmit(uint32_t id, uint8_t length, const uint8_t* data) {
     // Configure message to transmit
     twai_message_t message;
     memset(&message, 0, sizeof(message));
 
-    // Message type and format settings
-    message.extd             = uint32_t(1);   // Standard vs extended format
-    message.rtr              = uint32_t(0);   // Data vs RTR frame
-    message.ss               = uint32_t(0);   // Whether the message is single shot (i.e., does not repeat on error)
-    message.self             = uint32_t(0);   // Whether the message is a self reception request (loopback)
-    message.dlc_non_comp     = uint32_t(0);   // DLC is less than 8
-    message.identifier       = uint16_t(id);  // Message ID and payload
-    message.data_length_code = len;
-    memcpy(message.data, buffer, len);
+    bool rtr = !data;
+    if (id & 0x80000000) {
+        // Message type and format settings
+        message.extd             = uint32_t(1);                // Standard vs extended format
+        message.rtr              = uint32_t(rtr ? 1 : 0);      // Data vs RTR frame
+        message.ss               = uint32_t(0);                // Whether the message is single shot (i.e., does not repeat on error)
+        message.self             = uint32_t(0);                // Whether the message is a self reception request (loopback)
+        message.dlc_non_comp     = uint32_t(0);                // DLC is less than 8
+        message.identifier       = uint32_t(id & 0x1fffffff);  // Message ID and payload
+        message.data_length_code = length;
+        memcpy(message.data, data, length);
+    } else {
+        // Message type and format settings
+        message.extd             = uint32_t(0);            // Standard vs extended format
+        message.rtr              = uint32_t(rtr ? 1 : 0);  // Data vs RTR frame
+        message.ss               = uint32_t(0);            // Whether the message is single shot (i.e., does not repeat on error)
+        message.self             = uint32_t(0);            // Whether the message is a self reception request (loopback)
+        message.dlc_non_comp     = uint32_t(0);            // DLC is less than 8
+        message.identifier       = uint32_t(id);           // Message ID and payload
+        message.data_length_code = length;
+        memcpy(message.data, data, length);
+    }
 
     // Queue message for transmission
     return (twai_transmit(&message, pdMS_TO_TICKS(10)) == ESP_OK);
@@ -92,32 +105,19 @@ void ODriveESP32::pump() {
     // Wait for the message to be received
     twai_message_t message;
     if (twai_receive(&message, pdMS_TO_TICKS(10)) == ESP_OK) {
-        printf("Message received\n");
+        // printf("Message received\n");
         failCount = 0;
     } else {
         ++failCount;
-        if ((failCount % 10) == 1) {
-            printf("Failed to receive message\n");
+        if ((failCount % 10) == 2) {
+            log_warn("Failed to receive message, fail count is " << failCount);
         }
         return;
     }
 
-    // Process received message
-    if (message.extd) {
-        printf("Message is in Extended Format\n");
-    } else {
-        printf("Message is in Standard Format\n");
-    }
-
-    printf("ID is %ld\n", message.identifier);
-    if (!(message.rtr)) {
-        for (int i = 0; i < message.data_length_code; i++) {
-            printf("Data byte %d = %d\n", i, message.data[i]);
-        }
-    }
-
     uint32_t nodeId = (message.identifier >> kNodeIdShift);
-    switch (message.identifier & kCmdIdBits) {
+    auto     msgid  = message.identifier & kCmdIdBits;
+    switch (msgid) {
         case Get_Encoder_Estimates_msg_t::cmd_id: {
             Get_Encoder_Estimates_msg_t estimates;
             estimates.decode_buf(message.data);
@@ -131,7 +131,7 @@ void ODriveESP32::pump() {
             if (axis_state_callback_ != nullptr)
                 axis_state_callback_(nodeId, status, axis_state_user_data_);
             else
-                log_warn("ODrive: missing callback");
+                log_warn("ODrive: missing heartbeat callback");
             break;
         }
         default: {
@@ -142,10 +142,12 @@ void ODriveESP32::pump() {
             Serial.print("waiting for: 0x");
             Serial.println(requestedMessageId, HEX);
 #endif  // DEBUG
-            if (message.identifier != requestedMessageId)
+            if (msgid != requestedMessageId) {
+                log_warn("Unexpected message id. Expected " << requestedMessageId << ", found " << msgid);
                 return;
+            }
 
-            memcpy(message.data, responseData, message.data_length_code);
+            memcpy(responseData, message.data, message.data_length_code);
             requestedMessageId = REQUEST_PENDING;
         }
     }
@@ -154,17 +156,17 @@ void ODriveESP32::pump() {
 ODriveESP32::~ODriveESP32() {
     // Stop the TWAI driver
     if (twai_stop() == ESP_OK) {
-        printf("Driver stopped\n");
+        log_info("Driver stopped");
     } else {
-        printf("Failed to stop driver\n");
+        log_warn("Failed to stop driver");
         return;
     }
 
     // Uninstall the TWAI driver
     if (twai_driver_uninstall() == ESP_OK) {
-        printf("Driver uninstalled\n");
+        log_info("Driver uninstalled");
     } else {
-        printf("Failed to uninstall driver\n");
+        log_warn("Failed to uninstall driver");
         return;
     }
 }
