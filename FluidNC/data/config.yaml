@@ -10,9 +10,15 @@ stepping:
   segments: 12
 
 spi:
-  miso_pin: NO_PIN
-  mosi_pin: NO_PIN
-  sck_pin: NO_PIN
+  miso_pin: gpio.13
+  mosi_pin: gpio.11
+  sck_pin: gpio.12
+
+ethernet:
+  cs_pin: gpio.10
+  dhcp: true
+  int_pin: gpio.4
+  spi_freq_mhz: 20
 
 sdcard:
   cs_pin: NO_PIN

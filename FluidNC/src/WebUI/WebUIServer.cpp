@@ -13,6 +13,7 @@
 #include <StreamString.h>
 #include <Update.h>
 #include <esp_wifi_types.h>
+#include <esp_netif.h>
 #include <DNSServer.h>
 
 #include "WSChannel.h"
@@ -40,7 +41,10 @@ namespace WebUI {
 //embedded response file if no files on LocalFS
 #include "NoFile.h"
 
+
 namespace WebUI {
+    extern bool needsNetworkServices;
+
     // Error codes for upload
     const int ESP_ERROR_AUTHENTICATION   = 1;
     const int ESP_ERROR_FILE_CREATION    = 2;
@@ -90,12 +94,23 @@ namespace WebUI {
 
         _setupdone = false;
 
-        Serial.printf("Startup\n");
-        Serial.printf("Starting webserver\n");
-
-        if (WiFi.getMode() == WIFI_OFF || !http_enable->get()) {
+        // Check if we have any network interface available (WiFi, Ethernet, etc.)
+        bool         has_network = needsNetworkServices;
+        //esp_netif_t* netif = esp_netif_next_unsafe(NULL);
+        //while (netif != NULL) {
+        //    if (esp_netif_get_route_prio(netif) > 0) {
+        //        has_network = true;
+        //        break;
+        //    }
+        //    netif = esp_netif_next_unsafe(netif);
+        //}
+        
+        if (!has_network || !http_enable->get()) {
+            log_info("Skipping webserver (has network:" << has_network << ", http enable:" << http_enable->get() << ")");
             return;
         }
+
+        log_info("Starting webserver");
 
         _port = http_port->get();
 

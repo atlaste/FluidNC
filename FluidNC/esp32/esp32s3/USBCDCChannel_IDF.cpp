@@ -112,7 +112,7 @@ void USBCDCChannel::init() {
         .task = {
             .size = 4096,
             .priority = 5,
-            .xCoreID = tskNO_AFFINITY,
+            .xCoreID = 0,  // Run on core 0 
         },
         .descriptor = {}, // Use default descriptors
         .event_cb = nullptr,

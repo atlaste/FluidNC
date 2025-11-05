@@ -138,6 +138,7 @@ idf_component_register(SRCS BTConfig.cpp
 							ToolChangers/atc.cpp
 							ToolChangers/atc_manual.cpp
 							WebUI/Authentication.cpp
+							WebUI/EthernetConfig.cpp
 							WebUI/Mdns.cpp
 							WebUI/NotificationsService.cpp
 							WebUI/OTA.cpp

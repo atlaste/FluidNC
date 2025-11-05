@@ -9,8 +9,10 @@
 #include "Report.h"  // report_init_message()
 
 #include <WiFi.h>
+#include <esp_netif.h>
 
 namespace WebUI {
+    extern bool needsNetworkServices;
 
     EnumSetting* telnet_enable;
     IntSetting*  telnet_port;
@@ -20,7 +22,18 @@ namespace WebUI {
     std::queue<TelnetClient*> TelnetServer::_disconnected;
 
     void TelnetServer::init() {
-        if (WiFi.getMode() == WIFI_OFF) {
+        // Check if we have any network interface available (WiFi, Ethernet, etc.)
+        bool         has_network = needsNetworkServices;
+        //esp_netif_t* netif = esp_netif_next_unsafe(NULL);
+        //while (netif != NULL) {
+        //    if (esp_netif_get_route_prio(netif) > 0) {
+        //        has_network = true;
+        //        break;
+        //    }
+        //    netif = esp_netif_next_unsafe(netif);
+        //}
+        
+        if (!has_network) {
             return;
         }
 

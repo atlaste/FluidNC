@@ -74,7 +74,10 @@ esp_netif_t* TCPIP_ADAPTER_IF_STA = nullptr;
 #    define GetIPAddr(x) IP_string(IPAddress(x.ip.addr))
 #endif
 
+
 namespace WebUI {
+    bool needsNetworkServices = false;
+
     enum WiFiStartupMode {
         WiFiOff = 0,
         WiFiSTA,
@@ -1022,6 +1025,8 @@ namespace WebUI {
 
             //stop active services
             // wifi_services.end();
+
+            needsNetworkServices = _mode->get() != WiFiOff;
 
             switch (_mode->get()) {
                 case WiFiOff:
