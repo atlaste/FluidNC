@@ -1072,6 +1072,8 @@ namespace WebUI {
             //        wifi_services.begin();
         }
 
+        int  init_priority() override { return 0x5000; };
+
         void deinit() override { StopWiFi(); }
 
         void build_info(Channel& channel) {

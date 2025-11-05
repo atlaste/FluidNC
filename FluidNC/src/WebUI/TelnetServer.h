@@ -36,6 +36,8 @@ namespace WebUI {
         void poll() override;
         void status_report(Channel& out) override;
 
+        int init_priority() override { return 0x5100; };
+
         ~TelnetServer();
 
     private:

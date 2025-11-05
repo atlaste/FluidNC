@@ -126,11 +126,27 @@ void setup() {
         limits_init();
 
         // Initialize system state.
-        for (auto const& module : Modules()) {
-            module->init();
-        }
-        for (auto const& module : ConfigurableModules()) {
-            module->init();
+        int current = 0;
+        int next    = 0;
+        while (current != INT_MAX) {
+            next = INT_MAX;
+            for (auto const& module : Modules()) {
+                int prio = module->init_priority();
+                if (prio == current) {
+                    module->init();
+                } else if (prio > current && prio < next) {
+                    next = prio;
+                }
+            }
+            for (auto const& module : ConfigurableModules()) {
+                auto prio = module->init_priority();
+                if (prio == current) {
+                    module->init();
+                } else if (prio > current && prio < next) {
+                    next = prio;
+                }
+            }
+            current = next;
         }
 
         auto atcs = ATCs::ATCFactory::objects();

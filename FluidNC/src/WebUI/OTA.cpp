@@ -67,6 +67,7 @@ public:
 
     void poll() override { ArduinoOTA.handle(); }
 
+    int init_priority() override { return 0x5300; };
     ~OTA() {}
 };
 

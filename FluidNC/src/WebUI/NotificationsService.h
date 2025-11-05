@@ -25,6 +25,8 @@ namespace WebUI {
 
         void init() override;
         void deinit() override;
+        
+        int  init_priority() override { return 0x200; };
 
         ~NotificationsService();
 

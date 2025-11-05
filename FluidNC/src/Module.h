@@ -83,6 +83,8 @@ public:
     const char* name() { return _name; };
 
     virtual void init() {}
+    virtual int  init_priority() { return 0; };
+
     virtual void deinit() {}
     virtual void poll() {}
 
@@ -101,6 +103,7 @@ public:
 
     const char*  name() { return _name; };
     virtual void init() {}
+    virtual int  init_priority() { return 0; };
     virtual void deinit() {}
 };
 

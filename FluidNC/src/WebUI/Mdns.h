@@ -17,6 +17,9 @@ namespace WebUI {
         void        deinit() override;
         static void add(const char* service, const char* proto, uint16_t port);
         static void remove(const char* service, const char* proto);
+
+        int init_priority() override { return 0x5300; };
+
         ~Mdns() {}
     };
 }

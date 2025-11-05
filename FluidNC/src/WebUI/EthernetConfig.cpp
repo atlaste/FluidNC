@@ -333,6 +333,8 @@ namespace WebUI {
             }
         }
 
+        int  init_priority() override { return 0x5000; };
+
         void deinit() override { StopEthernet(); }
 
         void build_info(Channel& channel) {
