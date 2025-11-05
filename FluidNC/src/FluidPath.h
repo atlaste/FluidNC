@@ -38,3 +38,33 @@ inline Print& operator<<(Print& lhs, FluidPath path) {
     lhs.print(path.string().c_str());
     return lhs;
 }
+
+// TODO FIXME: We need to move std-ops::space here and rename it. 
+
+#if ESP_IDF_VERSION_MAJOR >= 5
+
+// 'space' is still not fixed in IDF v5. The rest is.
+
+#include "../stdfs/fluidnc_vfs_ops.h"
+
+namespace std::filesystem {
+    inline space_info fnc_space(const path& p, error_code& ec) noexcept {
+        space_info info = { static_cast<uintmax_t>(-1), static_cast<uintmax_t>(-1), static_cast<uintmax_t>(-1) };
+        uint64_t          total, used;
+        auto              mount = *(++p.begin());
+        if (fluidnc_vfs_stats(mount.c_str(), total, used)) {
+            info = space_info { static_cast<uintmax_t>(total), static_cast<uintmax_t>(total - used), static_cast<uintmax_t>(total - used) };
+            ec.clear();
+            return info;
+        }
+        ec.assign(errno, std::generic_category());
+        return info;
+    }
+}
+#else
+namespace std::filesystem {
+    inline space_info fnc_space(const path& p, error_code& ec) noexcept {
+        return space(p, ec);
+    }
+}
+#endif

@@ -113,7 +113,9 @@ void HashFS::hash_all() {
         return;
     }
     for (auto const& dir_entry : iter) {
-        if (!dir_entry.is_directory()) {
+        std::error_code entry_ec;
+        bool is_dir = dir_entry.is_directory(entry_ec);
+        if (!entry_ec && !is_dir) {
             rehash_file(dir_entry, false);
         }
     }

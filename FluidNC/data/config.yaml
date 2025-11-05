@@ -21,7 +21,7 @@ ethernet:
   spi_freq_mhz: 20
 
 sdcard:
-  cs_pin: NO_PIN
+  cs_pin: gpio.0
   card_detect_pin: NO_PIN
   frequency_hz: 8000000
 

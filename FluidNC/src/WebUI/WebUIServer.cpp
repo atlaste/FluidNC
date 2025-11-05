@@ -9,6 +9,8 @@
 
 #include "Mdns.h"
 
+#include <wdt.h>
+
 #include <WiFi.h>
 #include <StreamString.h>
 #include <Update.h>
@@ -1062,10 +1064,22 @@ namespace WebUI {
             if (!ec) {
                 j.begin_array("files");
                 for (auto const& dir_entry : iter) {
+                    feed_WDT();
+
                     j.begin_object();
                     j.member("name", dir_entry.path().filename().string());
                     j.member("shortname", dir_entry.path().filename().string());
-                    j.member("size", dir_entry.is_directory() ? -1 : dir_entry.file_size());
+                    
+                    // Use error_code versions to avoid crashes on SD card errors
+                    std::error_code size_ec;
+                    bool is_dir = dir_entry.is_directory(size_ec);
+                    if (!size_ec && !is_dir) {
+                        auto size = stdfs::file_size(dir_entry.path(), size_ec);
+                        j.member("size", size_ec ? -1 : size);
+                    } else {
+                        j.member("size", -1);
+                    }
+                    
                     j.member("datetime", "");
                     j.end_object();
                 }
@@ -1073,17 +1087,27 @@ namespace WebUI {
             }
         }
 
-        auto space = stdfs::space(fpath, ec);
-        totalspace = space.capacity;
-        usedspace  = totalspace - space.available;
+        auto space = stdfs::fnc_space(fpath, ec);
+        if (!ec) {
+            totalspace = space.capacity;
+            usedspace  = totalspace - space.available;
+        } else {
+            totalspace = 0;
+            usedspace  = 0;
+        }
 
         j.member("path", path.c_str());
-        j.member("total", formatBytes(totalspace));
-        j.member("used", formatBytes(usedspace + 1));
-
-        uint8_t percent = totalspace ? (usedspace * 100) / totalspace : 100;
-
-        j.member("occupation", percent);
+        
+        if (!ec) {
+            j.member("total", formatBytes(totalspace));
+            j.member("used", formatBytes(usedspace + 1));
+            uint8_t percent = totalspace ? (usedspace * 100) / totalspace : 100;
+            j.member("occupation", percent);
+        } else {
+            j.member("total", "Unknown");
+            j.member("used", "Unknown");
+            j.member("occupation", uint8_t(0));
+        }
         j.member("status", sstatus);
         j.end();
         sendJSON(request, 200, s);
@@ -1108,8 +1132,9 @@ namespace WebUI {
             return;
         }
 
-        auto space = stdfs::space(fpath);
-        if (filesize && filesize > space.available) {
+        // Check available space if possible
+        auto space = stdfs::fnc_space(fpath, ec);
+        if (!ec && filesize && filesize > space.available) {
             // If the file already exists, maybe there will be enough space
             // when we replace it.
             auto existing_size = stdfs::file_size(fpath, ec);
@@ -1120,6 +1145,7 @@ namespace WebUI {
                 return;
             }
         }
+        // If space check failed, we'll proceed anyway and let the write fail if there's no space
 
         if (_upload_status != UploadStatus::FAILED) {
             //Create file for writing

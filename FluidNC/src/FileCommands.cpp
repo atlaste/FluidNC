@@ -17,12 +17,18 @@
 
 static Error localFSSize(const char* parameter, AuthenticationLevel auth_level, Channel& out) {  // ESP720
     try {
-        auto space      = stdfs::space(FluidPath { "", localfsName });
-        auto totalBytes = space.capacity;
-        auto freeBytes  = space.available;
-        auto usedBytes  = totalBytes - freeBytes;
+        std::error_code ec;
+        auto space      = stdfs::space(FluidPath { "", localfsName }, ec);
+        
+        if (!ec) {
+            auto totalBytes = space.capacity;
+            auto freeBytes  = space.available;
+            auto usedBytes  = totalBytes - freeBytes;
 
-        log_stream(out, parameter << "LocalFS  Total:" << formatBytes(localfs_size()) << " Used:" << formatBytes(usedBytes));
+            log_stream(out, parameter << "LocalFS  Total:" << formatBytes(localfs_size()) << " Used:" << formatBytes(usedBytes));
+        } else {
+            log_stream(out, parameter << "LocalFS  Total:" << formatBytes(localfs_size()) << " Used: Unknown");
+        }
     } catch (std::filesystem::filesystem_error const& ex) {
         log_error_to(out, ex.what());
         return Error::FsFailedMount;
@@ -305,22 +311,40 @@ static Error listFilesystem(const char* fs, const char* value, AuthenticationLev
     try {
         FluidPath fpath { value, fs };
         auto      iter  = stdfs::recursive_directory_iterator { fpath };
-        auto      space = stdfs::space(fpath);
+        
+        std::error_code ec;
+        auto      space = stdfs::space(fpath, ec);
+        
         for (auto const& dir_entry : iter) {
-            if (dir_entry.is_directory()) {
+            std::error_code entry_ec;
+            bool is_dir = dir_entry.is_directory(entry_ec);
+            
+            if (!entry_ec && is_dir) {
                 log_stream(out, "[DIR:" << std::string(iter.depth(), ' ') << dir_entry.path().filename().string());
-            } else {
-                log_stream(out,
-                           "[FILE: " << std::string(iter.depth(), ' ') << dir_entry.path().filename().string()
-                                     << "|SIZE:" << dir_entry.file_size());
+            } else if (!entry_ec) {
+                auto size = stdfs::file_size(dir_entry.path(), entry_ec);
+                if (!entry_ec) {
+                    log_stream(out,
+                               "[FILE: " << std::string(iter.depth(), ' ') << dir_entry.path().filename().string()
+                                         << "|SIZE:" << size);
+                } else {
+                    log_stream(out,
+                               "[FILE: " << std::string(iter.depth(), ' ') << dir_entry.path().filename().string()
+                                         << "|SIZE:?");
+                }
             }
         }
-        auto totalBytes = space.capacity;
-        auto freeBytes  = space.available;
-        auto usedBytes  = totalBytes - freeBytes;
-        log_stream(out,
-                   "[" << fpath.string() << " Free:" << formatBytes(freeBytes) << " Used:" << formatBytes(usedBytes)
-                       << " Total:" << formatBytes(totalBytes));
+        
+        if (!ec) {
+            auto totalBytes = space.capacity;
+            auto freeBytes  = space.available;
+            auto usedBytes  = totalBytes - freeBytes;
+            log_stream(out,
+                       "[" << fpath.string() << " Free:" << formatBytes(freeBytes) << " Used:" << formatBytes(usedBytes)
+                           << " Total:" << formatBytes(totalBytes));
+        } else {
+            log_stream(out, "[" << fpath.string() << " Space information unavailable");
+        }
     } catch (std::filesystem::filesystem_error const& ex) {
         log_error_to(out, ex.what());
         return Error::FsFailedMount;
@@ -340,7 +364,9 @@ static Error listLocalFiles(const char* parameter, AuthenticationLevel auth_leve
 static Error listFilesystemJSON(const char* fs, const char* value, AuthenticationLevel auth_level, Channel& out) {
     try {
         FluidPath fpath { value, fs };
-        auto      space = stdfs::space(fpath);
+        
+        std::error_code ec;
+        auto      space = stdfs::space(fpath, ec);
         auto      iter  = stdfs::directory_iterator { fpath };
 
         JSONencoder j(false, &out);
@@ -350,22 +376,39 @@ static Error listFilesystemJSON(const char* fs, const char* value, Authenticatio
         for (auto const& dir_entry : iter) {
             j.begin_object();
             j.member("name", dir_entry.path().filename().string());
-            j.member("size", dir_entry.is_directory() ? -1 : dir_entry.file_size());
+            
+            // Use error_code versions to avoid crashes on SD card errors
+            std::error_code entry_ec;
+            bool is_dir = dir_entry.is_directory(entry_ec);
+            if (!entry_ec && !is_dir) {
+                auto size = stdfs::file_size(dir_entry.path(), entry_ec);
+                j.member("size", entry_ec ? -1 : size);
+            } else {
+                j.member("size", -1);
+            }
+            
             j.end_object();
         }
         j.end_array();
 
-        auto totalBytes = space.capacity;
-        auto freeBytes  = space.available;
-        auto usedBytes  = totalBytes - freeBytes;
-
         j.member("path", value);
-        j.member("total", formatBytes(totalBytes));
-        j.member("used", formatBytes(usedBytes + 1));
+        
+        if (!ec) {
+            auto totalBytes = space.capacity;
+            auto freeBytes  = space.available;
+            auto usedBytes  = totalBytes - freeBytes;
 
-        uint32_t percent = totalBytes ? (usedBytes * 100) / totalBytes : 100;
+            j.member("total", formatBytes(totalBytes));
+            j.member("used", formatBytes(usedBytes + 1));
 
-        j.member("occupation", percent);
+            uint32_t percent = totalBytes ? (usedBytes * 100) / totalBytes : 100;
+            j.member("occupation", percent);
+        } else {
+            j.member("total", "Unknown");
+            j.member("used", "Unknown");
+            j.member("occupation", uint8_t(0));
+        }
+        
         j.end();
     } catch (std::filesystem::filesystem_error const& ex) {
         log_error_to(out, ex.what());

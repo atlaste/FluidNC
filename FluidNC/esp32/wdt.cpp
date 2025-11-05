@@ -54,3 +54,9 @@ void disable_core0_WDT() {
         log_error("Failed to remove Core 0 IDLE task from WDT " << err);
     }
 }
+
+void feed_WDT()
+{
+    // SdB TODO: Call this method instead of esp_task_wdt_reset.
+    esp_task_wdt_reset();
+}
