@@ -47,6 +47,11 @@ namespace Spindles {
     void IRAM_ATTR PWM::setSpeedfromISR(uint32_t dev_speed) {
         set_enable(gc_state.modal.spindle != SpindleState::Disable);
         set_output(dev_speed);
+
+        // Update speed:
+        auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        _current_speed = dev_speed;
     }
 
     // XXX this is the same as OnOff::setState so it might be possible to combine them

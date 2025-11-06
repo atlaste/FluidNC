@@ -18,14 +18,25 @@ namespace Spindles {
         config_message();
         _speeds.clear();
     }
-    void IRAM_ATTR Null::setSpeedfromISR(uint32_t dev_speed) {};
+    void IRAM_ATTR Null::setSpeedfromISR(uint32_t dev_speed) {
+        // Update speed:
+        auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        _current_speed = dev_speed;
+    }
 
     void Null::setState(SpindleState state, SpindleSpeed speed) {
         _current_state = state;
         sys.set_spindle_speed(speed);
+
+        auto delay = (speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        if (state == SpindleState::Cw || state == SpindleState::Ccw) {
+            // Update speed:
+            _current_speed = speed;
+        }
     }
-    void Null::config_message() { /*log_info("No spindle");*/
-    }
+    void Null::config_message() { /*log_info("No spindle");*/ }
 
     // Configuration registration
     namespace {

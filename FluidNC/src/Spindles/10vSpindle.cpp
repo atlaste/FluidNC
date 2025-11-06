@@ -63,6 +63,11 @@ namespace Spindles {
     void IRAM_ATTR _10v::setSpeedfromISR(uint32_t dev_speed) {
         set_enable(gc_state.modal.spindle != SpindleState::Disable);
         set_output(dev_speed);
+
+        // Update speed:
+        auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        _current_speed = dev_speed;
     }
 
     void IRAM_ATTR _10v::set_enable(bool enable) {

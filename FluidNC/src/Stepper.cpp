@@ -15,6 +15,7 @@
 #include "StepperPrivate.h"
 #include "Planner.h"
 #include "Protocol.h"
+#include "SpindleEncoder.h"
 #include <cmath>
 
 using namespace Stepper;
@@ -182,6 +183,8 @@ void IRAM_ATTR Stepper::stop_stepping() {
 uint32_t Stepper::isr_count;  // for debugging only
 #endif
 
+int32_t lastCpuTicks = 0;
+
 /**
  * This phase of the ISR should ONLY create the pulses for the steppers.
  * This prevents jitter caused by the interval between the start of the
@@ -205,6 +208,18 @@ bool IRAM_ATTR Stepper::pulse_func() {
 
     // If there is no step segment, attempt to pop one from the stepper buffer
     if (st.exec_segment == NULL) {
+        auto spval = spindle_encoder;
+        if (spval) {
+            int32_t newCpuTicks = getCpuTicks();  // NOTE: We just bluntly assume ticks_per_us == 1 for now
+            int32_t deltaUs     = newCpuTicks - lastCpuTicks;
+            lastCpuTicks        = newCpuTicks;
+            if (!spval->validateSpeed(deltaUs)) {
+                // ALARM!
+                // send_alarm_from_ISR(ExecAlarm::SpindleControl);
+                // TODO FIXME!
+            }
+        }
+
         // Anything in the buffer? If so, load and initialize next step segment.
         if (segment_buffer_head != segment_buffer_tail) {
             // Initialize new step segment and load number of steps to execute
@@ -277,6 +292,9 @@ void Stepper::wake_up() {
     protocol_cancel_disable_steppers();
     // Enable stepper drivers.
     Axes::set_disable(false);
+
+    // Set cpu ticks just before enabling the timer:
+    lastCpuTicks = getCpuTicks();
 
     // Enable Stepping Driver Interrupt
     Stepping::startTimer();

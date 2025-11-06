@@ -33,9 +33,14 @@ namespace Spindles {
         ATCs::ATC* _atc       = nullptr;
         uint32_t   _last_tool = 0;
 
+        void startRamp(uint32_t millis);
+        void endRamp();
+
     public:
         // _disable_with_zero_speed forces a disable when speed is 0
         bool _disable_with_zero_speed = false;
+        int32_t _speedIsValidAfter     = 0;
+        bool    speedIsValid();
 
         Spindle(const char* name) : _name(name) {}
 

@@ -26,6 +26,7 @@
 #include "WebUI/NotificationsService.h"  // WebUI::notificationsService
 #include "InputFile.h"
 #include "Job.h"
+#include "SpindleEncoder.h"
 
 #include <map>
 #include <freertos/task.h>
@@ -529,6 +530,10 @@ void report_realtime_status(Channel& channel) {
         rate /= MM_PER_INCH;
     }
     msg << "|FS:" << setprecision(0) << rate << "," << sys.spindle_speed();
+
+    if (spindle_encoder) {
+        msg << "," << spindle_encoder->lastEncoderSpeed_;
+    }
 
     if (report_pin_string.length()) {
         msg << "|Pn:" << report_pin_string;

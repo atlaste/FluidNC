@@ -25,6 +25,12 @@ sdcard:
   card_detect_pin: NO_PIN
   frequency_hz: 8000000
 
+spindle_encoder:
+  pin_a: gpio.38
+  pin_b: gpio.40
+  cpr: 400
+  gear_ratio: 1
+
 kinematics:
   Cartesian:
 

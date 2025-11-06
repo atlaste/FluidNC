@@ -52,7 +52,12 @@ namespace Spindles {
 
     void IRAM_ATTR Dac::setSpeedfromISR(uint32_t speed) {
         set_output(speed);
-    };
+
+        // Update speed:
+        auto delay = (speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        _current_speed = speed;
+    }
     void IRAM_ATTR Dac::set_output(uint32_t duty) {
         if (_gpio_ok) {
             auto outputNative = _output_pin.getNative(Pin::Capabilities::DAC);

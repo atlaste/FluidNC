@@ -28,6 +28,8 @@ namespace Spindles {
         uint32_t _last_speed          = 0;
         Percent  _last_override_value = 100;  // no override is 100 percent
 
+        int32_t _default_ramp_delay = 5000;
+
         void set_mode(SpindleState mode, bool critical);
 
     protected:

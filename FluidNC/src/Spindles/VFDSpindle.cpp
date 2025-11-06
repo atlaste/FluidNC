@@ -83,6 +83,10 @@ namespace Spindles {
         config_message();
 
         set_mode(SpindleState::Disable, true);
+
+        if (detail_->use_delay_settings()) {
+            _default_ramp_delay = _spinup_ms < _spindown_ms ? _spindown_ms : _spinup_ms;
+        }
     }
 
     void VFDSpindle::config_message() {
@@ -141,6 +145,9 @@ namespace Spindles {
 
         _syncing = true;  // poll for speed
 
+        // Invalidate the speed; we're ramping:
+        startRamp(100000);
+
         auto minSpeedAllowed = dev_speed > _slop ? (dev_speed - _slop) : 0;
         auto maxSpeedAllowed = dev_speed + _slop;
 
@@ -158,6 +165,10 @@ namespace Spindles {
                 mc_critical(ExecAlarm::SpindleControl);
                 log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
                 _syncing = false;
+
+                // Let's just say it's valid again; otherwise we get issues later.
+                startRamp(0);
+                _speedIsValidAfter = 0;
                 return;
             }
         }
@@ -166,6 +177,10 @@ namespace Spindles {
         if (_debug > 1) {
             log_info("Synced speed to " << int(dev_speed));
         }
+
+        // Make the speed valid again:
+        startRamp(0);
+        _speedIsValidAfter = 0;
 
         _syncing = false;
     }
@@ -176,6 +191,10 @@ namespace Spindles {
         }
 
         _last_speed = dev_speed;
+
+        // Let's just set some large number to invalidate the speed for 5 seconds; it
+        // will be enabled later in the queue:
+        startRamp(_default_ramp_delay);
 
         if (VFD::VFDProtocol::vfd_cmd_queue) {
             VFD::VFDProtocol::VFDaction action;
@@ -196,6 +215,10 @@ namespace Spindles {
             action.critical = dev_speed == 0;
             if (xQueueSend(VFD::VFDProtocol::vfd_cmd_queue, &action, 0) != pdTRUE) {
                 log_info("VFD Queue Full");
+            } else {
+                // Let's just set some large number to invalidate the speed for 10 seconds; it
+                // will be enabled later in the queue:
+                startRamp(10'000);
             }
         }
     }

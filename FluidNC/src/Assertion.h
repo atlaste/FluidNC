@@ -15,3 +15,11 @@ class AssertionFailed;
             throw AssertionFailed::create(__VA_ARGS__);                                                                                    \
         }                                                                                                                                  \
     }
+
+// Helper macros for AssertOK overloading
+#define AssertOK_1(variable) Assert(variable == ESP_OK, "Assertion failed")
+#define AssertOK_N(variable, ...) Assert(variable == ESP_OK, __VA_ARGS__)
+
+// Macro overloading: selects AssertOK_1 for 1 arg, AssertOK_N for 2+ args
+#define GET_ASSERTOK_MACRO(_1, _2, NAME, ...) NAME
+#define AssertOK(...) GET_ASSERTOK_MACRO(__VA_ARGS__, AssertOK_N, AssertOK_1)(__VA_ARGS__)

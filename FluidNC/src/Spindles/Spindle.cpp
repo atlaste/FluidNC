@@ -7,6 +7,8 @@
 #include "Spindle.h"
 
 #include "System.h"  //sys.spindle_speed_ovr
+#include "Driver/delay_usecs.h"
+#include <esp_attr.h>
 
 Spindles::Spindle* spindle = nullptr;
 
@@ -27,6 +29,26 @@ namespace Spindles {
             _atc_info = " atc: '" + _atc_name + "' not found";
         } else if (!_m6_macro._gcode.empty()) {
             _atc_info = " with m6_macro";
+        }
+    }
+
+    void IRAM_ATTR Spindle::startRamp(uint32_t millis) {
+        _speedIsValidAfter = usToEndTicks(millis * 1000);
+    }
+
+    void IRAM_ATTR Spindle::endRamp() {
+        _speedIsValidAfter = 0;
+    }
+
+    bool IRAM_ATTR Spindle::speedIsValid() {
+        if (_speedIsValidAfter == 0) {
+            return true;
+        }
+        if ((getCpuTicks() - _speedIsValidAfter) >= 0) {
+            _speedIsValidAfter = 0;
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -264,9 +286,11 @@ namespace Spindles {
                 break;
         }
         if (down) {
+            startRamp(_spindown_ms);
             dwell_ms(down < maxSpeed() ? _spindown_ms * down / maxSpeed() : _spindown_ms, DwellMode::SysSuspend);
         }
         if (up) {
+            startRamp(_spinup_ms);
             dwell_ms(up < maxSpeed() ? _spinup_ms * up / maxSpeed() : _spinup_ms, DwellMode::SysSuspend);
         }
         _current_state = state;

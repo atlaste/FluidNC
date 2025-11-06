@@ -54,6 +54,11 @@ namespace Spindles {
 
     void IRAM_ATTR OnOff::setSpeedfromISR(uint32_t dev_speed) {
         set_output(dev_speed != 0);
+
+        // Well it's on or off... But let's update it regardless.
+        auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
+        startRamp(delay);
+        _current_speed = dev_speed;
     }
 
     void IRAM_ATTR OnOff::set_enable(bool enable) {

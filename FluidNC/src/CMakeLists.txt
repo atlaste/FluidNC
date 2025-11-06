@@ -39,6 +39,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Serial.cpp
 							Settings.cpp
 							SettingsDefinitions.cpp
+							SpindleEncoder.cpp
 							SSD1306_I2C.cpp
 							Status_outputs.cpp
 							Stepper.cpp
