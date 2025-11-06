@@ -38,10 +38,6 @@ namespace Spindles {
     };
 
     // ODrive CAN Messages:
-
-    static const uint8_t kNodeIdShift = 5;
-    static const uint8_t kCmdIdBits   = 0x1F;
-
     int ODriveSpindle::receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms = 1000) {
         auto deadline = esp_timer_get_time() + (timeout_ms * 1000);
 
@@ -237,6 +233,11 @@ namespace Spindles {
                 break;
         }
     }
+
+    // ODrive command task: 
+    // TODO FIXME; look at VFDProtocol for inspiration.
+
+    // Spindle implementation:
     void ODriveSpindle::init() {
         _sync_dev_speed = 0;
         _syncing        = false;

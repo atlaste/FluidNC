@@ -11,6 +11,9 @@
 namespace Spindles {
     class ODriveSpindle : public Spindle {
     private:
+        static const uint8_t kNodeIdShift         = 5;
+        static const uint8_t kCmdIdBits           = 0x1F;
+
         int32_t  _current_dev_speed   = -1;
         uint32_t _last_speed          = 0;
         Percent  _last_override_value = 100;  // no override is 100 percent
