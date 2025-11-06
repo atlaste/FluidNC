@@ -136,6 +136,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Spindles/VFD/SiemensV20Protocol.cpp
 							Spindles/VFD/VFDProtocol.cpp
 							Spindles/VFD/YL620Protocol.cpp
+							Spindles/ODriveSpindle.cpp
+							Spindles/ODrive/CanESP32.cpp
 							ToolChangers/atc.cpp
 							ToolChangers/atc_manual.cpp
 							WebUI/Authentication.cpp
@@ -154,8 +156,6 @@ idf_component_register(SRCS BTConfig.cpp
                             version.cpp
 
 							# extra
-							# Spindles/ODriveSpindle.cpp
-							# Spindles/ODrive/ODriveESP32.cpp
 							# Extra/PinOn.cpp
 							# Extra/Storage/FM25VXX.cpp
 							# Extra/ADC/NHB_AD7794.cpp

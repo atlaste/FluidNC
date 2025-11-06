@@ -5,10 +5,19 @@
 
 #include "Spindles/Spindle.h"
 #include "ODrive/CanESP32.h"
+#include "ODrive/ODriveEnums.h"
 
-#include "Uart.h"
+#include "Logging.h"
+
+#include <freertos/FreeRTOS.h> // must be first
+
+// queue and task
+#include <freertos/task.h>
+#include <freertos/queue.h>
 
 namespace Spindles {
+    struct ODriveAction;
+
     class ODriveSpindle : public Spindle {
     private:
         static const uint8_t kNodeIdShift         = 5;
@@ -22,7 +31,11 @@ namespace Spindles {
 
         void set_mode(SpindleState mode, bool critical);
 
-        
+        static QueueHandle_t cmd_queue;
+        static QueueHandle_t speed_queue;
+        static TaskHandle_t  cmdTaskHandle;
+        static void          cmd_task(void* pvParameters);
+
     template <typename T>
         bool send(T& msg) {
             uint8_t data[8] = { 0 };
@@ -46,12 +59,12 @@ namespace Spindles {
                     msg.decode_buf(responseData);
                     return true;
                 } else {
-                    std::cout << "Received unexpected message ID: " << messageId << std::endl;
+                    log_warn("Received unexpected message ID: " << messageId);
                 }
             } else if (count < msg.msg_length) {
-                std::cout << "Received incomplete message: " << count << " bytes" << std::endl;
+                log_warn("Received incomplete message: " << count << " bytes");
             } else {
-                std::cout << "Request timed out" << std::endl;
+                log_warn("Request timed out");
             }
 
             return false;
