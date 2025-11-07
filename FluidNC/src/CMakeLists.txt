@@ -138,6 +138,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Spindles/VFD/YL620Protocol.cpp
 							Spindles/ODriveSpindle.cpp
 							Spindles/ODrive/CanESP32.cpp
+							State/FM25VXX.cpp
+							State/StatePersistence.cpp
 							ToolChangers/atc.cpp
 							ToolChangers/atc_manual.cpp
 							WebUI/Authentication.cpp

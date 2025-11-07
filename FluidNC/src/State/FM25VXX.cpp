@@ -1,67 +1,34 @@
-/*
- * Cypress-Ramtron FM25VXX library for Amtel/Arduino
- * Copyright (C) 2013 by Jerry Adair
- *
- * This Library is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This Library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with the Arduino FM25VXX Library.  If not, write to the
- * Free Software Foundation Inc., 51 Franklin St, Fifth Floor,
- * Boston, MA, USA 02110-1301 or <http://www.gnu.org/licenses/>.
- */
+// Copyright (c) 2025 - Stefan de Bruijn
+// Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "FM25VXX.h"
 #include "Logging.h"
+#include "NutsBolts.h"
+
 #include <cstdint>
 #include <cstring>
-#include <esp_rom_delay.h>
 #include <driver/spi_master.h>
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 #    define HSPI_HOST SPI2_HOST
 #endif
 
-// FluidNC GPIO functions
-extern void digitalWrite(uint8_t pin, uint8_t val);
-extern void pinMode(uint8_t pin, uint8_t mode);
-#define OUTPUT 0x01
-#define HIGH 1
-#define LOW 0
-
 /*
  * FM25VXX constructor
  */
-FM25VXX::FM25VXX(uint8_t csPin, uint8_t wPin, uint8_t holdPin, uint32_t fence, uint32_t spiFreqHz) :
-    _initialized(false), 
-    _spi_device(nullptr), 
-    _writeProtectPin(wPin), 
-    _holdPin(holdPin), 
-    _statusRegister(0x00), 
-    _currentAddress(BASE_ADDRESS),
-    _fenceAddress(fence),
-    _maxAddress(0) {
-    
-    // Wait for power stabilization
-    esp_rom_delay_us(POWERUP_DELAY_US);
-    
+FM25VXX::FM25VXX(Pin& csPin, Pin& wPin, Pin& holdPin, uint32_t fence, uint32_t spiFreqHz) :
+    _initialized(false), _spi_device(nullptr), _writeProtectPin(wPin), _holdPin(holdPin), _statusRegister(0x00),
+    _currentAddress(BASE_ADDRESS), _fenceAddress(fence), _maxAddress(0) {
     // Configure SPI device
     spi_device_interface_config_t spi_devcfg = {};
-    spi_devcfg.mode = 0;  // SPI mode 0 for FRAM
-    spi_devcfg.clock_speed_hz = spiFreqHz;
-    spi_devcfg.spics_io_num = csPin;
-    spi_devcfg.queue_size = 3;
-    spi_devcfg.flags = 0;
-    spi_devcfg.command_bits = 0;
-    spi_devcfg.address_bits = 0;
-    
+    spi_devcfg.mode                          = 0;  // SPI mode 0 for FRAM
+    spi_devcfg.clock_speed_hz                = spiFreqHz;
+    spi_devcfg.spics_io_num                  = csPin.getNative(Pin::Capabilities::Output);
+    spi_devcfg.queue_size                    = 3;
+    spi_devcfg.flags                         = 0;
+    spi_devcfg.command_bits                  = 0;
+    spi_devcfg.address_bits                  = 0;
+
     // Add device to SPI bus
     esp_err_t ret = spi_bus_add_device(HSPI_HOST, &spi_devcfg, &_spi_device);
     if (ret != ESP_OK) {
@@ -79,32 +46,35 @@ FM25VXX::~FM25VXX() {
 
 // Helper method for single byte SPI transfer
 uint8_t FM25VXX::spi_transfer_byte(uint8_t data) {
-    if (!_spi_device) return 0;
-    
+    if (!_spi_device)
+        return 0;
+
     spi_transaction_t trans = {};
-    trans.length = 8;  // bits
-    trans.flags = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
-    trans.tx_data[0] = data;
-    
+    trans.length            = 8;  // bits
+    trans.flags             = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
+    trans.tx_data[0]        = data;
+
     spi_device_transmit(_spi_device, &trans);
     return trans.rx_data[0];
 }
 
 // Helper method for multi-byte SPI transfer
 void FM25VXX::spi_transfer_bytes(const uint8_t* tx_data, uint8_t* rx_data, size_t len) {
-    if (!_spi_device) return;
-    
+    if (!_spi_device)
+        return;
+
     spi_transaction_t trans = {};
-    trans.length = len * 8;  // bits
-    trans.tx_buffer = tx_data;
-    trans.rx_buffer = rx_data;
-    
+    trans.length            = len * 8;  // bits
+    trans.tx_buffer         = tx_data;
+    trans.rx_buffer         = rx_data;
+
     spi_device_transmit(_spi_device, &trans);
 }
 
 // Enable writes - must be called before any write operation
 void FM25VXX::write_enable() {
-    if (!_spi_device) return;
+    if (!_spi_device)
+        return;
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WREN));
 }
 
@@ -117,18 +87,15 @@ void FM25VXX::Initialize() {
         log_error("FRAM SPI device not initialized");
         return;
     }
-    
+
     // Setup GPIO pins for WP and HOLD if defined
-    if (_writeProtectPin != 255) {
-        pinMode(_writeProtectPin, OUTPUT);
-        digitalWrite(_writeProtectPin, HIGH);  // Disable write protect
+    if (_writeProtectPin.defined()) {
+        _writeProtectPin.on();  // Disable write protect
     }
-    
-    if (_holdPin != 255) {
-        pinMode(_holdPin, OUTPUT);
-        digitalWrite(_holdPin, HIGH);  // Disable hold
+    if (_holdPin.defined()) {
+        _holdPin.on();  // Disable hold
     }
-    
+
     // Try to read manufacturer - some FRAM modules don't provide this
     FM25VXXError err = ReadManufacturer(&m, &f, &v);
     if (err != FM25VXXError::Success) {
@@ -137,7 +104,8 @@ void FM25VXX::Initialize() {
         v = FM25VXXVariant::FM25V10;
         f = FM25VXXFamilyDensity::M1;
     } else {
-        log_info("FRAM detected: manufacturer=" << static_cast<int>(m) << " density=" << static_cast<int>(f) << " variant=" << static_cast<int>(v));
+        log_info("FRAM detected: manufacturer=" << static_cast<int>(m) << " density=" << static_cast<int>(f)
+                                                << " variant=" << static_cast<int>(v));
     }
 
     // Set max address based on variant
@@ -164,66 +132,66 @@ void FM25VXX::Initialize() {
     }
 
     // Test FRAM read/write functionality
-    log_debug("Testing FRAM read/write at address 0x" << std::hex << TEST_ADDRESS << std::dec);
-    
+    log_debug("Testing FRAM read/write at address 0x" << to_hex(TEST_ADDRESS));
+
     uint8_t original_value;
     if (ReadByte(TEST_ADDRESS, &original_value) != FM25VXXError::Success) {
         log_error("FRAM test read failed");
         return;
     }
-    
+
     // Write test value 1
     if (WriteByte(TEST_ADDRESS, TEST_VALUE1) != FM25VXXError::Success) {
         log_error("FRAM test write 1 failed");
         return;
     }
-    
+
     // Read back and verify
     uint8_t read_value;
     if (ReadByte(TEST_ADDRESS, &read_value) != FM25VXXError::Success) {
         log_error("FRAM test read after write 1 failed");
         return;
     }
-    
+
     if (read_value != TEST_VALUE1) {
-        log_error("FRAM test failed: wrote 0x" << std::hex << static_cast<int>(TEST_VALUE1) 
-                 << " but read 0x" << static_cast<int>(read_value) << std::dec);
+        log_error("FRAM test failed: wrote 0x" << to_hex(static_cast<uint32_t>(TEST_VALUE1)) << " but read 0x"
+                                               << to_hex(static_cast<uint32_t>(read_value)));
         return;
     }
-    
+
     // Write test value 2
     if (WriteByte(TEST_ADDRESS, TEST_VALUE2) != FM25VXXError::Success) {
         log_error("FRAM test write 2 failed");
         return;
     }
-    
+
     // Read back and verify
     if (ReadByte(TEST_ADDRESS, &read_value) != FM25VXXError::Success) {
         log_error("FRAM test read after write 2 failed");
         return;
     }
-    
+
     if (read_value != TEST_VALUE2) {
-        log_error("FRAM test failed: wrote 0x" << std::hex << static_cast<int>(TEST_VALUE2) 
-                 << " but read 0x" << static_cast<int>(read_value) << std::dec);
+        log_error("FRAM test failed: wrote 0x" << to_hex(static_cast<uint32_t>(TEST_VALUE2)) << " but read 0x"
+                                               << to_hex(static_cast<uint32_t>(read_value)));
         return;
     }
-    
+
     // Restore original value
     WriteByte(TEST_ADDRESS, original_value);
-    
+
     log_info("FRAM test passed");
-    
+
     // Fix up fence if needed
     if (_fenceAddress == 0 || _fenceAddress > _maxAddress) {
         _fenceAddress = _maxAddress + 1;
     }
-    
+
     // Initialize status register (no protection, WP pin enabled)
     WriteStatusRegister(1, 0, 0, 0);
-    
+
     _currentAddress = BASE_ADDRESS;
-    _initialized = true;
+    _initialized    = true;
 }
 
 bool FM25VXX::IsInitialized() {
@@ -235,8 +203,9 @@ void FM25VXX::Sleep() {
     /*
     * Send the SLEEP opcode. CS is automatically handled by SPI driver.
     */
-    if (!_spi_device) return;
-    
+    if (!_spi_device)
+        return;
+
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::SLEEP));
 }
 
@@ -280,82 +249,86 @@ void FM25VXX::MoveTheFence(uint32_t newFence) {
 
 } /* MoveTheFence() */
 
-uint32_t FM25VXX::GetTheCurrentAddress() {
-    return (_currentAddress);
-
-} /* GetTheCurrentAddress() */
-
-void FM25VXX::SetTheCurrentAddress(uint32_t newAddress) {
-    if (newAddress > _maxAddress) {
-        _currentAddress = _maxAddress;
-
-    } else {
-        _currentAddress = newAddress;
-
-    } /* set the new address */
-
-} /* SetTheCurrentAddress() */
-
-uint32_t FM25VXX::GetTheMaxAddress() {
-    return (_maxAddress);
-
-} /* GetTheMaxAddress() */
-
-FM25VXXError FM25VXX::Erase(FM25VXXErase whatToErase) {
-    uint8_t  nullData        = 0x00;
-    uint32_t numBytesToErase = 0x00;
-
-    if (whatToErase == FM25VXX_TO_THE_FENCE) {
-        numBytesToErase = _fenceAddress;
-    } else {
-        if (_fenceAddress <= _maxAddress) {
-            return (FM25VXX_ERASE_PAST_FENCE_REQUEST);
-        }
-
-        numBytesToErase = _maxAddress;
-
-    } /* if erasing to the fence or the whole chip */
-
-    _currentAddress = BASE_ADDRESS;
-
-    WriteBlock(_currentAddress, 1, numBytesToErase, &nullData);
-
-    return (FM25VXXError::Success);
-
-} /* Erase() */
-
-FM25VXXError FM25VXX::WriteProtectFM25VXX(FM25VXXProtection whatToProtect) {
-    switch (whatToProtect) {
-        case FM25VXX_PROTECT_UPPER_QUARTER:
-            WriteStatusRegister(1, 0, 1, 0);
-            break;
-        case FM25VXX_PROTECT_UPPER_HALF:
-            WriteStatusRegister(1, 1, 0, 0);
-            break;
-        case FM25VXX_PROTECT_ALL:
-            WriteStatusRegister(1, 1, 1, 0);
-            break;
-        case FM25VXX_PROTECT_NONE:
-            WriteStatusRegister(1, 0, 0, 0);
-            break;
-        default:
-            return (FM25VXX_INVALID_WRITE_PROTECT);
-            break;
-    }
-
-    return (FM25VXXError::Success);
-
-} /* WriteProtectFM25VXX() */
+// uint32_t FM25VXX::GetTheCurrentAddress() {
+//     return (_currentAddress);
+//
+// } /* GetTheCurrentAddress() */
+//
+// void FM25VXX::SetTheCurrentAddress(uint32_t newAddress) {
+//     if (newAddress > _maxAddress) {
+//         _currentAddress = _maxAddress;
+//
+//     } else {
+//         _currentAddress = newAddress;
+//
+//     } /* set the new address */
+//
+// } /* SetTheCurrentAddress() */
+//
+// uint32_t FM25VXX::GetTheMaxAddress() {
+//     return (_maxAddress);
+//
+// } /* GetTheMaxAddress() */
+//
+// FM25VXXError FM25VXX::Erase(FM25VXXErase whatToErase) {
+//     uint8_t  nullData        = 0x00;
+//     uint32_t numBytesToErase = 0x00;
+//
+//     if (whatToErase == FM25VXX_TO_THE_FENCE) {
+//         numBytesToErase = _fenceAddress;
+//     } else {
+//         if (_fenceAddress <= _maxAddress) {
+//             return (FM25VXX_ERASE_PAST_FENCE_REQUEST);
+//         }
+//
+//         numBytesToErase = _maxAddress;
+//
+//     } /* if erasing to the fence or the whole chip */
+//
+//     _currentAddress = BASE_ADDRESS;
+//
+//     WriteBlock(_currentAddress, 1, numBytesToErase, &nullData);
+//
+//     return (FM25VXXError::Success);
+//
+// } /* Erase() */
+//
+// FM25VXXError FM25VXX::WriteProtectFM25VXX(FM25VXXProtection whatToProtect) {
+//     switch (whatToProtect) {
+//         case FM25VXX_PROTECT_UPPER_QUARTER:
+//             WriteStatusRegister(1, 0, 1, 0);
+//             break;
+//         case FM25VXX_PROTECT_UPPER_HALF:
+//             WriteStatusRegister(1, 1, 0, 0);
+//             break;
+//         case FM25VXX_PROTECT_ALL:
+//             WriteStatusRegister(1, 1, 1, 0);
+//             break;
+//         case FM25VXX_PROTECT_NONE:
+//             WriteStatusRegister(1, 0, 0, 0);
+//             break;
+//         default:
+//             return (FM25VXX_INVALID_WRITE_PROTECT);
+//             break;
+//     }
+//
+//     return (FM25VXXError::Success);
+//
+// } /* WriteProtectFM25VXX() */
 
 void FM25VXX::WriteStatusRegister(uint8_t wpen, uint8_t bp0, uint8_t bp1, uint8_t wel) {
-    wpen == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::WPEN))) : (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::WPEN)));
-    bp0 == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP0))) : (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP0)));
-    bp1 == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP1))) : (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP1)));
-    wel == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::WEL))) : (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::WEL)));
+    wpen == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::WPEN))) :
+                (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::WPEN)));
+    bp0 == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP0))) :
+               (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP0)));
+    bp1 == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP1))) :
+               (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::BP1)));
+    wel == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::WEL))) :
+               (_statusRegister &= ~(1 << static_cast<uint8_t>(FM25VXX_StatusBit::WEL)));
 
-    uint8_t tx_buf[2] = {static_cast<uint8_t>(FM25VXX_Opcode::WREN)};
+    uint8_t tx_buf[2] = { static_cast<uint8_t>(FM25VXX_Opcode::WREN) };
     spi_transfer_bytes(tx_buf, nullptr, 1);
-    
+
     tx_buf[0] = static_cast<uint8_t>(FM25VXX_Opcode::WRSR);
     tx_buf[1] = _statusRegister;
     spi_transfer_bytes(tx_buf, nullptr, 2);
@@ -364,58 +337,45 @@ void FM25VXX::WriteStatusRegister(uint8_t wpen, uint8_t bp0, uint8_t bp1, uint8_
 void FM25VXX::WriteStatusRegister(uint8_t sRegister) {
     _statusRegister = sRegister;
 
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WREN));
-
 
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WRSR));
     spi_transfer_byte(_statusRegister);
-
 }
 
 void FM25VXX::ReadStatusRegister(uint8_t* wpen, uint8_t* bp0, uint8_t* bp1, uint8_t* wel) {
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::RDSR));
     _statusRegister = spi_transfer_byte(0x00);
 
-
     *wpen = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::WPEN)) & 1;
-    *bp0 = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::BP0)) & 1;
-    *bp1 = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::BP1)) & 1;
-    *wel = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::WEL)) & 1;
+    *bp0  = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::BP0)) & 1;
+    *bp1  = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::BP1)) & 1;
+    *wel  = (_statusRegister >> static_cast<uint8_t>(FM25VXX_StatusBit::WEL)) & 1;
 }
 
 uint8_t FM25VXX::ReadStatusRegister() {
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::RDSR));
     _statusRegister = spi_transfer_byte(0x00);
-
 
     return (_statusRegister);
 }
 
-FM25VXXError FM25VXX::WriteByte(uint32_t address, uint8_t data) {
+FM25VXX::FM25VXXError FM25VXX::WriteByte(uint32_t address, uint8_t data) {
     /*
     * Basic sanity check for writing past the fence
     */
     if (address >= _fenceAddress) {
-        return (static_cast<uint8_t>(FM25VXX_Opcode::WRITE)_PAST_FENCE_REQUEST);
+        return FM25VXXError::WritePastFence;
     }
 
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WREN));
-
 
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WRITE));
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         spi_transfer_byte(thirdByte(address));
     }
     spi_transfer_byte((address >> 8) & 0xFF);  // highByte
-    spi_transfer_byte(address & 0xFF);          // lowByte
+    spi_transfer_byte(address & 0xFF);         // lowByte
     spi_transfer_byte(data);
 
     /*
@@ -427,31 +387,24 @@ FM25VXXError FM25VXX::WriteByte(uint32_t address, uint8_t data) {
         _currentAddress = address + 1;
     }
 
-    return (FM25VXXError::Success);
+    return FM25VXXError::Success;
 
 } /* WriteByte() */
 
-FM25VXXError FM25VXX::WriteByte(uint8_t data) {
+FM25VXX::FM25VXXError FM25VXX::WriteByte(uint8_t data) {
     return (WriteByte(_currentAddress, data));
 
 } /* WriteByte() */
 
-FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     uint32_t numBytesToWrite     = blockSize * numBlocks;
     uint32_t addressPlusNumBytes = address + numBytesToWrite;
 
     /*
     * Overwrite detection
     */
-    if (numBytesToWrite > _fenceAddress) {
-        return (FM25VXX_OVERWRITE_ARRAY_REQUEST);
-    }
-
-    /*
-    * Basic sanity check for writing past the fence
-    */
-    if (address >= _fenceAddress) {
-        return (static_cast<uint8_t>(FM25VXX_Opcode::WRITE)_PAST_FENCE_REQUEST);
+    if (numBytesToWrite + address > _fenceAddress) {
+        return FM25VXXError::WritePastFence;
     }
 
     /*
@@ -460,17 +413,14 @@ FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t 
     */
     uint32_t bytesToTheFence = _fenceAddress - address;
 
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WREN));
-
 
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WRITE));
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         spi_transfer_byte(thirdByte(address));
     }
     spi_transfer_byte((address >> 8) & 0xFF);  // highByte
-    spi_transfer_byte(address & 0xFF);          // lowByte
+    spi_transfer_byte(address & 0xFF);         // lowByte
 
     /*
     * If the fence is <= _maxAddress and
@@ -487,10 +437,7 @@ FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t 
             spi_transfer_byte(data[j]);
         }
 
-
-
         spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WREN));
-
 
         spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::WRITE));
         if (_maxAddress >= FM25V10_MAX_ADDRESS) {
@@ -528,35 +475,30 @@ FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t 
 
     } /* deal with the fence stuff */
 
-
-
     return (FM25VXXError::Success);
 
 } /* WriteBlock() */
 
-FM25VXXError FM25VXX::WriteBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     return (WriteBlock(_currentAddress, blockSize, numBlocks, data));
 
 } /* WriteBlock() */
 
-FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
     /*
     * Basic sanity check for reading past the _maxAddress
     */
     if (address > _maxAddress) {
-        return (static_cast<uint8_t>(FM25VXX_Opcode::READ)_PAST_MAX_ADDRESS_REQUEST);
+        return FM25VXXError::ReadPastMaxAddress;
     }
-
-    
 
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::READ));
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         spi_transfer_byte(thirdByte(address));
     }
     spi_transfer_byte((address >> 8) & 0xFF);  // highByte
-    spi_transfer_byte(address & 0xFF);          // lowByte
+    spi_transfer_byte(address & 0xFF);         // lowByte
     *data = spi_transfer_byte(0x00);
-
 
     /*
     * Update current address
@@ -571,7 +513,7 @@ FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
 
 } /* ReadByte() */
 
-FM25VXXError FM25VXX::ReadByte(uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::ReadByte(uint8_t* data) {
     return (ReadByte(_currentAddress, data));
 
 } /* ReadByte() */
@@ -581,22 +523,15 @@ FM25VXXError FM25VXX::ReadByte(uint8_t* data) {
  * region of size >= blockSize, pointed to by data.  If
  * not, the behavior of this function is undefined.
  */
-FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     uint32_t numBytesToRead      = blockSize * numBlocks;
     uint32_t addressPlusNumBytes = address + numBytesToRead;
 
     /*
-    * Overread detection
-    */
-    if (numBytesToRead > _fenceAddress) {
-        return (FM25VXX_OVERREAD_ARRAY_REQUEST);
-    }
-
-    /*
     * Basic sanity check for reading past the _maxAddress
     */
-    if (address > _maxAddress) {
-        return (static_cast<uint8_t>(FM25VXX_Opcode::READ)_PAST_MAX_ADDRESS_REQUEST);
+    if (address + numBytesToRead > _maxAddress) {
+        return FM25VXXError::ReadPastMaxAddress;
     }
 
     /*
@@ -605,14 +540,12 @@ FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, uint32_t n
     */
     uint32_t bytesToTheFence = _fenceAddress - address;
 
-    
-
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::READ));
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         spi_transfer_byte(thirdByte(address));
     }
     spi_transfer_byte((address >> 8) & 0xFF);  // highByte
-    spi_transfer_byte(address & 0xFF);          // lowByte
+    spi_transfer_byte(address & 0xFF);         // lowByte
 
     /*
     * If the fence is <= _maxAddress and
@@ -627,8 +560,6 @@ FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, uint32_t n
         for (; i < bytesToTheFence; i++) {
             data[i] = spi_transfer_byte(0x00);
         }
-
-
 
         spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::READ));
         if (_maxAddress >= FM25V10_MAX_ADDRESS) {
@@ -665,23 +596,19 @@ FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, uint32_t n
 
     } /* deal with the fence stuff */
 
-
-
     return (FM25VXXError::Success);
 
 } /* ReadBlock() */
 
-FM25VXXError FM25VXX::ReadBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
+FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     return (ReadBlock(_currentAddress, blockSize, numBlocks, data));
 
 } /* ReadBlock() */
 
-FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VXXFamilyDensity* storage, FM25VXXVariant* variant) {
-    *manufacturer = FM25VXX_MAN_UNKNOWN;
-    *storage      = FM25VXX_STORAGE_UNKNOWN;
-    *variant      = FM25VXX_VARIANT_UNKNOWN;
-
-    
+FM25VXX::FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VXXFamilyDensity* storage, FM25VXXVariant* variant) {
+    *manufacturer = FM25VXXManufacturer::Unknown;
+    *storage      = FM25VXXFamilyDensity::Unknown;
+    *variant      = FM25VXXVariant::Unknown;
 
     spi_transfer_byte(static_cast<uint8_t>(FM25VXX_Opcode::RDID));
 
@@ -698,42 +625,41 @@ FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VX
     * there's a serious problem.  Hah!
     */
     if (spi_transfer_byte(0x00) != static_cast<uint8_t>(FM25VXXManufacturer::CypressRamtron)) {
-
-        return (FM25VXX_UNKNOWN_MANUFACTURER);
+        return FM25VXXError::UnknownManufacturer;
     }
-    *manufacturer = FM25VXX_MAN_CYPRESS_RAMTRON;
+    *manufacturer = FM25VXXManufacturer::CypressRamtron;
 
     /*
     * Read the amount of storage
     */
     switch (spi_transfer_byte(0x00)) {
-        case FM25VXX_128K_STORAGE_CODE:
-            *storage = FM25VXX_128K;
-            *variant = FM25V01;
+        case DENSITY_128K:
+            *storage = FM25VXXFamilyDensity::K128;
+            *variant = FM25VXXVariant::FM25V01;
             break;
 
-        case FM25VXX_256K_STORAGE_CODE:
-            *storage = FM25VXX_256K;
-            *variant = FM25V02;
+        case DENSITY_256K:
+            *storage = FM25VXXFamilyDensity::K256;
+            *variant = FM25VXXVariant::FM25V02;
             break;
 
-        case FM25VXX_512K_STORAGE_CODE:
-            *storage = FM25VXX_512K;
-            *variant = FM25V05;
+        case DENSITY_512K:
+            *storage = FM25VXXFamilyDensity::K512;
+            *variant = FM25VXXVariant::FM25V05;
             break;
 
-        case FM25VXX_1M_STORAGE_CODE:
-            *storage = FM25VXX_1M;
+        case DENSITY_1M:
+            *storage = FM25VXXFamilyDensity::M1;
+            *variant = FM25VXXVariant::FM25V10;
             break;
 
-        case FM25VXX_2M_STORAGE_CODE:
-            *storage = FM25VXX_2M;
-            *variant = FM25V20;
+        case DENSITY_2M:
+            *storage = FM25VXXFamilyDensity::M2;
+            *variant = FM25VXXVariant::FM25V20;
             break;
 
         default:
-
-            return (FM25VXX_UNSUPPORTED_STORAGE_DENSITY);
+            return FM25VXXError::UnsupportedDensity;
             break;
 
     } /* storage switch */
@@ -750,14 +676,14 @@ FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VX
     * functionality expansion should that
     * become necessary in the future.
     */
-    if (*variant == FM25VXX_VARIANT_UNKNOWN) {
+    if (*variant == FM25VXXVariant::Unknown) {
         switch (spi_transfer_byte(0x00)) {
-            case FM25V10_VARIANT_CODE:
-                *variant = FM25V10;
+            case VARIANT_FM25V10:
+                *variant = FM25VXXVariant::FM25V10;
                 break;
 
-            case FM25VN10_VARIANT_CODE:
-                *variant = FM25VN10;
+            case VARIANT_FM25VN10:
+                *variant = FM25VXXVariant::FM25VN10;
                 break;
 
             default:
@@ -765,14 +691,9 @@ FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VX
              * Things went really South - couldn't determine variant
              */
 
-                return (FM25VXX_CHIP_VARIANT_ERROR);
-
-        } /* variant switch */
-
-    } /* if this chip has an FM25VNXX variant */
-
-
+                return FM25VXXError::ChipVariantError;
+        }
+    }
 
     return (FM25VXXError::Success);
-
-} /* ReadManufacturer() */
+}
