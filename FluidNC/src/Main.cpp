@@ -19,6 +19,7 @@
 #    include "Platform.h"
 #    include "StartupLog.h"
 #    include "Module.h"
+#    include "wdt.h"
 
 #    include "Driver/localfs.h"
 
@@ -98,6 +99,7 @@ void setup() {
             }
         }
 #    endif
+        feed_WDT();
 
         // We have to initialize the extenders first, before pins are used
         if (config->_extenders) {
@@ -107,6 +109,7 @@ void setup() {
         auto listeners = Listeners::SysListenerFactory::objects();
         for (auto l : listeners) {
             l->init();
+            feed_WDT();
         }
 
         Stepping::init();  // Configure stepper interrupt timers
@@ -134,6 +137,7 @@ void setup() {
                 int prio = module->init_priority();
                 if (prio == current) {
                     module->init();
+                    feed_WDT();
                 } else if (prio > current && prio < next) {
                     next = prio;
                 }
@@ -142,6 +146,7 @@ void setup() {
                 auto prio = module->init_priority();
                 if (prio == current) {
                     module->init();
+                    feed_WDT();
                 } else if (prio > current && prio < next) {
                     next = prio;
                 }
@@ -152,12 +157,14 @@ void setup() {
         auto atcs = ATCs::ATCFactory::objects();
         for (auto const& atc : atcs) {
             atc->init();
+            feed_WDT();
         }
 
         if (!state_is(State::ConfigAlarm)) {
             auto spindles = Spindles::SpindleFactory::objects();
             for (auto const& spindle : spindles) {
                 spindle->init();
+                feed_WDT();
             }
             bool stopped_spindle, new_spindle;
             Spindles::Spindle::switchSpindle(0, spindles, spindle, stopped_spindle, new_spindle);

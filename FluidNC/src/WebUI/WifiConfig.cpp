@@ -16,6 +16,7 @@
 #include "WebUIServer.h"           // Web_Server::port()
 #include "TelnetServer.h"          // TelnetServer::port()
 #include "NotificationsService.h"  // notificationsservice
+#include "wdt.h"
 
 #include <WiFi.h>
 #include <esp_wifi.h>
@@ -778,6 +779,7 @@ namespace WebUI {
                         break;
                 }
                 log_info(msg);
+                feed_WDT();
                 delay_ms(2000);  // Give it some time to connect
             }
             return false;

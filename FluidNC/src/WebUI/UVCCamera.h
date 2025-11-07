@@ -34,7 +34,7 @@ namespace WebUI {
         // Module interface
         void init() override;
         void deinit() override;
-        int  init_priority() override { return 0x5200; }  // After WebUI_Server (0x5100)
+        int  init_priority() override { return 0x8000; }  // After WebUI_Server
 
         // Configuration interface
         void validate() override;

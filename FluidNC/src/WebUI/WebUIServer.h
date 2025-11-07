@@ -54,7 +54,7 @@ namespace WebUI {
         void deinit() override;
         void poll() override;
 
-        int init_priority() override { return 0x5100; };
+        int init_priority() override { return 0x5500; };
 
         // static long     get_client_ID();
         static uint16_t port() { return _port; }
