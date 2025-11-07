@@ -18,6 +18,8 @@
 #include "SettingsDefinitions.h"  // gcode_echo
 #include "Machine/LimitPin.h"
 #include "Job.h"
+#include "State/StatePersistence.h"
+
 #include "Driver/restart.h"
 #include <esp_task_wdt.h>
 
@@ -405,6 +407,9 @@ static void protocol_do_start_homing() {
 }
 
 static void protocol_do_soft_restart() {
+    // Save state before reset
+    StatePersistence::forceSave();
+    
     auto listeners = Listeners::SysListenerFactory::objects();
     for (auto l : listeners) {
         l->beforeVariableReset();
@@ -482,6 +487,9 @@ static void protocol_do_start() {
 }
 
 static void protocol_do_alarm(void* alarmVoid) {
+    // Save state on alarm
+    StatePersistence::forceSave();
+    
     lastAlarm = (ExecAlarm)((int)(intptr_t)alarmVoid);
     if (spindle->_off_on_alarm) {
         spindle->stop();

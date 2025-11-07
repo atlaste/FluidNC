@@ -487,6 +487,17 @@ bool set_named_param(const std::string& name, float value) {
     return true;
 }
 
+// Overload for const char*
+bool set_named_param(const char* name, float value) {
+    return set_named_param(std::string(name), value);
+}
+
+const std::map<std::string, float>& get_all_named_params() {
+    // We only return global params, not job-local or system params
+    // Those are either transient or already saved elsewhere
+    return global_named_params;
+}
+
 bool set_numbered_param(ngc_param_id_t id, float value) {
     axis_t axis;
     for (auto const& [key, coord_index] : axis_params) {

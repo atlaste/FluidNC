@@ -36,8 +36,8 @@ CoordIndex& operator++(CoordIndex& i) {
 static const int32_t MaxLineNumber = 10000000;
 
 // Declare gc extern struct
-parser_state_t gc_state;
-parser_block_t gc_block;
+parser_state_t gc_state;  // State of the g-code parser
+parser_block_t gc_block;  // State of the current line being parsed
 
 // clang-format off
 gc_modal_t modal_defaults = {
@@ -1640,7 +1640,7 @@ Error gc_execute_line(const char* input_line) {
     // NOTE: Pass zero spindle speed for all restricted laser motions.
     if (!disableLaser) {
         pl_data->spindle_speed = gc_state.spindle_speed;  // Record data for planner use.
-    }                                                     // else { pl_data->spindle_speed = 0.0; } // Initialized as zero already.
+    }  // else { pl_data->spindle_speed = 0.0; } // Initialized as zero already.
     // [5. Select tool ]: NOT SUPPORTED. Only tracks tool value.
     // [M6. Change tool ]:
     if (gc_block.modal.tool_change == ToolChange::Enable) {

@@ -31,8 +31,8 @@ namespace Machine {
         static axis_t        _n_active_axes;
 
         static void    startPulseTimer();
-        static void    waitDirection();  // Wait for direction delay
-        static steps_t axis_steps[MAX_N_AXIS];
+        static void    waitDirection();         // Wait for direction delay
+        static steps_t axis_steps[MAX_N_AXIS];  // State of the axis (in steps)
 
         static step_engine_t* step_engine;
 

@@ -7,6 +7,8 @@
 #include <string>
 
 #include <cstdint>
+#include <map>
+
 // TODO - make ngc_param_id_t an enum, give names to numbered parameters where
 // possible
 typedef uint32_t ngc_param_id_t;
@@ -18,3 +20,4 @@ bool perform_assignments();
 bool named_param_exists(std::string& name);
 bool set_named_param(const char* name, float value);
 bool set_numbered_param(ngc_param_id_t, float value);
+const std::map<std::string, float> &get_all_named_params();
