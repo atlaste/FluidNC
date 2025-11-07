@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UVC Camera Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        #cameraFeed {
+            width: 100%;
+            max-width: 1920px;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            background: #000;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .controls {
+            margin: 15px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 UVC Camera Test</h1>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="controls">
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+        
+        <img id="cameraFeed" alt="Camera feed will appear here" />
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">Frames Received</div>
+                <div class="stat-value" id="frameCount">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Frame Rate</div>
+                <div class="stat-value" id="fps">0 fps</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Last Frame Size</div>
+                <div class="stat-value" id="frameSize">0 KB</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Total Data</div>
+                <div class="stat-value" id="totalData">0 MB</div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Make sure your FluidNC device is powered on and connected to your network</li>
+                <li>Ensure a USB camera is connected to the ESP32 USB host</li>
+                <li>Update the WebSocket URL below if needed (default: ws://&lt;current-host&gt;/camera)</li>
+                <li>Click "Connect" to start streaming</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let frameCount = 0;
+        let totalBytes = 0;
+        let lastFrameTime = Date.now();
+        let fpsCounter = 0;
+        let fpsInterval = null;
+
+        // Determine WebSocket URL (use current host)
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.hostname || 'fluidnc.local';
+        const wsUrl = `${wsProtocol}//${wsHost}/camera`;
+
+        console.log('WebSocket URL:', wsUrl);
+
+        function updateStatus(message, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + className;
+        }
+
+        function updateStats() {
+            document.getElementById('frameCount').textContent = frameCount;
+            document.getElementById('frameSize').textContent = 
+                (totalBytes > 0 ? (totalBytes / 1024).toFixed(2) : 0) + ' KB';
+            document.getElementById('totalData').textContent = 
+                (totalBytes > 0 ? (totalBytes / 1024 / 1024).toFixed(2) : 0) + ' MB';
+        }
+
+        function connect() {
+            if (ws) {
+                console.log('Already connected');
+                return;
+            }
+
+            updateStatus('Connecting...', 'connecting');
+            document.getElementById('connectBtn').disabled = true;
+
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.binaryType = 'arraybuffer';
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus('Connected - Waiting for frames...', 'connected');
+                    document.getElementById('disconnectBtn').disabled = false;
+                    
+                    // Start FPS counter
+                    fpsCounter = 0;
+                    fpsInterval = setInterval(() => {
+                        document.getElementById('fps').textContent = fpsCounter + ' fps';
+                        fpsCounter = 0;
+                    }, 1000);
+                };
+
+                ws.onmessage = (event) => {
+                    if (event.data instanceof ArrayBuffer) {
+                        // Convert ArrayBuffer to Blob and create object URL
+                        const blob = new Blob([event.data], { type: 'image/jpeg' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        // Update image source
+                        const img = document.getElementById('cameraFeed');
+                        const oldUrl = img.src;
+                        img.src = url;
+                        
+                        // Revoke old URL to prevent memory leak
+                        if (oldUrl && oldUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(oldUrl);
+                        }
+
+                        // Update statistics
+                        frameCount++;
+                        fpsCounter++;
+                        totalBytes = event.data.byteLength;
+                        updateStats();
+                        
+                        const now = Date.now();
+                        const timeSinceLastFrame = now - lastFrameTime;
+                        lastFrameTime = now;
+                        
+                        console.log(`Frame ${frameCount}: ${(event.data.byteLength / 1024).toFixed(2)} KB, ` +
+                                  `${timeSinceLastFrame}ms since last frame`);
+                        
+                        updateStatus(`Connected - Streaming (${frameCount} frames)`, 'connected');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Error: Connection failed', 'disconnected');
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    updateStatus('Disconnected', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    
+                    if (fpsInterval) {
+                        clearInterval(fpsInterval);
+                        fpsInterval = null;
+                    }
+                    
+                    ws = null;
+                };
+
+            } catch (error) {
+                console.error('Failed to create WebSocket:', error);
+                updateStatus('Error: ' + error.message, 'disconnected');
+                document.getElementById('connectBtn').disabled = false;
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        // Auto-connect on page load (optional - comment out if you prefer manual connection)
+        // window.addEventListener('load', connect);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
+

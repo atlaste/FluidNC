@@ -429,6 +429,9 @@ namespace WebUI {
             if (myStreamFile(request, "index.html", false, true)) {
                 return;
             }
+            else if (myStreamFile(request, "test_camera.html", false, true)) {
+                return;
+            }
         }
 
         // If we did not send index.html, send the default content that provides simple localfs file management

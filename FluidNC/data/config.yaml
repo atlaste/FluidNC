@@ -165,6 +165,13 @@ user_inputs:
   digital6_pin: NO_PIN
   digital7_pin: NO_PIN
 
+uvc_camera:
+  enable: true
+  frame_rate_limit: 5
+  preferred_width: 640
+  preferred_height: 480
+  buffer_count: 3
+
 arc_tolerance_mm: 0.002000
 junction_deviation_mm: 0.010000
 verbose_errors: true

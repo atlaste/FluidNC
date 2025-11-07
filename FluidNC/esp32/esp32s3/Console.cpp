@@ -23,7 +23,7 @@ public:
         UartChannel::init(uart0);
 
 #if defined(CONFIG_TINYUSB_CDC_ENABLED) && ESP_IDF_VERSION_MAJOR >= 5
-        auto cdc_enable = new EnumSetting("USB CDC Enable", WEBSET, WG, NULL, "USBCDC/Enable", true, &onoffOptions);
+        auto cdc_enable = new EnumSetting("USB CDC Enable", WEBSET, WG, NULL, "USBCDC/Enable", false, &onoffOptions);
         if (cdc_enable->get()) {
             CDCChannel.init();
         }
