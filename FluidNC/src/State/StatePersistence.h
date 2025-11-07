@@ -58,6 +58,7 @@ public:
 
     // ConfigurableModule overrides
     void init() override;
+    int  init_priority() override { return 1'000'000; }; // Usually last to initialize.
     void deinit() override;
     void group(Configuration::HandlerBase& handler) override;
 

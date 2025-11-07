@@ -15,7 +15,7 @@ private:
     static constexpr uint8_t  CONTINUATION_CODE_NUM = 6;
     static constexpr uint32_t WAKEUP_DELAY_US       = 450;
     static constexpr uint32_t POWERUP_DELAY_US      = 500;
-    static constexpr uint32_t TEST_ADDRESS          = 0x10;  // Address for init test
+    static constexpr uint32_t TEST_ADDRESS          = 0x0000;  // Address for init test
     static constexpr uint8_t  TEST_VALUE1           = 0xAA;
     static constexpr uint8_t  TEST_VALUE2           = 0x55;
 

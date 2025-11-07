@@ -18,12 +18,15 @@
 #include <cstring>
 
 // FRAM memory layout
-#define FRAM_CONFIG_HASH_ADDR 0x0000
-#define FRAM_MOTOR_STEPS_ADDR 0x0004
-#define FRAM_HOMING_STATUS_ADDR 0x0028
-#define FRAM_PARSER_STATE_ADDR 0x0100
-#define FRAM_PARAMETERS_ADDR 0x0400
-#define FRAM_OVERRIDES_ADDR 0x1000
+namespace {
+    // NOTE: 0x0000 is reserved for the initialization sequence.
+    static const uint16_t FRAM_CONFIG_HASH_ADDR   = 0x0004;
+    static const uint16_t FRAM_MOTOR_STEPS_ADDR   = 0x0008;
+    static const uint16_t FRAM_HOMING_STATUS_ADDR = 0x0030;
+    static const uint16_t FRAM_OVERRIDES_ADDR     = 0x0040;
+    static const uint16_t FRAM_PARSER_STATE_ADDR  = 0x0050;
+    static const uint16_t FRAM_PARAMETERS_ADDR    = 0x0200;
+}
 
 // Static members
 QueueHandle_t StatePersistence::_forceSaveQueue = nullptr;
@@ -353,11 +356,23 @@ void StatePersistence::init() {
     // Read stored hash
     uint32_t stored_hash;
     _fram->ReadBlock(FRAM_CONFIG_HASH_ADDR, sizeof(stored_hash), 1, (uint8_t*)&stored_hash);
+    log_debug("Read stored hash from FRAM: " << to_hex(stored_hash) << " (bytes: " << to_hex(((uint8_t*)&stored_hash)[0]) << " "
+                                             << to_hex(((uint8_t*)&stored_hash)[1]) << " " << to_hex(((uint8_t*)&stored_hash)[2]) << " "
+                                             << to_hex(((uint8_t*)&stored_hash)[3]) << ")");
 
     if (stored_hash != _configHash) {
         log_info("Configuration changed (stored: " << to_hex(stored_hash) << ", current: " << to_hex(_configHash)
                                                    << "), initializing FRAM state");
+        log_debug("Writing hash to FRAM: " << to_hex(_configHash) << " (bytes: " << to_hex(((uint8_t*)&_configHash)[0]) << " "
+                                           << to_hex(((uint8_t*)&_configHash)[1]) << " " << to_hex(((uint8_t*)&_configHash)[2]) << " "
+                                           << to_hex(((uint8_t*)&_configHash)[3]) << ")");
         _fram->WriteBlock(FRAM_CONFIG_HASH_ADDR, sizeof(_configHash), 1, (uint8_t*)&_configHash);
+
+        // Verify the write
+        uint32_t verify_hash;
+        _fram->ReadBlock(FRAM_CONFIG_HASH_ADDR, sizeof(verify_hash), 1, (uint8_t*)&verify_hash);
+        log_debug("Verified hash after write: " << to_hex(verify_hash));
+
         saveAllSections();  // Save current state
     } else {
         log_info("Restoring state from FRAM");
@@ -410,8 +425,3 @@ void StatePersistence::forceSave() {
 // Module registration - auto-discovered by ConfigurableModule system
 ConfigurableModuleFactory::InstanceBuilder<StatePersistence> state_persistence_module
     __attribute__((init_priority(105))) ("state_persistence");
-
-// Global function for Protocol.cpp to call (works without RTTI)
-extern "C" void statePersistenceForceSave() {
-    StatePersistence::forceSave();
-}

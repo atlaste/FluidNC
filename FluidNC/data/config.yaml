@@ -25,6 +25,12 @@ sdcard:
   card_detect_pin: NO_PIN
   frequency_hz: 8000000
 
+state_persistence:
+  cs_pin: gpio.5
+  save_interval_ms: 100
+  spi_freq_mhz: 20
+  save_parameters: true
+
 spindle_encoder:
   pin_a: gpio.38
   pin_b: gpio.40
