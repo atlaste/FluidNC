@@ -58,6 +58,7 @@ namespace WebUI {
 
         // static long     get_client_ID();
         static uint16_t port() { return _port; }
+        static AsyncWebServer* getWebServer() { return _webserver; }
 
         ~WebUI_Server();
 
