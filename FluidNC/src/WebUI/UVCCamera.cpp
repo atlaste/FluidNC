@@ -199,6 +199,9 @@ namespace WebUI {
         uvc_config.frame_buffer = _uvc_frame_buffer;
         uvc_config.frame_cb = &camera_frame_callback;
         uvc_config.frame_cb_arg = this;
+        // Suspend streaming after start - only stream when clients are connected
+        // This prevents the camera from eating CPU when not being viewed
+        uvc_config.flags = FLAG_UVC_SUSPEND_AFTER_START;
 
         esp_err_t ret = uvc_streaming_config(&uvc_config);
         if (ret != ESP_OK) {
@@ -379,8 +382,20 @@ namespace WebUI {
             }
         }
 
+        bool was_empty = (_active_client_count == 0);
         _active_clients[_active_client_count++] = client_id;
         log_info("UVC Camera client connected: " << client_id << " (total: " << _active_client_count << ")");
+        
+        // Resume streaming when first client connects
+        if (was_empty && _camera_present && _uvc_initialized) {
+            esp_err_t ret = usb_streaming_control(STREAM_UVC, CTRL_RESUME, NULL);
+            if (ret == ESP_OK) {
+                log_info("UVC streaming resumed for client viewing");
+            } else {
+                log_warn("Failed to resume UVC streaming: " << ret);
+            }
+        }
+        
         return true;
     }
 
@@ -393,6 +408,17 @@ namespace WebUI {
                 }
                 _active_client_count--;
                 log_info("UVC Camera client disconnected: " << client_id << " (total: " << _active_client_count << ")");
+                
+                // Suspend streaming when last client disconnects to save CPU
+                if (_active_client_count == 0 && _camera_present && _uvc_initialized) {
+                    esp_err_t ret = usb_streaming_control(STREAM_UVC, CTRL_SUSPEND, NULL);
+                    if (ret == ESP_OK) {
+                        log_info("UVC streaming suspended (no clients viewing)");
+                    } else {
+                        log_warn("Failed to suspend UVC streaming: " << ret);
+                    }
+                }
+                
                 break;
             }
         }
@@ -549,6 +575,18 @@ static void stream_state_callback(usb_stream_state_t event, void* user_ptr) {
             
             camera->setCameraPresent(true);
             log_info("UVC Camera device connected");
+            
+            // If clients are already waiting, resume streaming
+            if (camera->hasActiveClients()) {
+                esp_err_t ret = usb_streaming_control(STREAM_UVC, CTRL_RESUME, NULL);
+                if (ret == ESP_OK) {
+                    log_info("UVC streaming resumed (clients already connected)");
+                } else {
+                    log_warn("Failed to resume UVC streaming: " << ret);
+                }
+            } else {
+                log_info("UVC streaming suspended (no clients connected yet)");
+            }
             break;
         }
         

@@ -147,6 +147,7 @@ idf_component_register(SRCS BTConfig.cpp
 							WebUI/Mdns.cpp
 							WebUI/NotificationsService.cpp
 							WebUI/OTA.cpp
+							WebUI/SystemMonitor.cpp
 							WebUI/TelnetClient.cpp
 							WebUI/TelnetServer.cpp
 							WebUI/UVCCamera.cpp

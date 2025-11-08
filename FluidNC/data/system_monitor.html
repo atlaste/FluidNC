@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FluidNC System Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #2d2d30;
+            border-radius: 6px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        
+        .status-indicator.connected {
+            background: #4caf50;
+            box-shadow: 0 0 8px #4caf50;
+        }
+        
+        .status-text {
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .controls button {
+            padding: 8px 16px;
+            background: #007acc;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .controls button:hover {
+            background: #005a9e;
+        }
+        
+        .controls button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #2d2d30;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #007acc;
+        }
+        
+        .stat-card h3 {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .stat-detail {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #444;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.3s ease;
+        }
+        
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #ff9800, #ffc107);
+        }
+        
+        .progress-fill.critical {
+            background: linear-gradient(90deg, #f44336, #e91e63);
+        }
+        
+        .tasks-section {
+            background: #2d2d30;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .tasks-header {
+            padding: 15px 20px;
+            background: #3e3e42;
+            border-bottom: 1px solid #555;
+        }
+        
+        .tasks-header h2 {
+            font-size: 18px;
+        }
+        
+        .tasks-controls {
+            display: flex;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #353535;
+            border-bottom: 1px solid #555;
+        }
+        
+        .tasks-controls input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #2d2d30;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .tasks-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .tasks-table th {
+            background: #3e3e42;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .tasks-table th:hover {
+            background: #4a4a4f;
+        }
+        
+        .tasks-table th.sorted {
+            color: #007acc;
+        }
+        
+        .tasks-table td {
+            padding: 12px;
+            border-top: 1px solid #3e3e42;
+            font-size: 13px;
+        }
+        
+        .tasks-table tbody tr:hover {
+            background: #353535;
+        }
+        
+        .task-name {
+            font-weight: 500;
+            color: #fff;
+        }
+        
+        .task-state {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .task-state.running {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .task-state.ready {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .task-state.blocked {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .task-state.suspended {
+            background: #9e9e9e;
+            color: white;
+        }
+        
+        .cpu-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .cpu-bar-fill {
+            flex: 1;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .cpu-bar-progress {
+            height: 100%;
+            background: #007acc;
+            transition: width 0.3s ease;
+        }
+        
+        .cpu-percent {
+            min-width: 45px;
+            text-align: right;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .no-data {
+            padding: 40px;
+            text-align: center;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ System Monitor</h1>
+        
+        <div class="status-bar">
+            <div id="statusIndicator" class="status-indicator"></div>
+            <div class="status-text" id="statusText">Disconnected</div>
+            <div class="controls">
+                <button id="connectBtn" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Memory Usage</h3>
+                <div class="stat-value" id="memoryUsed">-- KB</div>
+                <div class="stat-detail">
+                    <span id="memoryFree">--</span> KB free of <span id="memoryTotal">--</span> KB
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="memoryProgress" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>PSRAM Usage</h3>
+                <div class="stat-value" id="psramUsed">-- KB</div>
+                <div class="stat-detail">
+                    <span id="psramFree">--</span> KB free of <span id="psramTotal">--</span> KB
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="psramProgress" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>System Uptime</h3>
+                <div class="stat-value" id="uptime">--:--:--</div>
+                <div class="stat-detail">Hours : Minutes : Seconds</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Active Tasks</h3>
+                <div class="stat-value" id="taskCount">--</div>
+                <div class="stat-detail">FreeRTOS tasks running</div>
+            </div>
+        </div>
+        
+        <div class="tasks-section">
+            <div class="tasks-header">
+                <h2>Task Details</h2>
+            </div>
+            <div class="tasks-controls">
+                <input type="text" id="filterInput" placeholder="Filter tasks..." oninput="filterTasks()">
+            </div>
+            <table class="tasks-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTasks('name')">Task Name <span id="sort-name"></span></th>
+                        <th onclick="sortTasks('cpu')">CPU % <span id="sort-cpu"></span></th>
+                        <th onclick="sortTasks('priority')">Priority <span id="sort-priority"></span></th>
+                        <th onclick="sortTasks('stack_free')">Stack Free <span id="sort-stack_free"></span></th>
+                        <th onclick="sortTasks('state')">State <span id="sort-state"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="tasksBody">
+                    <tr><td colspan="5" class="no-data">Waiting for data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let tasksData = [];
+        let sortColumn = 'cpu';
+        let sortAscending = false;
+
+        // Determine WebSocket URL
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.hostname || 'fluidnc.local';
+        const wsUrl = `${wsProtocol}//${wsHost}/sysmon`;
+
+        console.log('WebSocket URL:', wsUrl);
+
+        function updateStatus(message, isConnected) {
+            document.getElementById('statusText').textContent = message;
+            document.getElementById('statusIndicator').classList.toggle('connected', isConnected);
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+        }
+
+        function formatBytes(bytes) {
+            return (bytes / 1024).toFixed(0);
+        }
+
+        function formatUptime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateMemoryProgress(used, total, elementId) {
+            const percent = total > 0 ? (used / total) * 100 : 0;
+            const progress = document.getElementById(elementId);
+            progress.style.width = percent + '%';
+            progress.className = 'progress-fill';
+            if (percent > 90) progress.classList.add('critical');
+            else if (percent > 75) progress.classList.add('warning');
+        }
+
+        function sortTasks(column) {
+            if (sortColumn === column) {
+                sortAscending = !sortAscending;
+            } else {
+                sortColumn = column;
+                sortAscending = false;
+            }
+            
+            // Update sort indicators
+            document.querySelectorAll('.tasks-table th').forEach(th => {
+                th.classList.remove('sorted');
+                th.querySelector('span').textContent = '';
+            });
+            const header = document.getElementById('sort-' + column).parentElement;
+            header.classList.add('sorted');
+            document.getElementById('sort-' + column).textContent = sortAscending ? '▲' : '▼';
+            
+            renderTasks();
+        }
+
+        function filterTasks() {
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const filter = document.getElementById('filterInput').value.toLowerCase();
+            const tbody = document.getElementById('tasksBody');
+            
+            // Filter tasks
+            let filtered = tasksData.filter(task => 
+                task.name.toLowerCase().includes(filter)
+            );
+            
+            // Sort tasks
+            filtered.sort((a, b) => {
+                let valA = a[sortColumn];
+                let valB = b[sortColumn];
+                
+                if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+                
+                if (sortAscending) {
+                    return valA > valB ? 1 : -1;
+                } else {
+                    return valA < valB ? 1 : -1;
+                }
+            });
+            
+            // Render
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-data">No tasks match filter</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map(task => `
+                <tr>
+                    <td><span class="task-name">${task.name}</span></td>
+                    <td>
+                        <div class="cpu-bar">
+                            <div class="cpu-bar-fill">
+                                <div class="cpu-bar-progress" style="width: ${task.cpu}%"></div>
+                            </div>
+                            <div class="cpu-percent">${task.cpu}%</div>
+                        </div>
+                    </td>
+                    <td>${task.priority}</td>
+                    <td>${task.stack_free} bytes</td>
+                    <td><span class="task-state ${task.state.toLowerCase()}">${task.state}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function handleMessage(data) {
+            try {
+                const stats = JSON.parse(data);
+                
+                // Update memory stats
+                if (stats.memory) {
+                    document.getElementById('memoryUsed').textContent = formatBytes(stats.memory.used) + ' KB';
+                    document.getElementById('memoryFree').textContent = formatBytes(stats.memory.free);
+                    document.getElementById('memoryTotal').textContent = formatBytes(stats.memory.total);
+                    updateMemoryProgress(stats.memory.used, stats.memory.total, 'memoryProgress');
+                    
+                    if (stats.memory.psram_total > 0) {
+                        const psramUsed = stats.memory.psram_total - stats.memory.psram_free;
+                        document.getElementById('psramUsed').textContent = formatBytes(psramUsed) + ' KB';
+                        document.getElementById('psramFree').textContent = formatBytes(stats.memory.psram_free);
+                        document.getElementById('psramTotal').textContent = formatBytes(stats.memory.psram_total);
+                        updateMemoryProgress(psramUsed, stats.memory.psram_total, 'psramProgress');
+                    }
+                }
+                
+                // Update uptime
+                if (stats.uptime !== undefined) {
+                    document.getElementById('uptime').textContent = formatUptime(stats.uptime);
+                }
+                
+                // Update tasks
+                if (stats.tasks) {
+                    tasksData = stats.tasks;
+                    document.getElementById('taskCount').textContent = tasksData.length;
+                    renderTasks();
+                }
+                
+            } catch (error) {
+                console.error('Error parsing stats:', error);
+            }
+        }
+
+        function connect() {
+            if (ws) {
+                console.log('Already connected');
+                return;
+            }
+
+            updateStatus('Connecting...', false);
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus('Connected', true);
+                };
+
+                ws.onmessage = (event) => {
+                    handleMessage(event.data);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Connection error', false);
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    updateStatus('Disconnected', false);
+                    ws = null;
+                };
+
+            } catch (error) {
+                console.error('Failed to create WebSocket:', error);
+                updateStatus('Error: ' + error.message, false);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', connect);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
+

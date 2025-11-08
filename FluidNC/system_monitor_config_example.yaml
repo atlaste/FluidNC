@@ -1,0 +1,10 @@
+# System Monitor Configuration Example
+# Add this to your FluidNC YAML configuration file
+
+system_monitor:
+  enable: true
+  update_rate: 1000        # Update interval in milliseconds (100-5000)
+  track_cpu: true          # Track CPU usage per task
+  track_memory: true       # Track memory usage
+  track_tasks: true        # Track individual task statistics
+
