@@ -231,8 +231,8 @@ namespace WebUI {
                         (i > 0 ? "," : ""),
                         task_array[i].pcTaskName,
                         task_array[i].uxCurrentPriority,
-                        cpu_percent,
-                        stack_free,
+                        static_cast<unsigned int>(cpu_percent),
+                        static_cast<unsigned int>(stack_free),
                         state_str);
                 }
                 
@@ -244,7 +244,7 @@ namespace WebUI {
 
         // System uptime (in seconds)
         uint32_t uptime_sec = esp_log_timestamp() / 1000;
-        offset += snprintf(json_buffer + offset, buffer_size - offset, ",\"uptime\":%u", uptime_sec);
+        offset += snprintf(json_buffer + offset, buffer_size - offset, ",\"uptime\":%u", static_cast<unsigned int>(uptime_sec));
 
         // End JSON
         offset += snprintf(json_buffer + offset, buffer_size - offset, "}");

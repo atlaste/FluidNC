@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "Module.h"
 #include "Configuration/Configurable.h"
+#include "AsyncWebSocket.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
