@@ -17,14 +17,6 @@
 #include <iomanip>
 
 // Include libsmb2 headers
-// Undefine MIN/MAX to avoid conflicts with FluidNC's NutsBolts.h
-#ifdef MIN
-#undef MIN
-#endif
-#ifdef MAX
-#undef MAX
-#endif
-
 extern "C" {
 #include "smb2/libsmb2.h"
 #include "smb2/smb2.h"
@@ -114,7 +106,7 @@ namespace WebUI {
     }
 
     static int smb_session_handler(struct smb2_server *srvr, struct smb2_context *smb2) {
-        log_debug("SMB: Session established, dialect " << to_hex(smb2_get_dialect(smb2)));
+        log_debug("SMB: Session established, dialect " << std::hex << smb2_get_dialect(smb2));
         return 0;
     }
 
@@ -217,10 +209,6 @@ namespace WebUI {
 
         // Mark as server mode
         _smb2_ctx->owning_server = _server->_smb2_server;
-        
-        // Set fd to invalid so libsmb2 doesn't try to use socket I/O
-        // We're using AsyncTCP and will feed data via the buffer mechanism
-        _smb2_ctx->fd = -1;  // SMB2_INVALID_SOCKET on Unix-like systems
 
         // Configure AsyncTCP
         _tcp->setNoDelay(true);
@@ -276,20 +264,6 @@ namespace WebUI {
 
         // ACK immediately to keep TCP window open
         _tcp->ack(len);
-
-        // Initialize receive state machine if this is the first packet
-        if (_smb2_ctx->in.num_done == 0) {
-            _smb2_ctx->recv_state = SMB2_RECV_SPL;
-            _smb2_ctx->spl = 0;
-            
-            smb2_free_iovector(_smb2_ctx, &_smb2_ctx->in);
-            if (smb2_add_iovector(_smb2_ctx, &_smb2_ctx->in, (uint8_t *)&_smb2_ctx->spl,
-                                  4 /* SMB2_SPL_SIZE */, nullptr) == nullptr) {
-                log_error("SMB: Failed to add iovector for SPL");
-                _disconnected = true;
-                return;
-            }
-        }
 
         // Copy data to libsmb2's encrypted buffer (reusing the mechanism for our async data)
         _smb2_ctx->enc = (uint8_t*)malloc(len);
@@ -355,21 +329,8 @@ namespace WebUI {
                 break;
             }
 
-            // Remove PDU from queue (manual list removal to avoid C++ casting issues with macro)
-            if (_smb2_ctx->outqueue == pdu) {
-                _smb2_ctx->outqueue = pdu->next;
-            } else if (_smb2_ctx->outqueue) {
-                struct smb2_pdu* head = _smb2_ctx->outqueue;
-                struct smb2_pdu* curr = _smb2_ctx->outqueue;
-                while (curr->next && curr->next != pdu) {
-                    curr = curr->next;
-                }
-                if (curr->next != nullptr) {
-                    curr->next = curr->next->next;
-                }
-                _smb2_ctx->outqueue = head;
-            }
-            
+            // Remove PDU from queue
+            SMB2_LIST_REMOVE(&_smb2_ctx->outqueue, pdu);
             smb2_free_pdu(_smb2_ctx, pdu);
         }
     }

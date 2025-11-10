@@ -572,7 +572,7 @@ namespace WebUI {
                 j.member("status", "ok");
                 j.begin_member_object("data");
                 j.member("FWVersion", git_info);
-                j.member("FWTarget", "FluidNC");
+                j.member("FWTarget", "FluidNCS3");
                 j.member("FWTargetId", "60");
                 j.member("WebUpdate", "Enabled");
 

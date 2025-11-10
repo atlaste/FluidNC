@@ -179,3 +179,9 @@ report_inches: false
 enable_parking_override_control: false
 use_line_numbers: false
 planner_blocks: 16
+
+smb_server:
+  enabled: true
+  port: 445
+  server_name: FluidNCS3
+  share_path: /

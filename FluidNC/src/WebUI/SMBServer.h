@@ -12,9 +12,14 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 
-class SMBClient;
+// Forward declare libsmb2 types
+struct smb2_context;
+struct smb2_server;
+struct smb2_server_request_handlers;
 
 namespace WebUI {
+
+    class SMBClient;
 
     // Forward declarations for file I/O structures
     struct FileIORequest;
@@ -37,23 +42,31 @@ namespace WebUI {
         QueueHandle_t      fileIOQueue() const { return _fileIOQueue; }
 
     private:
+        friend class SMBClient;
+        
         // Configuration
         bool        _enabled     = false;
         int32_t     _port        = 445;
-        std::string _server_name = "FluidNC";
+        std::string _server_name = "FluidNCS3";
         std::string _share_path  = "/";
 
         // Network
         AsyncServer*            _asyncServer = nullptr;
         std::vector<SMBClient*> _clients;
+        SemaphoreHandle_t       _clientsMutex = nullptr;
 
         // File I/O worker
         QueueHandle_t _fileIOQueue = nullptr;
         TaskHandle_t  _fileIOTask  = nullptr;
 
+        // libsmb2 server infrastructure
+        smb2_server*                     _smb2_server   = nullptr;
+        smb2_server_request_handlers*    _smb2_handlers = nullptr;
+
         // Internal methods
-        void handleNewClient(AsyncClient* client);
+        void        handleNewClient(AsyncClient* client);
         static void fileIOWorkerTask(void* param);
+        void        cleanupDisconnectedClients();
 
         // Maximum clients
         static const size_t MAX_CLIENTS = 2;
