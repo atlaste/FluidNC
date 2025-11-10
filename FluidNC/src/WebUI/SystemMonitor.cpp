@@ -224,6 +224,9 @@ namespace WebUI {
                         case eBlocked:   state_str = "Blocked"; break;
                         case eSuspended: state_str = "Suspended"; break;
                         case eDeleted:   state_str = "Deleted"; break;
+                        default:
+                            state_str = "Unknown";
+                            break;
                     }
                     
                     offset += snprintf(json_buffer + offset, buffer_size - offset,

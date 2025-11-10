@@ -14,7 +14,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define _GNU_SOURCE
 
 #include <fcntl.h>
+#if !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
 #include <poll.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +28,18 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "smb2.h"
 #include "libsmb2.h"
 #include "libsmb2-raw.h"
+
+#define READ_SIZE 102400
+
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
+struct pollfd {
+        int fd;
+        short events;
+        short revents;
+};
+
+int poll(struct pollfd *fds, unsigned int nfds, int timo);
+#endif
 
 int is_finished;
 uint8_t buf[256 * 1024];
@@ -71,10 +85,13 @@ void pr_cb(struct smb2_context *smb2, int status,
                 return;
         }
 
-        write(0, buf, status);
+        if(write(STDOUT_FILENO, buf, status) < 0) {
+            printf("Failed to write to STDOUT\n");
+            exit(10);
+        }
 
         pos += status;
-        if (smb2_pread_async(smb2, fh, buf, 102400, pos, pr_cb, fh) < 0) {
+        if (smb2_pread_async(smb2, fh, buf, READ_SIZE, pos, pr_cb, fh) < 0) {
                 printf("Failed to call smb2_pread_async()\n");
                 exit(10);
         }
@@ -91,7 +108,7 @@ void of_cb(struct smb2_context *smb2, int status,
                 exit(10);
         }
 
-        if (smb2_pread_async(smb2, fh, buf, 102400, 0, pr_cb, fh) < 0) {
+        if (smb2_pread_async(smb2, fh, buf, READ_SIZE, 0, pr_cb, fh) < 0) {
                 printf("Failed to call smb2_pread_async()\n");
                 exit(10);
         }
@@ -137,7 +154,6 @@ int main(int argc, char *argv[])
         }
 
         smb2_set_security_mode(smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
-
 	if (smb2_connect_share_async(smb2, url->server, url->share, url->user,
                                      cf_cb, (void *)url->path) != 0) {
 		printf("smb2_connect_share failed. %s\n", smb2_get_error(smb2));
@@ -156,8 +172,6 @@ int main(int argc, char *argv[])
                         continue;
                 }
 		if (smb2_service(smb2, pfd.revents) < 0) {
-			printf("smb2_service failed with : %s\n",
-                               smb2_get_error(smb2));
 			break;
 		}
 	}

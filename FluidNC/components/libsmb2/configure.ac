@@ -1,6 +1,6 @@
-AC_INIT([libsmb2], [3.0.0], [ronniesahlberg@gmail.com])
+AC_INIT([libsmb2],[6.1.0],[ronniesahlberg@gmail.com])
 
-AC_PREREQ([2.58])
+AC_PREREQ([2.71])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects 1.11])
 AC_CANONICAL_HOST
@@ -11,7 +11,7 @@ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 dnl  Do not add default CFLAGS in AC_PROG_CC
 : ${CFLAGS=""}
 AC_PROG_CC
-AC_PROG_LIBTOOL
+LT_INIT
 
 AM_PROG_CC_C_O
 
@@ -41,6 +41,18 @@ AS_IF([test "x$with_libkrb5" != "xno"], [
 ], [
     MAYBE_LIBKRB5=""
     AC_MSG_NOTICE([Build WITHOUT gssapi_krb5 support])
+])
+
+AC_ARG_WITH([lingering_TCP_sockets],
+            [AS_HELP_STRING([--without-lingering-TCP-sockets],
+                            [Do not allow TCP sockets to linger after closure.])])
+
+AS_IF([test "x$with_lingering_TCP_sockets" != "xno"], [
+    AC_DEFINE([CONFIGURE_OPTION_TCP_LINGER], [1], [Whether or not TCP sockets should be allowed to linger after closure])
+    AC_MSG_NOTICE([Build with lingering TCP sockets])
+], [
+    AC_DEFINE([CONFIGURE_OPTION_TCP_LINGER], [0], [Whether or not TCP sockets should be allowed to linger after closure])
+    AC_MSG_NOTICE([Build without lingering TCP sockets])
 ])
 
 AC_SUBST([MAYBE_LIBKRB5])
@@ -78,8 +90,14 @@ AC_SUBST([LIBSOCKET])
 dnl  Check for poll.h
 AC_CHECK_HEADERS([poll.h])
 
+dnl  Check for sys/poll.h
+AC_CHECK_HEADERS([sys/poll.h])
+
 dnl  Check for unistd.h
 AC_CHECK_HEADERS([unistd.h])
+
+dnl  Check for sys/unistd.h
+AC_CHECK_HEADERS([sys/unistd.h])
 
 dnl  Check for netdb.h
 AC_CHECK_HEADERS([netdb.h])
@@ -93,6 +111,9 @@ AC_CHECK_HEADERS([sys/socket.h])
 dnl  Check for sys/uio.h
 AC_CHECK_HEADERS([sys/uio.h])
 
+dnl  Check for sys/_iovec.h
+AC_CHECK_HEADERS([sys/_iovec.h])
+
 dnl  Check for netinet/tcp.h
 AC_CHECK_HEADERS([netinet/tcp.h])
 
@@ -101,6 +122,27 @@ AC_CHECK_HEADERS([netinet/in.h])
 
 dnl  Check for arpa/inet.h
 AC_CHECK_HEADERS([arpa/inet.h])
+
+dnl  Check for time.h
+AC_CHECK_HEADERS([time.h])
+
+dnl  Check for sys/time.h
+AC_CHECK_HEADERS([sys/time.h])
+
+dnl  Check for strings.h
+AC_CHECK_HEADERS([strings.h])
+
+dnl  Check for fcntl.h
+AC_CHECK_HEADERS([fcntl.h])
+
+dnl  Check for sys/fcntl.h
+AC_CHECK_HEADERS([sys/fcntl.h])
+
+dnl  Check for errno.h
+AC_CHECK_HEADERS([errno.h])
+
+dnl  Check for sys/errno.h
+AC_CHECK_HEADERS([sys/errno.h])
 
 dnl  Check if sockaddr data struct includes a "sa_len"
 AC_CHECK_MEMBER([struct sockaddr.sa_len], [
@@ -118,12 +160,23 @@ AC_CHECK_MEMBER([struct sockaddr_storage.ss_family], [
 #include <sys/socket.h>
 ])
 
+dnl  Check if sockaddr_storage struct includes a "l_linger"
+AC_CHECK_MEMBER([struct linger.l_linger], [
+    AC_DEFINE([HAVE_LINGER], [1], [Whether we have linger])
+], [], [
+#include <sys/types.h>
+#include <sys/socket.h>
+])
+
 dnl  Output
 AC_CONFIG_FILES([
     Makefile
     examples/Makefile
     include/Makefile
     lib/Makefile
+    tests/Makefile
+    utils/Makefile
 ])
 
-AC_OUTPUT([libsmb2.pc])
+AC_CONFIG_FILES([libsmb2.pc])
+AC_OUTPUT

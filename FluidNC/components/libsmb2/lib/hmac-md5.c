@@ -3,7 +3,7 @@
 /*
 ** Function: hmac_md5
 */
-#if !defined(_MSC_VER) && !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_STRINGS_H
 #include <strings.h>
 #endif
 
@@ -19,7 +19,7 @@
  * caddr_t         digest;              caller digest to be filled in
  */
 void
-smb2_hmac_md5(unsigned char *text, int text_len, unsigned char *key, int key_len,
+smb2_hmac_md5(unsigned char *text, int text_len, unsigned char *key, unsigned int key_len,
 	 unsigned char *digest)
 {
         struct MD5Context context;

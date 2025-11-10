@@ -156,6 +156,7 @@ idf_component_register(SRCS BTConfig.cpp
 							WebUI/WebUIServer.cpp
 							WebUI/WifiConfig.cpp
 							WebUI/WSChannel.cpp
+							WebUI/SMBServer.cpp
 							WebUI/ASyncTCP_Shim.cpp
                             version.cpp
 
@@ -165,7 +166,7 @@ idf_component_register(SRCS BTConfig.cpp
 							# Extra/ADC/NHB_AD7794.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "../lib/SSD1306/src" "../lib/arduinoWebSockets/src"
                        REQUIRES driver fatfs vfs sdmmc spiffs lwip esp_netif esp32 
-                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 lib app_update esp_driver_pcnt esp32async__espasyncwebserver esp32async__asynctcp usb_stream
+                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 lib app_update esp_driver_pcnt esp32async__espasyncwebserver esp32async__asynctcp usb_stream libsmb2
 					   WHOLE_ARCHIVE)
 
 

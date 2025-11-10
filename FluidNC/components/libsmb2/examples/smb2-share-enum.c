@@ -14,7 +14,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define _GNU_SOURCE
 
 #include <inttypes.h>
+#if !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
 #include <poll.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,12 +28,23 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "libsmb2.h"
 #include "libsmb2-raw.h"
 
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
+struct pollfd {
+        int fd;
+        short events;
+        short revents;
+};
+
+int poll(struct pollfd *fds, unsigned int nfds, int timo);
+#endif
+
 int is_finished;
+int level;
 
 int usage(void)
 {
         fprintf(stderr, "Usage:\n"
-                "smb2-share-enum <smb2-url>\n\n"
+                "smb2-share-enum [-l level] <smb2-url>\n\n"
                 "URL format: "
                 "smb://[<domain;][<username>@]<host>[:<port>]/\n");
         exit(1);
@@ -40,7 +53,7 @@ int usage(void)
 void se_cb(struct smb2_context *smb2, int status,
                 void *command_data, void *private_data)
 {
-        struct srvsvc_netshareenumall_rep *rep = command_data;
+        struct srvsvc_NetrShareEnum_rep *rep = command_data;
         int i;
 
         if (status) {
@@ -49,29 +62,40 @@ void se_cb(struct smb2_context *smb2, int status,
                 exit(10);
         }
 
-        printf("Number of shares:%d\n", rep->ctr->ctr1.count);
-        for (i = 0; i < rep->ctr->ctr1.count; i++) {
-                printf("%-20s %-20s", rep->ctr->ctr1.array[i].name,
-                       rep->ctr->ctr1.array[i].comment);
-                if ((rep->ctr->ctr1.array[i].type & 3) == SHARE_TYPE_DISKTREE) {
-                        printf(" DISKTREE");
+        /* We always only use Level1 for netshare enum */
+        switch (level) {
+        case SHARE_INFO_0:
+                printf("Number of shares:%d\n", rep->ses.ShareInfo.Level0.EntriesRead);
+                for (i = 0; i < rep->ses.ShareInfo.Level0.EntriesRead; i++) {
+                        printf("%-20s\n", rep->ses.ShareInfo.Level0.Buffer->share_info_0[i].netname.utf8);
                 }
-                if ((rep->ctr->ctr1.array[i].type & 3) == SHARE_TYPE_PRINTQ) {
-                        printf(" PRINTQ");
+                break;
+        case SHARE_INFO_1:
+                printf("Number of shares:%d\n", rep->ses.ShareInfo.Level1.EntriesRead);
+                for (i = 0; i < rep->ses.ShareInfo.Level1.EntriesRead; i++) {
+                        printf("%-20s %-20s", rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].netname.utf8,
+                               rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].remark.utf8);
+                        if ((rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & 3) == SHARE_TYPE_DISKTREE) {
+                                printf(" DISKTREE");
+                        }
+                        if ((rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & 3) == SHARE_TYPE_PRINTQ) {
+                                printf(" PRINTQ");
+                        }
+                        if ((rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & 3) == SHARE_TYPE_DEVICE) {
+                                printf(" DEVICE");
+                        }
+                        if ((rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & 3) == SHARE_TYPE_IPC) {
+                                printf(" IPC");
+                        }
+                        if (rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & SHARE_TYPE_TEMPORARY) {
+                                printf(" TEMPORARY");
+                        }
+                        if (rep->ses.ShareInfo.Level1.Buffer->share_info_1[i].type & SHARE_TYPE_HIDDEN) {
+                                printf(" HIDDEN");
+                        }
+                        printf("\n");
                 }
-                if ((rep->ctr->ctr1.array[i].type & 3) == SHARE_TYPE_DEVICE) {
-                        printf(" DEVICE");
-                }
-                if ((rep->ctr->ctr1.array[i].type & 3) == SHARE_TYPE_IPC) {
-                        printf(" IPC");
-                }
-                if (rep->ctr->ctr1.array[i].type & SHARE_TYPE_TEMPORARY) {
-                        printf(" TEMPORARY");
-                }
-                if (rep->ctr->ctr1.array[i].type & SHARE_TYPE_HIDDEN) {
-                        printf(" HIDDEN");
-                }
-                printf("\n");
+                break;
         }
 
         smb2_free_data(smb2, rep);
@@ -84,8 +108,19 @@ int main(int argc, char *argv[])
         struct smb2_context *smb2;
         struct smb2_url *url;
 	struct pollfd pfd;
+        int opt;
 
-        if (argc < 2) {
+        while ((opt = getopt(argc, argv, "l:")) != -1) {
+                switch (opt) {
+                case 'l':
+                        level = atoi(optarg);
+                        break;
+                default: /* '?' */
+                        usage();
+                }
+        }
+
+        if (optind >= argc) {
                 usage();
         }
 
@@ -95,7 +130,16 @@ int main(int argc, char *argv[])
                 exit(0);
         }
 
-        url = smb2_parse_url(smb2, argv[1]);
+        switch (level) {
+        case SHARE_INFO_0:
+        case SHARE_INFO_1:
+                break;
+        default:
+                fprintf(stderr, "level must be 0/1\n");
+                exit(0);
+        }
+
+        url = smb2_parse_url(smb2, argv[optind]);
         if (url == NULL) {
                 fprintf(stderr, "Failed to parse url: %s\n",
                         smb2_get_error(smb2));
@@ -113,7 +157,7 @@ int main(int argc, char *argv[])
 		exit(10);
         }
 
-	if (smb2_share_enum_async(smb2, se_cb, NULL) != 0) {
+	if (smb2_share_enum_async(smb2, level, se_cb, NULL) != 0) {
 		printf("smb2_share_enum failed. %s\n", smb2_get_error(smb2));
 		exit(10);
 	}
@@ -136,7 +180,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-        sleep(600);
         smb2_disconnect_share(smb2);
         smb2_destroy_url(url);
         smb2_destroy_context(smb2);

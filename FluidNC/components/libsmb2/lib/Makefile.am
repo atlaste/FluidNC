@@ -8,10 +8,13 @@ libsmb2_la_CPPFLAGS = -I$(abs_top_srcdir)/include \
 
 libsmb2_la_SOURCES = \
 	aes.h \
+	aes_reference.c \
 	aes.c \
 	aes128ccm.h \
+	aes_apple.c \
 	aes128ccm.c \
 	alloc.c \
+	asn1-ber.c \
 	compat.c \
 	compat.h \
 	dcerpc.c \
@@ -43,8 +46,11 @@ libsmb2_la_SOURCES = \
 	smb2-cmd-error.c \
 	smb2-cmd-flush.c \
 	smb2-cmd-ioctl.c \
+	smb2-cmd-lock.c \
 	smb2-cmd-logoff.c \
 	smb2-cmd-negotiate.c \
+	smb2-cmd-notify-change.c \
+    smb2-cmd-oplock-break.c \
 	smb2-cmd-query-directory.c \
 	smb2-cmd-query-info.c \
 	smb2-cmd-read.c \
@@ -63,13 +69,14 @@ libsmb2_la_SOURCES = \
 	smb2-signing.h \
 	smb2-signing.c \
 	socket.c \
+	spnego-wrapper.c \
 	sync.c \
 	timestamps.c \
 	unicode.c \
 	usha.c
 
-SOCURRENT=3
-SOREVISION=0
+SOCURRENT=6
+SOREVISION=1
 SOAGE=0
 libsmb2_la_LDFLAGS = \
 	-version-info $(SOCURRENT):$(SOREVISION):$(SOAGE) -bindir $(bindir) \
