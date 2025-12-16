@@ -47,7 +47,16 @@ namespace Machine {
                                    EnumItem(DEFAULT_STEPPING_ENGINE) };
 
     void Stepping::afterParse() {
-        const char* name = stepTypes[_engine].name;
+        const auto numItems = sizeof(stepTypes) / sizeof(EnumItem);
+        const char* name     = nullptr;
+        for (size_t i = 0; i < numItems; ++i) {
+            if (stepTypes[i].value == _engine) {
+                name = stepTypes[i].name;
+                break;
+            }
+        }
+        Assert(name, "Cannot find stepping engine for value %d",  int(_engine));
+
         step_engine      = find_engine(name);
         Assert(step_engine, "Cannot find stepping engine for %s", name);
 #if MAX_N_I2SO
