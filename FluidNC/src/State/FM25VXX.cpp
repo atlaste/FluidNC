@@ -129,7 +129,7 @@ void FM25VXX::Initialize() {
                 return;
         }
     }
-    
+
     log_info("FRAM max address: " << to_hex(_maxAddress));
 
     // Test FRAM read/write functionality
@@ -150,7 +150,7 @@ void FM25VXX::Initialize() {
         log_error("FRAM test write 1 failed");
         return;
     }
-    
+
     // Read and log status register after write
     uint8_t status_after = ReadStatusRegister();
     log_debug("Status register after write: " << to_hex(static_cast<uint32_t>(status_after)));
@@ -164,7 +164,7 @@ void FM25VXX::Initialize() {
 
     if (read_value != TEST_VALUE1) {
         log_error("FRAM test failed: wrote " << to_hex(static_cast<uint32_t>(TEST_VALUE1)) << " but read 0x"
-                                               << to_hex(static_cast<uint32_t>(read_value)));
+                                             << to_hex(static_cast<uint32_t>(read_value)));
         return;
     }
 
@@ -182,7 +182,7 @@ void FM25VXX::Initialize() {
 
     if (read_value != TEST_VALUE2) {
         log_error("FRAM test failed: wrote " << to_hex(static_cast<uint32_t>(TEST_VALUE2)) << " but read 0x"
-                                               << to_hex(static_cast<uint32_t>(read_value)));
+                                             << to_hex(static_cast<uint32_t>(read_value)));
         return;
     }
 
@@ -198,7 +198,7 @@ void FM25VXX::Initialize() {
     // Initialize status register (no protection, WP pin disabled)
     // WPEN=0 means WP pin is ignored, always allowing writes
     WriteStatusRegister(0, 0, 0, 0);
-    
+
     // Verify status register was set correctly
     uint8_t status_verify = ReadStatusRegister();
     log_debug("Status register after init: " << to_hex(static_cast<uint32_t>(status_verify)));
@@ -209,7 +209,6 @@ void FM25VXX::Initialize() {
 
 bool FM25VXX::IsInitialized() {
     return (_initialized);
-
 }
 
 void FM25VXX::Sleep() {
@@ -248,8 +247,7 @@ void FM25VXX::Wakeup() {
 
 uint32_t FM25VXX::GetTheFence() {
     return (_fenceAddress);
-
-} 
+}
 
 void FM25VXX::MoveTheFence(uint32_t newFence) {
     if (newFence == 0x00 || newFence > _maxAddress) {
@@ -259,8 +257,7 @@ void FM25VXX::MoveTheFence(uint32_t newFence) {
         _fenceAddress = newFence;
 
     } /* fix up the fence */
-
-} 
+}
 
 void FM25VXX::WriteStatusRegister(uint8_t wpen, uint8_t bp0, uint8_t bp1, uint8_t wel) {
     wpen == 1 ? (_statusRegister |= (1 << static_cast<uint8_t>(FM25VXX_StatusBit::WPEN))) :
@@ -327,8 +324,8 @@ FM25VXX::FM25VXXError FM25VXX::WriteByte(uint32_t address, uint8_t data) {
 
     // Build write command with address and data in one buffer
     uint8_t write_buf[5];  // Max size for 3-byte address
-    int idx = 0;
-    
+    int     idx = 0;
+
     write_buf[idx++] = static_cast<uint8_t>(FM25VXX_Opcode::WRITE);
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         write_buf[idx++] = thirdByte(address);
@@ -350,13 +347,11 @@ FM25VXX::FM25VXXError FM25VXX::WriteByte(uint32_t address, uint8_t data) {
     }
 
     return FM25VXXError::Success;
-
-} 
+}
 
 FM25VXX::FM25VXXError FM25VXX::WriteByte(uint8_t data) {
     return (WriteByte(_currentAddress, data));
-
-} 
+}
 
 FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     uint32_t numBytesToWrite     = blockSize * numBlocks;
@@ -377,12 +372,12 @@ FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, 
 
     // Allocate buffer for command + address + data
     uint8_t* write_buf = new uint8_t[4 + numBytesToWrite];  // Max 4 bytes for cmd+address
-    int idx = 0;
-    
+    int      idx       = 0;
+
     // Send WREN as separate transaction
     uint8_t wren_cmd = static_cast<uint8_t>(FM25VXX_Opcode::WREN);
     spi_transfer_bytes(&wren_cmd, nullptr, 1);
-    
+
     /*
     * If the fence is <= _maxAddress and
     * we're gonna write past the fence then
@@ -409,7 +404,7 @@ FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, 
         // Second write from base address
         idx = 0;
         spi_transfer_bytes(&wren_cmd, nullptr, 1);
-        
+
         write_buf[idx++] = static_cast<uint8_t>(FM25VXX_Opcode::WRITE);
         if (_maxAddress >= FM25V10_MAX_ADDRESS) {
             write_buf[idx++] = BASE_ADDRESS;
@@ -457,13 +452,11 @@ FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t address, uint32_t blockSize, 
 
     delete[] write_buf;
     return (FM25VXXError::Success);
-
-} 
+}
 
 FM25VXX::FM25VXXError FM25VXX::WriteBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     return (WriteBlock(_currentAddress, blockSize, numBlocks, data));
-
-} 
+}
 
 FM25VXX::FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
     /*
@@ -476,19 +469,19 @@ FM25VXX::FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
     // Build read command with address in one buffer
     uint8_t cmd_buf[5];  // Max size for 3-byte address + 1 data byte
     uint8_t rx_buf[5];
-    int idx = 0;
-    
+    int     idx = 0;
+
     cmd_buf[idx++] = static_cast<uint8_t>(FM25VXX_Opcode::READ);
     if (_maxAddress >= FM25V10_MAX_ADDRESS) {
         cmd_buf[idx++] = thirdByte(address);
     }
     cmd_buf[idx++] = (address >> 8) & 0xFF;  // highByte
     cmd_buf[idx++] = address & 0xFF;         // lowByte
-    cmd_buf[idx++] = 0x00;  // Dummy byte to clock in data
+    cmd_buf[idx++] = 0x00;                   // Dummy byte to clock in data
 
     // Send entire read command as one transaction
     spi_transfer_bytes(cmd_buf, rx_buf, idx);
-    
+
     // Data is in the last byte of rx_buf
     *data = rx_buf[idx - 1];
 
@@ -502,8 +495,7 @@ FM25VXX::FM25VXXError FM25VXX::ReadByte(uint32_t address, uint8_t* data) {
     }
 
     return (FM25VXXError::Success);
-
-} 
+}
 
 FM25VXX::FM25VXXError FM25VXX::ReadByte(uint8_t* data) {
     return (ReadByte(_currentAddress, data));
@@ -534,8 +526,8 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
 
     // Allocate buffers for command + address + data
     uint8_t* cmd_buf = new uint8_t[4 + numBytesToRead];  // Max 4 bytes for cmd+address
-    uint8_t* rx_buf = new uint8_t[4 + numBytesToRead];
-    int idx = 0;
+    uint8_t* rx_buf  = new uint8_t[4 + numBytesToRead];
+    int      idx     = 0;
 
     /*
     * If the fence is <= _maxAddress and
@@ -558,7 +550,7 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
             cmd_buf[idx++] = 0x00;  // Dummy bytes
         }
         spi_transfer_bytes(cmd_buf, rx_buf, idx);
-        
+
         // Copy data from rx buffer (skip cmd+address bytes)
         int addr_bytes = (_maxAddress >= FM25V10_MAX_ADDRESS) ? 4 : 3;
         for (uint32_t j = 0; j < bytesToTheFence; j++) {
@@ -566,7 +558,7 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
         }
 
         // Second read from base address
-        idx = 0;
+        idx            = 0;
         cmd_buf[idx++] = static_cast<uint8_t>(FM25VXX_Opcode::READ);
         if (_maxAddress >= FM25V10_MAX_ADDRESS) {
             cmd_buf[idx++] = BASE_ADDRESS;
@@ -578,7 +570,7 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
             cmd_buf[idx++] = 0x00;  // Dummy bytes
         }
         spi_transfer_bytes(cmd_buf, rx_buf, idx);
-        
+
         // Copy remaining data
         for (uint32_t j = bytesToTheFence; j < numBytesToRead; j++) {
             data[j] = rx_buf[addr_bytes + (j - bytesToTheFence)];
@@ -607,7 +599,7 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
             cmd_buf[idx++] = 0x00;  // Dummy bytes
         }
         spi_transfer_bytes(cmd_buf, rx_buf, idx);
-        
+
         // Copy data from rx buffer (skip cmd+address bytes)
         int addr_bytes = (_maxAddress >= FM25V10_MAX_ADDRESS) ? 4 : 3;
         for (uint32_t i = 0; i < numBytesToRead; i++) {
@@ -625,12 +617,10 @@ FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t address, uint32_t blockSize, u
     delete[] cmd_buf;
     delete[] rx_buf;
     return (FM25VXXError::Success);
-
 }
 
 FM25VXX::FM25VXXError FM25VXX::ReadBlock(uint32_t blockSize, uint32_t numBlocks, uint8_t* data) {
     return (ReadBlock(_currentAddress, blockSize, numBlocks, data));
-
 }
 
 FM25VXX::FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacturer, FM25VXXFamilyDensity* storage, FM25VXXVariant* variant) {
@@ -641,17 +631,17 @@ FM25VXX::FM25VXXError FM25VXX::ReadManufacturer(FM25VXXManufacturer* manufacture
     // Send RDID command and read response (1 cmd + 6 continuation + 1 mfg + 1 density + 1 variant = 10 bytes)
     uint8_t cmd_buf[10];
     uint8_t rx_buf[10];
-    
+
     cmd_buf[0] = static_cast<uint8_t>(FM25VXX_Opcode::RDID);
     for (int i = 1; i < 10; i++) {
         cmd_buf[i] = 0x00;  // Dummy bytes to clock in data
     }
-    
+
     spi_transfer_bytes(cmd_buf, rx_buf, 10);
-    
+
     // Bytes: [0]=cmd echo, [1-6]=continuation codes, [7]=mfg ID, [8]=density, [9]=variant
-    uint8_t mfg_id = rx_buf[7];
-    uint8_t density = rx_buf[8];
+    uint8_t mfg_id     = rx_buf[7];
+    uint8_t density    = rx_buf[8];
     uint8_t variant_id = rx_buf[9];
 
     /*
