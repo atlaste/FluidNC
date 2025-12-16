@@ -100,7 +100,9 @@ PinMapper::~PinMapper() {
 
 // Arduino compatibility function which uses a mapped pin ID.  We need this
 // in order to use I2SO pins as CS pins for the TMCStepper library.
-
+//
+// The signature MUST match https://github.com/espressif/arduino-esp32/blob/master/cores/esp32/esp32-hal-gpio.c
+//
 // The first argument must be uint8_t to match the signature of the Arduino library,
 // otherwise this will not override the weak definition in the library.
 void IRAM_ATTR digitalWrite(uint8_t upin, uint8_t val) {
@@ -116,7 +118,7 @@ void IRAM_ATTR digitalWrite(uint8_t upin, uint8_t val) {
     }
 }
 
-void IRAM_ATTR pinMode(pinnum_t pin, uint8_t mode) {
+void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
     if (pin < PinMap::PinMap::BOUNDARY) {
         gpio_mode(pin, mode & INPUT, mode & OUTPUT, mode & PULLUP, mode & PULLDOWN, mode & OPEN_DRAIN);
         return;
@@ -144,7 +146,7 @@ void IRAM_ATTR pinMode(pinnum_t pin, uint8_t mode) {
     thePin->setAttr(attr);
 }
 
-int IRAM_ATTR digitalRead(pinnum_t pin) {
+int IRAM_ATTR digitalRead(uint8_t pin) {
     if (pin < PinMap::BOUNDARY) {
         return gpio_read(pin);
     }
