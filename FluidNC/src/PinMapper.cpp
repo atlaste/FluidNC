@@ -129,6 +129,8 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
         return;
     }
 
+    log_info("Setting pin mode for pin " << int(pin) << " to mode " << int(mode));
+
     Pins::PinAttributes attr = Pins::PinAttributes::None;
     if ((mode & OUTPUT) == OUTPUT) {
         attr = attr | Pins::PinAttributes::Output;
@@ -143,7 +145,9 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
         attr = attr | Pins::PinAttributes::PullDown;
     }
 
-    thePin->setAttr(attr);
+    auto oldAttr = thePin->getAttr() & (Pins::PinAttributes::InitialOn | Pins::PinAttributes::ActiveLow);
+
+    thePin->setAttr(attr | oldAttr);
 }
 
 int IRAM_ATTR digitalRead(uint8_t pin) {
