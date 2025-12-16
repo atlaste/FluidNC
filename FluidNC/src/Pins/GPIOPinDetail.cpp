@@ -57,6 +57,8 @@ namespace Pins {
                 setDriveStrength(2, PinAttributes::DS2);
             } else if (opt.is("ds3")) {
                 setDriveStrength(3, PinAttributes::DS3);
+            } else if (opt.is("on")) {
+                _attributes = _attributes | PinAttributes::InitialOn;
             } else {
                 Assert(false, "Bad GPIO option passed to pin %d: %.*s", int(index), static_cast<int>(opt().length()), opt().data());
             }

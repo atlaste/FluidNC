@@ -19,6 +19,8 @@ namespace Pins {
                 _attributes = _attributes | PinAttributes::ActiveLow;
             } else if (opt.is("high")) {
                 // Default: Active HIGH.
+            } else if (opt.is("on")) {
+                _attributes = _attributes | PinAttributes::InitialOn;
             } else {
                 Assert(false, "Unsupported I2SO option '%.*s'", static_cast<int>(opt().length()), opt().data());
             }
