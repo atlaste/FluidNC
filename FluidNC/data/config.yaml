@@ -2,7 +2,7 @@ board: None
 name: Default (Test Drive no I/O)
 meta: 
 stepping:
-  engine: RMT
+  engine: I2SO
   idle_ms: 255
   pulse_us: 4
   dir_delay_us: 0
@@ -13,6 +13,11 @@ spi:
   miso_pin: gpio.13
   mosi_pin: gpio.11
   sck_pin: gpio.12
+
+i2so:
+  bck_pin: gpio.8
+  data_pin: gpio.14
+  ws_pin: gpio.21
 
 ethernet:
   cs_pin: gpio.10
@@ -56,7 +61,16 @@ axes:
       limit_all_pin: NO_PIN
       hard_limits: false
       pulloff_mm: 1.000000
-      null_motor:
+      tmc_5160:
+          step_pin: i2so.16
+          direction_pin: i2so.17
+          disable_pin: i2so.19
+          cs_pin: i2so.18
+          r_sense_ohms: 0.050
+          run_amps: 1.800
+          hold_amps: 1.250
+          microsteps: 8
+          use_enable: true
 
   y:
     steps_per_mm: 80.000000
@@ -70,7 +84,16 @@ axes:
       limit_all_pin: NO_PIN
       hard_limits: false
       pulloff_mm: 1.000000
-      null_motor:
+      tmc_2130:
+          step_pin: i2so.21
+          direction_pin: i2so.22
+          disable_pin: i2so.20
+          cs_pin: i2so.23
+          r_sense_ohms: 0.050
+          run_amps: 0.500
+          hold_amps: 0.250
+          microsteps: 8
+          use_enable: true
 
   z:
     steps_per_mm: 80.000000
