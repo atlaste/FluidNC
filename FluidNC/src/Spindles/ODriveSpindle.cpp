@@ -250,15 +250,6 @@ namespace Spindles {
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
 
-                if (rpm == _current_dev_speed) {  // some margin is necessary here.
-                    // Already at this speed, report it to the speed queue
-                    if (speed_queue) {
-                        // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
-                        xQueueSend(speed_queue, &rpm, 0);
-                    }
-                    return;
-                }
-
                 _current_dev_speed = rpm;
 
                 // Set the speed (convert device units to RPM)
