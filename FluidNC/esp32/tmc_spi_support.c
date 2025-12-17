@@ -1,9 +1,9 @@
 // Copyright (c) 2022 Mitch Bradley
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
-#include "Config.h"
+#include <sdkconfig.h>
 
-#ifndef USE_ESPIDF_TMC_SPI  // Use tmc_spi_espidf.cpp instead when defined
+#ifndef CONFIG_IDF_TARGET_ESP32S3
 
 // C support routines for tmc_spi.cpp .  These routines must be complied
 // by a C compiler instead of a C++ compiler because of a problem in the

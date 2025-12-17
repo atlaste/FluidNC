@@ -1,9 +1,10 @@
 // Copyright (c) 2022 Mitch Bradley
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
-#include "Config.h"
+#include <sdkconfig.h>
 
-#ifndef USE_ESPIDF_TMC_SPI  // Use tmc_spi_espidf.cpp instead when defined
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+// Use tmc_spi_espidf.cpp instead when defined
 
 // There is no .h file to define the interface to this code.
 // It works by replacing weak methods in the TMCStepper library,

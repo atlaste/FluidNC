@@ -9,9 +9,12 @@
 // SPI hardware registers, which corrupted the driver's internal state
 // and caused all SPI devices to fail when TMC drivers were present.
 
-#include "Config.h"
+#include <sdkconfig.h>
 
-#ifdef USE_ESPIDF_TMC_SPI
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
+#include "Logging.h"
+#include "NutsBolts.h"
 
 #include <TMCStepper.h>
 #include <driver/spi_master.h>
