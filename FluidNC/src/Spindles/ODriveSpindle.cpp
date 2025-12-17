@@ -392,8 +392,8 @@ namespace Spindles {
                 (state == SpindleState::Cw || state == SpindleState::Ccw)) {
                 log_debug("Set mode " << int(state));
                 set_mode(state, critical);  // critical if we are in a job
-                _current_state = state;
             }
+	    _current_state = state;
         }
 
         if (_current_dev_speed != dev_speed) {            
