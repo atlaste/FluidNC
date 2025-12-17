@@ -95,7 +95,7 @@ namespace Spindles {
         return lastAxisState == uint8_t(state);
     }
 
-    bool ODriveSpindle::setSpeed(int32_t rpm) {
+    bool ODriveSpindle::setSpeedCommand(int32_t rpm) {
         if (_current_state == SpindleState::Ccw) {
             rpm = -rpm;
         }
@@ -257,7 +257,7 @@ namespace Spindles {
                 _current_dev_speed = rpm;
 
                 // Set the speed (convert device units to RPM)
-                bool success = setSpeed(int(rpm));
+                bool success = setSpeedCommand(int(rpm));
 
                 if (!success) {
                     if (action.critical) {
@@ -474,7 +474,7 @@ namespace Spindles {
         }
     }
 
-    void ODriveSpindle::setSpeed(uint32_t dev_speed) {
+    void ODriveSpindle::setSpeed(int32_t dev_speed) {
         if (cmd_queue) {
             ODriveAction action;
             action.action   = ODriveAction::SetSpeed;
@@ -504,7 +504,10 @@ namespace Spindles {
         handler.item("can_rx", rxPin);
         handler.item("odrive_node_id", ODriveNodeId);
         handler.item("max_speed", maxSpeed);
-        handler.item("gear_factor", gearFactor);
+
+        float gf = float(gearFactor);
+        handler.item("gear_factor", gf);
+        gearFactor = double(gf);
 
         Spindle::group(handler);
     }
