@@ -89,6 +89,7 @@ namespace Spindles {
         float             lastVelocity  = 0.0f;
         uint8_t           lastAxisState = 0;
         uint32_t          lastAxisError = 0;
+        int32_t           maxSpeed = 4000;
 
         Pin txPin;
         Pin rxPin;

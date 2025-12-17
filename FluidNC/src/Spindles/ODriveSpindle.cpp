@@ -338,6 +338,7 @@ namespace Spindles {
         set_mode(SpindleState::Disable, true);
 
         _default_ramp_delay = 5000;
+        setupSpeeds(maxSpeed);
     }
 
     void ODriveSpindle::config_message() {
@@ -488,6 +489,7 @@ namespace Spindles {
         handler.item("can_tx", txPin);
         handler.item("can_rx", rxPin);
         handler.item("odrive_node_id", ODriveNodeId);
+        handler.item("max_speed", maxSpeed);
 
         Spindle::group(handler);
     }
