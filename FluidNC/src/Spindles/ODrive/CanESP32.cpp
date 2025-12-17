@@ -15,6 +15,7 @@ namespace Spindles::ODrive {
         auto tx       = gpio_num_t(txPin);
         auto rx       = gpio_num_t(rxPin);
         int  baudKbit = 500;
+	printf("1\r\n");
 
         /*
         Available baud rates:
@@ -65,24 +66,30 @@ namespace Spindles::ODrive {
         }
         twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
+	printf("2\r\n");
         // Install TWAI driver
         if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
+	printf("3\r\n");
             log_info("Driver installed");
         } else {
+	printf("4\r\n");
             log_error("Failed to install driver");
             return false;
         }
 
         // Start TWAI driver
         if (twai_start() == ESP_OK) {
+	printf("5\r\n");
             log_info("Driver started");
         } else {
+	printf("6\r\n");
             log_error("Failed to start driver");
             return false;
         }
 
         twai_status_info_t status_info;
         twai_get_status_info(&status_info);
+	printf("7\r\n");
         log_info("TWAI Status - State: " << int(status_info.state) << ", TX Queue: " << int(status_info.state) << ", RX Queue: "
                                          << int(status_info.msgs_to_tx) << ", TX Err: " << int(status_info.tx_error_counter)
                                          << ", RX Err:" << int(status_info.rx_error_counter));

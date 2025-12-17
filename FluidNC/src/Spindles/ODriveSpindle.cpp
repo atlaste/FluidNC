@@ -324,7 +324,7 @@ namespace Spindles {
 
             xTaskCreatePinnedToCore(cmd_task,                // task
                                     "ODrive_cmdTaskHandle",  // name for task
-                                    2048,                    // size of task stack
+                                    8192,                    // size of task stack
                                     this,                    // parameters
                                     1,                       // priority
                                     &cmdTaskHandle,
