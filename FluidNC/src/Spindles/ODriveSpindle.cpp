@@ -23,9 +23,9 @@ namespace Spindles {
             SetMode,
             SetSpeed,
         };
-        Action   action   = None;
-        uint32_t arg      = 0;
-        bool     critical = false;
+        Action  action   = None;
+        int32_t arg      = 0;
+        bool    critical = false;
     };
 
     // Static member initialization
@@ -95,7 +95,12 @@ namespace Spindles {
         return lastAxisState == uint8_t(state);
     }
 
-    bool ODriveSpindle::setSpeed(int rpm) {
+    bool ODriveSpindle::setSpeed(int32_t rpm) {
+        if (_current_state == SpindleState::Ccw) {
+            rpm = -rpm;
+        }
+        rpm = int(rpm * gearFactor);
+
         // Set speed
         log_info("Ramping to " << rpm << " RPM (" << (double(rpm) / 60.0) << " rev/s)...");
 
@@ -128,7 +133,7 @@ namespace Spindles {
         }
 
         if (!speedReached) {
-            log_warn("Warning: Target speed not reached within timeout" );
+            log_warn("Warning: Target speed not reached within timeout");
         }
 
         return speedReached;
@@ -142,10 +147,10 @@ namespace Spindles {
         send(modeMsg);
 
         // Enter closed loop control
-        log_info( "Entering closed loop control..." );
+        log_info("Entering closed loop control...");
 
         if (!setState(ODrive::ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL)) {
-            log_error("Failed to set closed loop state. State = " << lastAxisState );
+            log_error("Failed to set closed loop state. State = " << lastAxisState);
             while (1) {}
         }
     }
@@ -197,7 +202,7 @@ namespace Spindles {
             log_error("Failed to send Clear Errors message");
             while (1) {}
         } else {
-            log_info ("Cleared errors.");
+            log_info("Cleared errors.");
         }
 
         log_info("Reading error...");
@@ -238,13 +243,13 @@ namespace Spindles {
                 break;
             }
             case ODriveAction::SetSpeed: {
-                uint32_t rpm = action.arg;
+                int32_t rpm = action.arg;
 
                 if (rpm == _current_dev_speed) {  // some margin is necessary here.
                     // Already at this speed, report it to the speed queue
                     if (speed_queue) {
-                        xQueueSend(
-                            speed_queue, &rpm, 0);  // rpm cannot be queued. TODO FIXME: I also don't think so. We have the watchdog of ODrive.
+                        // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
+                        xQueueSend(speed_queue, &rpm, 0);
                     }
                     return;
                 }
@@ -263,8 +268,8 @@ namespace Spindles {
                     }
                 }
 
-                // Report the current speed back to the queue -- TODO FIXME: I don't think so. We have the watchdog of ODrive.
                 if (speed_queue) {
+                    // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
                     xQueueSend(speed_queue, &rpm, 0);
                 }
                 break;
@@ -377,20 +382,23 @@ namespace Spindles {
 
         bool critical = (state_is(State::Cycle) || state != SpindleState::Disable);
 
-        uint32_t dev_speed = mapSpeed(state, speed);
+        int32_t dev_speed = int32_t(mapSpeed(state, speed));
 
         log_debug(name() << ": setState:" << uint8_t(state) << " SpindleSpeed:" << speed
                          << ". Current dev speed: " << int(_current_dev_speed) << "; dev speed: " << int(dev_speed));
 
-        if (_current_dev_speed != dev_speed) {
-            log_debug("Set speed " << int(dev_speed));
-            setSpeed(dev_speed);
+        if (_current_state != state) {
+            if ((_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw) !=
+                (state == SpindleState::Cw || state == SpindleState::Ccw)) {
+                log_debug("Set mode " << int(state));
+                set_mode(state, critical);  // critical if we are in a job
+                _current_state = state;
+            }
         }
 
-        if (_current_state != state) {
-            log_debug("Set mode " << int(state));
-            set_mode(state, critical);  // critical if we are in a job
-            _current_state = state;
+        if (_current_dev_speed != dev_speed) {            
+            log_debug("Set speed " << int(dev_speed));
+            setSpeed(dev_speed);
         }
 
         //if (use_delay_settings()) {
@@ -496,11 +504,12 @@ namespace Spindles {
         handler.item("can_rx", rxPin);
         handler.item("odrive_node_id", ODriveNodeId);
         handler.item("max_speed", maxSpeed);
+        handler.item("gear_factor", gearFactor);
 
         Spindle::group(handler);
     }
 
     namespace {
-	    SpindleFactory::InstanceBuilder<ODriveSpindle> registration("odrive");
+        SpindleFactory::InstanceBuilder<ODriveSpindle> registration("odrive");
     }
 }
