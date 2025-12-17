@@ -27,6 +27,13 @@ const int SUPPORT_TASK_CORE = 0;  // Reference: CONFIG_ARDUINO_RUNNING_CORE = 1
 // "friendly suggestion" to prevent unwitting dangerous actions, rather than
 // as effective security against malice.
 // #define ENABLE_AUTHENTICATION
+
+// Use the proper ESP-IDF SPI driver for TMC stepper communication instead of
+// direct hardware register access. This prevents conflicts with other SPI devices
+// (SD card, FRAM, etc.) that share the same bus. The old implementation bypassed
+// ESP-IDF and corrupted driver state, causing all SPI devices to fail.
+#define USE_ESPIDF_TMC_SPI
+
 // CONFIGURE_EYECATCH_END (DO NOT MODIFY THIS LINE)
 
 #ifdef ENABLE_AUTHENTICATION
