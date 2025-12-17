@@ -89,7 +89,7 @@ namespace Spindles {
     void Spindle::setupSpeeds(uint32_t max_dev_speed) {
         if (_speeds.size() == 0) {
             // The default speed map for a spindle is linear from 0=0% to max_speed=100%
-            linearSpeeds(0, max_dev_speed);
+            linearSpeeds(max_dev_speed, 100.0f);
         }
 
         size_t nsegments = _speeds.size() - 1;

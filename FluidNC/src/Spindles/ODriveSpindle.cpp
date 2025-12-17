@@ -341,7 +341,7 @@ namespace Spindles {
 
         if (_speeds.size() == 0) {
             // The default speed map for an odrive spindle is linear from 0=0% to [max]=100%
-            linearSpeeds(0, maxSpeed);
+            linearSpeeds(maxSpeed, 100.0f);
         }
 
         setupSpeeds(maxSpeed);
