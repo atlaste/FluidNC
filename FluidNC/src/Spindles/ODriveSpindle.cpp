@@ -394,20 +394,20 @@ namespace Spindles {
 
         bool change_direction = false;
         if (_current_state != state) {
+            // Check if we're going from 'disable' (M5) to 'enable' (M3/M4).
             if ((_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw) !=
                 (state == SpindleState::Cw || state == SpindleState::Ccw)) {
-                if (_current_state == SpindleState::Disable) {
-                    // Set speed *FIRST* when going from disable to Cw/Ccw.
-                    log_debug("Set speed " << int(dev_speed));
-                    _current_state = state;
-                    setSpeed(dev_speed, false);
-                }
+                // Set speed *FIRST* when going from disable to Cw/Ccw.
+                log_debug("Set speed " << int(dev_speed));
+                _current_state = state;
+                setSpeed(dev_speed, false);
 
                 log_debug("Set mode " << int(state));
                 set_mode(state, critical);  // critical if we are in a job
-                change_direction = true;
+            } else {
+                _current_state   = state;
             }
-	    _current_state = state;
+            change_direction = true;
         }
 
         if (_current_dev_speed != dev_speed || change_direction) {
