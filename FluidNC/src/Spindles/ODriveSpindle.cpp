@@ -5,9 +5,10 @@
 #include "ODrive/CanESP32.h"
 #include "ODrive/ODriveEnums.h"
 
-#include "Protocol.h"  // rtAlarm
+#include "Protocol.h"       // rtAlarm
 #include "MotionControl.h"  // mc_critical
-#include "System.h" // sys.*
+#include "System.h"         // sys.*
+#include "Logging.h"
 
 #include <cstdio>
 #include <iostream>
@@ -57,11 +58,11 @@ namespace Spindles {
                     lastPosition = estimates.Pos_Estimate;
                     lastVelocity = estimates.Vel_Estimate;
                 } else {
-                    printf("Received message from node %d, id %d: ", int(*nodeId), int(*messageId));
-                    for (int i = 0; i < 8; ++i) {
-                        printf("0x%02X ", responseData[i]);
-                    }
-                    printf("\n");
+                    log_info("Received message from node " << int(*nodeId) << " with id: " << int(*messageId) << ".");
+                    // for (int i = 0; i < 8; ++i) {
+                    //     printf("0x%02X ", responseData[i]);
+                    // }
+                    // printf("\n");
 
                     return res;
                 }
@@ -79,7 +80,7 @@ namespace Spindles {
     bool ODriveSpindle::setState(ODrive::ODriveAxisState state) {
         // Enter closed loop control
         if (lastAxisState != uint8_t(state)) {
-            std::cout << "Entering state " << int(state) << "..." << std::endl;
+            log_info("Entering state " << int(state) << "...");
             ODrive::Set_Axis_State_msg_t setState;
             setState.Axis_Requested_State = state;
             send(setState);
@@ -96,16 +97,16 @@ namespace Spindles {
 
     bool ODriveSpindle::setSpeed(int rpm) {
         // Set speed
-        std::cout << "Ramping to " << rpm << " RPM (" << (float(rpm) / 60) << " rev/s)..." << std::endl;
+        log_info("Ramping to " << rpm << " RPM (" << (double(rpm) / 60.0) << " rev/s)...");
 
-        float       targetVelocity = float(rpm) / 60.0f;
-        const float tolerance      = 1.0f;  // +/- 1 rev/s tolerance
-        const int   timeout        = 5;     // 5 seconds timeout
-        bool        speedReached   = false;
+        double       targetVelocity = double(rpm) / 60.0;
+        const double tolerance      = 1.0;  // +/- 1 rev/s tolerance
+        const int    timeout        = 5;    // 5 seconds timeout
+        bool         speedReached   = false;
 
         ODrive::Set_Input_Vel_msg_t velCmd;
         velCmd.Input_Vel       = targetVelocity;  // 1000 RPM = 16.67 rev/s
-        velCmd.Input_Torque_FF = 0.0f;
+        velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
 
         // Wait till speed reaches target RPM
@@ -113,17 +114,21 @@ namespace Spindles {
         while ((deadline - esp_timer_get_time()) > 0) {
             pump();
 
-            if (fabs(lastVelocity - targetVelocity) < tolerance) {
+            auto diff = lastVelocity - targetVelocity;
+            if (diff < 0) {
+                diff = -diff;
+            }
+            if (diff < tolerance) {
                 speedReached = true;
-                std::cout << "Target speed reached: " << lastVelocity << " rev/s" << std::endl;
+                log_info("Target speed reached: " << lastVelocity << " rev/s");
                 break;
             }
 
-            std::cout << "Current speed: " << lastVelocity << " rev/s (target: " << targetVelocity << " rev/s)" << std::endl;
+            log_info("Current speed: " << lastVelocity << " rev/s (target: " << targetVelocity << " rev/s)");
         }
 
         if (!speedReached) {
-            std::cout << "Warning: Target speed not reached within timeout" << std::endl;
+            log_warn("Warning: Target speed not reached within timeout" );
         }
 
         return speedReached;
@@ -137,37 +142,29 @@ namespace Spindles {
         send(modeMsg);
 
         // Enter closed loop control
-        std::cout << "Entering closed loop control..." << std::endl;
+        log_info( "Entering closed loop control..." );
 
         if (!setState(ODrive::ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL)) {
-            std::cout << "Failed to set closed loop state. State = " << lastAxisState << std::endl;
+            log_error("Failed to set closed loop state. State = " << lastAxisState );
             while (1) {}
         }
     }
 
-    void ODriveSpindle::setIdleControl()
-    {
+    void ODriveSpindle::setIdleControl() {
         // Set idle
-        std::cout << "Setting idle state." << std::endl;
+        log_info("Setting idle state.");
         setState(ODrive::ODriveAxisState::AXIS_STATE_IDLE);
     }
 
     void ODriveSpindle::initializationSequence() {
-        printf("ODrive Test Application Started\n");
-
-        // Wait for up to 3 seconds for the serial port to be opened on the PC side.
-        // If no PC connects, continue anyway.
-        std::cout << "Starting ODriveCAN demo" << std::endl;
-
         if (can == nullptr) {
             can = new ODrive::CanESP32();
         }
 
         // Configure and initialize the CAN bus interface. This function depends on
         // your hardware and the CAN stack that you're using.
-        std::cout << "Starting CAN bus" << std::endl;
         if (!can->init(txPin.getNative(Pin::Capabilities::Output), rxPin.getNative(Pin::Capabilities::Input))) {
-            std::cout << "CAN failed to initialize: reset required" << std::endl;
+            log_error("CAN failed to initialize: reset required");
             while (true) {}  // Spin indefinitely.
         }
 
@@ -176,45 +173,44 @@ namespace Spindles {
         uint32_t msgId;
         uint32_t nodeId;
 
-        std::cout << "Waiting for ODrive..." << std::endl;
+        log_info("Waiting for ODrive...");
         while (lastHeartbeat == 0) {
             receive(buf, &msgId, &nodeId);
         }
-        std::cout << "ODrive node " << nodeId << " found." << std::endl;
+        log_info("ODrive node " << nodeId << " found.");
 
         // request bus voltage and current (1sec timeout)
-        std::cout << "Attempting to read bus voltage and current" << std::endl;
+        log_info("Attempting to read bus voltage and current");
         ODrive::Get_Bus_Voltage_Current_msg_t vbus;
         if (!request(vbus)) {
-            std::cout << "vbus request failed!" << std::endl;
+            log_error("VBus request failed!");
             while (true)
                 ;  // spin indefinitely
         }
 
-        std::cout << "DC voltage [V]: " << vbus.Bus_Voltage << std::endl;
-        std::cout << "DC current [A]: " << vbus.Bus_Current << std::endl;
+        log_info("DC voltage [V]: " << vbus.Bus_Voltage);
+        log_info("DC current [A]: " << vbus.Bus_Current);
 
         // Clear errors.
         ODrive::Clear_Errors_msg_t clear;
         if (!send(clear)) {
-            std::cout << "Failed to send Clear Errors message" << std::endl;
+            log_error("Failed to send Clear Errors message");
             while (1) {}
         } else {
-            std::cout << "Cleared errors." << std::endl;
+            log_info ("Cleared errors.");
         }
 
-        std::cout << "Reading error..." << std::endl;
+        log_info("Reading error...");
         ODrive::Get_Error_msg_t error;
         if (request(error)) {
-            std::cout << "Errors: " << error.Active_Errors << ", " << error.Disarm_Reason << std::endl;
+            log_error("Errors: " << error.Active_Errors << ", " << error.Disarm_Reason);
 
             if (error.Active_Errors != 0 || error.Disarm_Reason != 0) {
                 while (1) {}
             }
         }
 
-        std::cout << "\nSUCCESS! All CAN communication tests passed\n" << std::endl;
-        std::cout << "Done." << std::endl;
+        log_info("SUCCESS! All CAN communication tests passed");
 
         setIdleControl();
     }
@@ -223,12 +219,12 @@ namespace Spindles {
         switch (action.action) {
             case ODriveAction::SetMode: {
                 SpindleState mode = SpindleState(action.arg);
-                
+
                 // Handle mode changes
                 if (mode == SpindleState::Disable) {
                     // Stop the spindle and set idle
                     setIdleControl();
-                    
+
                     // Clear the command queue
                     if (cmd_queue) {
                         xQueueReset(cmd_queue);
@@ -237,23 +233,24 @@ namespace Spindles {
                     // Enable spindle
                     setClosedLoopControl();
                 }
-                
+
                 _current_state = mode;
                 break;
             }
             case ODriveAction::SetSpeed: {
                 uint32_t rpm = action.arg;
-                
-                if (rpm == _current_dev_speed) { // some margin is necessary here.
+
+                if (rpm == _current_dev_speed) {  // some margin is necessary here.
                     // Already at this speed, report it to the speed queue
                     if (speed_queue) {
-                        xQueueSend(speed_queue, &rpm, 0); // rpm cannot be queued. TODO FIXME: I also don't think so. We have the watchdog of ODrive.
+                        xQueueSend(
+                            speed_queue, &rpm, 0);  // rpm cannot be queued. TODO FIXME: I also don't think so. We have the watchdog of ODrive.
                     }
                     return;
                 }
-                
+
                 _current_dev_speed = rpm;
-                
+
                 // Set the speed (convert device units to RPM)
                 bool success = setSpeed(int(rpm));
 
@@ -265,7 +262,7 @@ namespace Spindles {
                         log_warn("ODrive spindle speed not reached: " << int(rpm) << " RPM");
                     }
                 }
-                
+
                 // Report the current speed back to the queue -- TODO FIXME: I don't think so. We have the watchdog of ODrive.
                 if (speed_queue) {
                     xQueueSend(speed_queue, &rpm, 0);
@@ -280,16 +277,16 @@ namespace Spindles {
     // ODrive command task
     void ODriveSpindle::cmd_task(void* pvParameters) {
         ODriveSpindle* instance = static_cast<ODriveSpindle*>(pvParameters);
-        
+
         // Run initialization sequence
         instance->initializationSequence();
-        
+
         const TickType_t poll_delay = pdMS_TO_TICKS(100);  // 100ms polling interval
-        
+
         // Main command processing loop
         for (;;) {
             ODriveAction action;
-            
+
             // Check for commands in the queue
             if (xQueueReceive(cmd_queue, &action, poll_delay)) {
                 // Process the action
@@ -298,7 +295,7 @@ namespace Spindles {
                 // No command in queue, just pump to handle incoming messages
                 instance->pump();
             }
-            
+
             // If syncing, periodically poll for speed updates
             if (instance->_syncing && instance->speed_queue) {
                 uint32_t currentSpeed = uint32_t(instance->lastVelocity * 60.0f);  // Convert rev/s to RPM
