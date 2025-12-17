@@ -2,6 +2,8 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "Config.h"
+#include "../Logging.h"
+
 #if MAX_N_I2SO
 #    include "I2SOPinDetail.h"
 #    include "Driver/i2s_out.h"  // i2s_out_write() etc
@@ -76,7 +78,9 @@ namespace Pins {
         // just check for conflicts above...
 
         // Set the initial value of the pin per the configuration
-        i2s_out_write(_index, value.has(PinAttributes::InitialOn) ^ _inverted);
+        auto isInitialOn = _attributes.has(PinAttributes::InitialOn);
+        log_info("Setting pin " << toString().c_str() << " initial value to " << (isInitialOn ? "ON" : "OFF"));
+        i2s_out_write(_index, _attributes.has(PinAttributes::InitialOn) ^ _inverted);
     }
 
     PinAttributes I2SOPinDetail::getAttr() const {

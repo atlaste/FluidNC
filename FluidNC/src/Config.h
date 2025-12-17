@@ -27,6 +27,7 @@ const int SUPPORT_TASK_CORE = 0;  // Reference: CONFIG_ARDUINO_RUNNING_CORE = 1
 // "friendly suggestion" to prevent unwitting dangerous actions, rather than
 // as effective security against malice.
 // #define ENABLE_AUTHENTICATION
+
 // CONFIGURE_EYECATCH_END (DO NOT MODIFY THIS LINE)
 
 #ifdef ENABLE_AUTHENTICATION

@@ -106,6 +106,9 @@ PinMapper::~PinMapper() {
 // The first argument must be uint8_t to match the signature of the Arduino library,
 // otherwise this will not override the weak definition in the library.
 void IRAM_ATTR digitalWrite(uint8_t upin, uint8_t val) {
+
+    log_verbose("DigitalWrite called for pin " << int(upin) << " value " << int(val));
+
     pinnum_t pin = upin;
 
     if (pin < PinMap::BOUNDARY) {
@@ -129,6 +132,8 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
         return;
     }
 
+    log_verbose("Setting pin mode for pin " << int(pin) << " to mode " << int(mode));
+
     Pins::PinAttributes attr = Pins::PinAttributes::None;
     if ((mode & OUTPUT) == OUTPUT) {
         attr = attr | Pins::PinAttributes::Output;
@@ -143,10 +148,14 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
         attr = attr | Pins::PinAttributes::PullDown;
     }
 
-    thePin->setAttr(attr);
+    auto oldAttr = thePin->getAttr() & (Pins::PinAttributes::InitialOn | Pins::PinAttributes::ActiveLow);
+
+    thePin->setAttr(attr | oldAttr);
 }
 
 int IRAM_ATTR digitalRead(uint8_t pin) {
+    log_verbose("DigitalRead called for pin " << int(pin));
+
     if (pin < PinMap::BOUNDARY) {
         return gpio_read(pin);
     }

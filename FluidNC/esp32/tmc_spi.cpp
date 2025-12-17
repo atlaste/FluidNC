@@ -1,6 +1,11 @@
 // Copyright (c) 2022 Mitch Bradley
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
+#include <sdkconfig.h>
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+// Use tmc_spi_espidf.cpp instead when defined
+
 // There is no .h file to define the interface to this code.
 // It works by replacing weak methods in the TMCStepper library,
 // namely TMCStepper::read() and TMCStepper::write()
@@ -35,7 +40,6 @@
 // This code assumes that the SPI bus has already been initialized,
 // with SCK, MOSI, and MISO pins assigned, via SPIBus.cpp
 
-#include "Config.h"
 #include "tmc_spi_support.h"
 #include <TMCStepper.h>  // https://github.com/teemuatlut/TMCStepper
 
@@ -92,3 +96,5 @@ uint32_t TMC2130Stepper::read(uint8_t reg) {
 
     return data;
 }
+
+#endif // USE_ESPIDF_TMC_SPI

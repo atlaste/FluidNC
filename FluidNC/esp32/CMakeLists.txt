@@ -15,6 +15,7 @@ idf_component_register(SRCS AssertionFailed.cpp
                             StartupLog.cpp
                             StepTimer.cpp
                             tmc_spi.cpp
+                            tmc_spi_espidf.cpp
                             fnc_uart.cpp
                             wdt.cpp
                             coredump.c
