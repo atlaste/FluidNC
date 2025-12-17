@@ -9,38 +9,6 @@
 #include "Logging.h"
 
 namespace Spindles::ODrive {
-    bool CanESP32::send(uint32_t id, uint8_t length, const uint8_t* data) {
-        // Configure message to transmit
-        twai_message_t message;
-        memset(&message, 0, sizeof(message));
-
-        bool rtr = data == nullptr;
-        if (id & 0x80000000) {
-            // Message type and format settings
-            message.extd             = uint32_t(1);                // Standard vs extended format
-            message.rtr              = uint32_t(rtr ? 1 : 0);      // Data vs RTR frame
-            message.ss               = uint32_t(0);                // Whether the message is single shot (i.e., does not repeat on error)
-            message.self             = uint32_t(0);                // Whether the message is a self reception request (loopback)
-            message.dlc_non_comp     = uint32_t(0);                // DLC is less than 8
-            message.identifier       = uint32_t(id & 0x1fffffff);  // Message ID and payload
-            message.data_length_code = length;
-            memcpy(message.data, data, length);
-        } else {
-            // Message type and format settings
-            message.extd             = uint32_t(0);            // Standard vs extended format
-            message.rtr              = uint32_t(rtr ? 1 : 0);  // Data vs RTR frame
-            message.ss               = uint32_t(0);            // Whether the message is single shot (i.e., does not repeat on error)
-            message.self             = uint32_t(0);            // Whether the message is a self reception request (loopback)
-            message.dlc_non_comp     = uint32_t(0);            // DLC is less than 8
-            message.identifier       = uint32_t(id);           // Message ID and payload
-            message.data_length_code = length;
-            memcpy(message.data, data, length);
-        }
-
-        // Queue message for transmission
-        return (twai_transmit(&message, pdMS_TO_TICKS(10)) == ESP_OK);
-    }
-
     bool CanESP32::init(int txPin, int rxPin) {
         // auto tx       = gpio_num_t(9);
         // auto rx       = gpio_num_t(47);
@@ -49,17 +17,17 @@ namespace Spindles::ODrive {
         int  baudKbit = 500;
 
         /*
-    Available baud rates:
+        Available baud rates:
 
-    TWAI_TIMING_CONFIG_1MBITS()
-    TWAI_TIMING_CONFIG_800KBITS()
-    TWAI_TIMING_CONFIG_500KBITS()
-    TWAI_TIMING_CONFIG_250KBITS()
-    TWAI_TIMING_CONFIG_125KBITS()
-    TWAI_TIMING_CONFIG_100KBITS()
-    TWAI_TIMING_CONFIG_50KBITS()
-    TWAI_TIMING_CONFIG_25KBITS()
-    */
+        TWAI_TIMING_CONFIG_1MBITS()
+        TWAI_TIMING_CONFIG_800KBITS()
+        TWAI_TIMING_CONFIG_500KBITS()
+        TWAI_TIMING_CONFIG_250KBITS()
+        TWAI_TIMING_CONFIG_125KBITS()
+        TWAI_TIMING_CONFIG_100KBITS()
+        TWAI_TIMING_CONFIG_50KBITS()
+        TWAI_TIMING_CONFIG_25KBITS()
+        */
 
         // Initialize configuration structures using macro initializers
         twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(tx, rx, TWAI_MODE_NORMAL);
@@ -120,6 +88,38 @@ namespace Spindles::ODrive {
                                          << ", RX Err:" << int(status_info.rx_error_counter));
 
         return true;
+    }
+
+    bool CanESP32::send(uint32_t id, uint8_t length, const uint8_t* data) {
+        // Configure message to transmit
+        twai_message_t message;
+        memset(&message, 0, sizeof(message));
+
+        bool rtr = data == nullptr;
+        if (id & 0x80000000) {
+            // Message type and format settings
+            message.extd             = uint32_t(1);                // Standard vs extended format
+            message.rtr              = uint32_t(rtr ? 1 : 0);      // Data vs RTR frame
+            message.ss               = uint32_t(0);                // Whether the message is single shot (i.e., does not repeat on error)
+            message.self             = uint32_t(0);                // Whether the message is a self reception request (loopback)
+            message.dlc_non_comp     = uint32_t(0);                // DLC is less than 8
+            message.identifier       = uint32_t(id & 0x1fffffff);  // Message ID and payload
+            message.data_length_code = length;
+            memcpy(message.data, data, length);
+        } else {
+            // Message type and format settings
+            message.extd             = uint32_t(0);            // Standard vs extended format
+            message.rtr              = uint32_t(rtr ? 1 : 0);  // Data vs RTR frame
+            message.ss               = uint32_t(0);            // Whether the message is single shot (i.e., does not repeat on error)
+            message.self             = uint32_t(0);            // Whether the message is a self reception request (loopback)
+            message.dlc_non_comp     = uint32_t(0);            // DLC is less than 8
+            message.identifier       = uint32_t(id);           // Message ID and payload
+            message.data_length_code = length;
+            memcpy(message.data, data, length);
+        }
+
+        // Queue message for transmission
+        return (twai_transmit(&message, pdMS_TO_TICKS(10)) == ESP_OK);
     }
 
     int CanESP32::tryReceive(uint8_t* data, uint32_t* identifier) {

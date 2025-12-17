@@ -9,7 +9,7 @@
 
 #include "Logging.h"
 
-#include <freertos/FreeRTOS.h> // must be first
+#include <freertos/FreeRTOS.h>  // must be first
 
 // queue and task
 #include <freertos/task.h>
@@ -20,8 +20,8 @@ namespace Spindles {
 
     class ODriveSpindle : public Spindle {
     private:
-        static const uint8_t kNodeIdShift         = 5;
-        static const uint8_t kCmdIdBits           = 0x1F;
+        static const uint8_t kNodeIdShift = 5;
+        static const uint8_t kCmdIdBits   = 0x1F;
 
         int32_t  _current_dev_speed   = -1;
         uint32_t _last_speed          = 0;
@@ -36,7 +36,7 @@ namespace Spindles {
         static TaskHandle_t  cmdTaskHandle;
         static void          cmd_task(void* pvParameters);
 
-    template <typename T>
+        template <typename T>
         bool send(T& msg) {
             uint8_t data[8] = { 0 };
             msg.encode_buf(data);
@@ -70,14 +70,17 @@ namespace Spindles {
             return false;
         }
 
-        int receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms = 1000);
+        int  receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms = 1000);
         void pump();
         bool setState(ODrive::ODriveAxisState state);
-        bool setSpeed(int rpm);
+        bool setSpeedCommand(int32_t rpm, bool sync);
         void setClosedLoopControl();
         void setIdleControl();
         void initializationSequence();
         void invokeAction(ODriveAction& action);
+        
+        // Helper for setState
+        void setSpeed(int32_t dev_speed, bool sync = true);
 
     protected:
         uint32_t _retries = 5;
@@ -89,11 +92,11 @@ namespace Spindles {
         float             lastVelocity  = 0.0f;
         uint8_t           lastAxisState = 0;
         uint32_t          lastAxisError = 0;
+        int32_t           maxSpeed      = 4000;
+        double            gearFactor    = 1.0;
 
         Pin txPin;
         Pin rxPin;
-
-        void setSpeed(uint32_t dev_speed);
 
         volatile bool _syncing;
 
