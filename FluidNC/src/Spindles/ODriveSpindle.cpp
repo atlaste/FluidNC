@@ -324,7 +324,7 @@ namespace Spindles {
 
             xTaskCreatePinnedToCore(cmd_task,                // task
                                     "ODrive_cmdTaskHandle",  // name for task
-                                    2048,                    // size of task stack
+                                    4096,                    // size of task stack
                                     this,                    // parameters
                                     1,                       // priority
                                     &cmdTaskHandle,
@@ -359,7 +359,6 @@ namespace Spindles {
     }
 
     void ODriveSpindle::setState(SpindleState state, SpindleSpeed speed) {
-        log_debug(name() << ": setState:" << uint8_t(state) << " SpindleSpeed:" << speed);
         if (sys.abort()) {
             return;  // Block during abort.
         }
@@ -373,13 +372,16 @@ namespace Spindles {
 
         uint32_t dev_speed = mapSpeed(state, speed);
 
+        log_debug(name() << ": setState:" << uint8_t(state) << " SpindleSpeed:" << speed
+                         << ". Current dev speed: " << int(_current_dev_speed) << "; dev speed: " << int(dev_speed));
+
         if (_current_dev_speed != dev_speed) {
-            log_debug("setSpeed " << int(dev_speed));
+            log_debug("Set speed " << int(dev_speed));
             setSpeed(dev_speed);
         }
 
         if (_current_state != state) {
-            log_debug("set_mode " << int(state));
+            log_debug("Set mode " << int(state));
             set_mode(state, critical);  // critical if we are in a job
             _current_state = state;
         }
