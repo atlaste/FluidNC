@@ -405,9 +405,9 @@ namespace Spindles {
 
                 log_debug("Set mode " << int(state));
                 set_mode(state, critical);  // critical if we are in a job
-                _current_state   = state;
                 change_direction = true;
             }
+	    _current_state = state;
         }
 
         if (_current_dev_speed != dev_speed || change_direction) {
