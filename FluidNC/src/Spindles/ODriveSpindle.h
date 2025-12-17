@@ -73,14 +73,14 @@ namespace Spindles {
         int  receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms = 1000);
         void pump();
         bool setState(ODrive::ODriveAxisState state);
-        bool setSpeedCommand(int32_t rpm);
+        bool setSpeedCommand(int32_t rpm, bool sync);
         void setClosedLoopControl();
         void setIdleControl();
         void initializationSequence();
         void invokeAction(ODriveAction& action);
         
         // Helper for setState
-        void setSpeed(int32_t dev_speed);
+        void setSpeed(int32_t dev_speed, bool sync = true);
 
     protected:
         uint32_t _retries = 5;

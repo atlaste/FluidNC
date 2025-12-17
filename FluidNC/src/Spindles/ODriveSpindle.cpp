@@ -22,6 +22,7 @@ namespace Spindles {
             None = 0,
             SetMode,
             SetSpeed,
+            SetSpeedNoSync,
         };
         Action  action   = None;
         int32_t arg      = 0;
@@ -95,7 +96,7 @@ namespace Spindles {
         return lastAxisState == uint8_t(state);
     }
 
-    bool ODriveSpindle::setSpeedCommand(int32_t rpm) {
+    bool ODriveSpindle::setSpeedCommand(int32_t rpm, bool sync) {
         if (_current_state == SpindleState::Ccw) {
             rpm = -rpm;
         }
@@ -114,29 +115,33 @@ namespace Spindles {
         velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
 
-        // Wait till speed reaches target RPM
-        auto deadline = esp_timer_get_time() + (timeout * 1000000);
-        while ((deadline - esp_timer_get_time()) > 0) {
-            pump();
+        if (sync) {
+            // Wait till speed reaches target RPM
+            auto deadline = esp_timer_get_time() + (timeout * 1000000);
+            while ((deadline - esp_timer_get_time()) > 0) {
+                pump();
 
-            auto diff = lastVelocity - targetVelocity;
-            if (diff < 0) {
-                diff = -diff;
+                auto diff = lastVelocity - targetVelocity;
+                if (diff < 0) {
+                    diff = -diff;
+                }
+                if (diff < tolerance) {
+                    speedReached = true;
+                    log_info("Target speed reached: " << lastVelocity << " rev/s");
+                    break;
+                }
+
+                log_info("Current speed: " << lastVelocity << " rev/s (target: " << targetVelocity << " rev/s)");
             }
-            if (diff < tolerance) {
-                speedReached = true;
-                log_info("Target speed reached: " << lastVelocity << " rev/s");
-                break;
+
+            if (!speedReached) {
+                log_warn("Warning: Target speed not reached within timeout");
             }
 
-            log_info("Current speed: " << lastVelocity << " rev/s (target: " << targetVelocity << " rev/s)");
+            return speedReached;
+        } else {
+            return true;
         }
-
-        if (!speedReached) {
-            log_warn("Warning: Target speed not reached within timeout");
-        }
-
-        return speedReached;
     }
 
     void ODriveSpindle::setClosedLoopControl() {
@@ -208,9 +213,8 @@ namespace Spindles {
         log_info("Reading error...");
         ODrive::Get_Error_msg_t error;
         if (request(error)) {
-            log_error("Errors: " << error.Active_Errors << ", " << error.Disarm_Reason);
-
             if (error.Active_Errors != 0 || error.Disarm_Reason != 0) {
+                log_error("Active errors: " << error.Active_Errors << ", disarm reason: " << error.Disarm_Reason);
                 while (1) {}
             }
         }
@@ -242,6 +246,7 @@ namespace Spindles {
                 _current_state = mode;
                 break;
             }
+            case ODriveAction::SetSpeedNoSync:
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
 
@@ -257,7 +262,7 @@ namespace Spindles {
                 _current_dev_speed = rpm;
 
                 // Set the speed (convert device units to RPM)
-                bool success = setSpeedCommand(int(rpm));
+                bool success = setSpeedCommand(int(rpm), action.action != ODriveAction::SetSpeedNoSync);
 
                 if (!success) {
                     if (action.critical) {
@@ -391,11 +396,11 @@ namespace Spindles {
         if (_current_state != state) {
             if ((_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw) !=
                 (state == SpindleState::Cw || state == SpindleState::Ccw)) {
-                if (_current_state == SpindleState::Disable)
-                {
-                    // Set speed *FIRST*!
+                if (_current_state == SpindleState::Disable) {
+                    // Set speed *FIRST* when going from disable to Cw/Ccw.
                     log_debug("Set speed " << int(dev_speed));
-                    setSpeed(dev_speed);
+                    _current_state = state;
+                    setSpeed(dev_speed, false);
                 }
 
                 log_debug("Set mode " << int(state));
@@ -484,10 +489,10 @@ namespace Spindles {
         }
     }
 
-    void ODriveSpindle::setSpeed(int32_t dev_speed) {
+    void ODriveSpindle::setSpeed(int32_t dev_speed, bool sync) {
         if (cmd_queue) {
             ODriveAction action;
-            action.action   = ODriveAction::SetSpeed;
+            action.action   = sync ? ODriveAction::SetSpeed : ODriveAction::SetSpeedNoSync;
             action.arg      = dev_speed;
             action.critical = dev_speed == 0;
             if (xQueueSend(cmd_queue, &action, 0) != pdTRUE) {
