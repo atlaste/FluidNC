@@ -107,7 +107,7 @@ PinMapper::~PinMapper() {
 // otherwise this will not override the weak definition in the library.
 void IRAM_ATTR digitalWrite(uint8_t upin, uint8_t val) {
 
-    log_debug(" digitalWrite called for pin " << int(upin) << " value " << int(val));
+    log_verbose("DigitalWrite called for pin " << int(upin) << " value " << int(val));
 
     pinnum_t pin = upin;
 
@@ -132,7 +132,7 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
         return;
     }
 
-    log_info("Setting pin mode for pin " << int(pin) << " to mode " << int(mode));
+    log_verbose("Setting pin mode for pin " << int(pin) << " to mode " << int(mode));
 
     Pins::PinAttributes attr = Pins::PinAttributes::None;
     if ((mode & OUTPUT) == OUTPUT) {
@@ -154,7 +154,7 @@ void IRAM_ATTR pinMode(uint8_t pin, uint8_t mode) {
 }
 
 int IRAM_ATTR digitalRead(uint8_t pin) {
-    log_info(" digitalRead called for pin " << int(pin));
+    log_verbose("DigitalRead called for pin " << int(pin));
 
     if (pin < PinMap::BOUNDARY) {
         return gpio_read(pin);

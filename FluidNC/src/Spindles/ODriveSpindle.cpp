@@ -492,4 +492,8 @@ namespace Spindles {
 
         Spindle::group(handler);
     }
+
+    namespace {
+	    SpindleFactory::InstanceBuilder<ODriveSpindle> registration("odrive");
+    }
 }
