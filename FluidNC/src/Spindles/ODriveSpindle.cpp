@@ -387,16 +387,26 @@ namespace Spindles {
         log_debug(name() << ": setState:" << uint8_t(state) << " SpindleSpeed:" << speed
                          << ". Current dev speed: " << int(_current_dev_speed) << "; dev speed: " << int(dev_speed));
 
+        bool change_direction = false;
         if (_current_state != state) {
             if ((_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw) !=
                 (state == SpindleState::Cw || state == SpindleState::Ccw)) {
+                if (_current_state == SpindleState::Disable)
+                {
+                    // Set speed *FIRST*!
+                    log_debug("Set speed " << int(dev_speed));
+                    setSpeed(dev_speed);
+                }
+
                 log_debug("Set mode " << int(state));
                 set_mode(state, critical);  // critical if we are in a job
+                change_direction = true;
             }
 	    _current_state = state;
         }
 
-        if (_current_dev_speed != dev_speed) {            
+        if (_current_dev_speed != dev_speed || change_direction) {
+            // It's okay to set the speed again.
             log_debug("Set speed " << int(dev_speed));
             setSpeed(dev_speed);
         }
