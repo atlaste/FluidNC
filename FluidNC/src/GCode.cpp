@@ -147,6 +147,26 @@ static void gcode_comment_msg(const char* comment) {
 static std::optional<WaitOnInputMode> validate_wait_on_input_mode_value(objnum_t);
 static Error                          gc_wait_on_input(bool is_digital, objnum_t input_number, WaitOnInputMode mode, float timeout);
 
+// TODO FIXME NOTES SdB 
+// LinuxCNC uses some g-codes that aren't supported yet. Namely:
+// - G7: Diameter mode for lathes
+// - G8: Radius mode for lathes
+// - G64: Path control mode with optional blending tolerances to maintain constant velocity
+// - G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations.
+// - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format
+// - G33: Spindle Synchronized Motion (for threading operations)
+// - G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute).
+// - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which 
+//   is useful for finishing sharp corners
+// - G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM.
+// - G43: Tool length offset, typically applied after tool changes.
+// - G50: Maximum Spindle Speed
+// - G40: Cutter compensation cancellation
+// - G41 / G42: Cutter compensation left/right
+// - G49: Tool length offset cancellation
+// - G10 L1 / L2 / L20: Used to programmatically update the tool table or set coordinate system origins.
+// - G80-G83, G98/G99 Canned cycles?
+
 // Edit GCode line in-place, removing whitespace and comments and
 // converting to uppercase
 void collapseGCode(char* line) {
