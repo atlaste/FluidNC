@@ -4,7 +4,7 @@
 
 #if IS_PLATFORM(HW_ESP32 | HW_ESP32_S2 | HW_ESP32_S3)
 
-#    include <freertos/freeRTOS.h>
+#    include <freertos/FreeRTOS.h>
 
 namespace Scheduler {
     class Spinlock {
