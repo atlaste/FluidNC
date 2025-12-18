@@ -22,8 +22,9 @@ class SpindleEncoder : public ConfigurableModule {
     using SetpointReachedCallback = void (*)(void*);
 
     int32_t tolerance = 10; // 10% RPM tolerance. If we go out of this range, it's an alarm.
-    int64_t lastCount = 0;
-    int32_t countPerRevolution = 800; // encoder CPR
+    int64_t lastCount = 0;              // For ISR validation (during motion)
+    int64_t lastCountIdle = 0;          // For coroutine validation (when idle)
+    int32_t countPerRevolution = 800;   // encoder CPR
     
     Scheduler::Event* monitorTask_ = nullptr;  // Track the scheduled monitoring task
 
@@ -37,8 +38,9 @@ public:
 
     void resetCount() { lastCount  = getCount(); }
     
-    // ISR-safe validation - returns true if out of tolerance, false if OK
-    bool validateSpeed(int32_t usecs);
+    // ISR-safe validation - returns true if in tolerance, false if out of tolerance
+    // fromISR: true when called from Stepper ISR, false when called from idle coroutine
+    bool validateSpeed(int32_t usecs, bool fromISR = true);
     
     // Coroutine for periodic spindle speed monitoring (runs when idle)
     Scheduler::Schedulable<void> monitorSpeed();
