@@ -2,6 +2,10 @@
 
 #include "Assertion.h"
 #include "Logging.h"
+#include "Scheduler/ISchedulable.h"
+#include "Scheduler/Timer.h"
+#include "MotionControl.h"
+#include "State.h"
 
 #include <driver/gpio.h>
 #include <driver/pulse_cnt.h>
@@ -84,6 +88,41 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_ll_clear_count(group->hal.dev, unit_id);
 
     return pdFALSE;
+}
+
+Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
+    using namespace Scheduler;
+
+    int64_t lastCheckTime = Timer::currentTime();
+
+    while (true) {
+        // Yield for 100ms between checks
+        co_delay_msec(100);
+
+        auto spindle = ::spindle;
+        if (!spindle || !spindle->speedIsValid()) {
+            // No spindle or speed not set, nothing to validate
+            continue;
+        }
+
+        // Only check when not actively running motion
+        // (motion validation happens in Stepper ISR)
+        if (state_is(State::Idle) || state_is(State::Held)) {
+            int64_t currentTime = Timer::currentTime();
+            int32_t deltaUs     = int32_t(currentTime - lastCheckTime);
+            lastCheckTime       = currentTime;
+
+            if (!validateSpeed(deltaUs)) {
+                // Out of tolerance - trigger alarm
+                // Safe to call from here (not ISR context)
+                log_error("Spindle encoder: speed out of tolerance");
+                mc_critical(ExecAlarm::SpindleControl);
+            }
+        } else {
+            // Reset timing when in motion (Stepper ISR handles validation)
+            lastCheckTime = Timer::currentTime();
+        }
+    }
 }
 
 void SpindleEncoder::init() {
@@ -188,10 +227,21 @@ void SpindleEncoder::init() {
 
     // Register and then we're done.
     spindle_encoder = this;
+
+    // Schedule the monitoring coroutine for idle-time validation
+    monitorTask_ = Scheduler::schedule(monitorSpeed());
+    log_info("Spindle encoder monitoring task scheduled");
 }
 
 void SpindleEncoder::deinit() {
-    // De-init:
+    // Unschedule the monitoring task
+    if (monitorTask_ && Scheduler::slowScheduler) {
+        Scheduler::slowScheduler->unschedule(monitorTask_);
+        monitorTask_ = nullptr;
+        log_info("Spindle encoder monitoring task unscheduled");
+    }
+
+    // De-init hardware:
     pcnt_unit_stop(pcnt_alm);
     pcnt_unit_disable(pcnt_alm);
 
@@ -223,7 +273,7 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs) {
         return true;
     }
 
-    int32_t rpm   = int32_t(spindle->_current_speed);
+    int32_t rpm = int32_t(spindle->_current_speed);
 
     auto state = spindle->_current_state;
     if (state == SpindleState::Ccw) {
@@ -257,8 +307,7 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs) {
     int32_t revsPerMinute = int32_t((delta * 60'000'000LL * 10'000LL) / (usecs * countPerRevolution * ratio));
 
     lastEncoderSpeed_ = revsPerMinute;
-
-    lastCount = count;
+    lastCount         = count;
 
     // Return true if out of tolerance (caller should handle the error outside ISR)
     return (revsPerMinute >= minRPM && revsPerMinute <= maxRPM);

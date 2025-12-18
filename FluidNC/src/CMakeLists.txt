@@ -41,6 +41,9 @@ idf_component_register(SRCS BTConfig.cpp
 							SettingsDefinitions.cpp
 							SpindleEncoder.cpp
 							SSD1306_I2C.cpp
+							Scheduler/SlowEventScheduler.cpp
+							Scheduler/SchedulerTask.cpp
+							Scheduler/Timer.cpp
 							Status_outputs.cpp
 							Stepper.cpp
 							Stepping.cpp
@@ -165,9 +168,14 @@ idf_component_register(SRCS BTConfig.cpp
 							# Extra/ADC/NHB_AD7794.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "../lib/SSD1306/src" "../lib/arduinoWebSockets/src"
                        REQUIRES driver fatfs vfs sdmmc spiffs lwip esp_netif esp32 
-                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 lib app_update esp_driver_pcnt esp32async__espasyncwebserver esp32async__asynctcp usb_stream 
+                       PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 lib app_update esp_driver_pcnt esp_timer esp32async__espasyncwebserver esp32async__asynctcp usb_stream 
 					   WHOLE_ARCHIVE)
 
+# Enable C++20 for coroutine support in Scheduler
+target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)
+
+# Add coroutine-specific compile options
+target_compile_options(${COMPONENT_LIB} PRIVATE -fcoroutines)
 
 # Force a rebuild of the registry when source files change
 set_property(TARGET ${COMPONENT_LIB} PROPERTY ADDITIONAL_CLEAN_FILES ${REGISTRY_OUTPUT})

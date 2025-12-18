@@ -18,6 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemDefinitionGroup>
+<ClCompile>
+<LanguageStandard>stdcpp20</LanguageStandard>
+</ClCompile>
+</ItemDefinitionGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{33ece513-60d1-4949-a4a9-c95d353c2cf0}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

@@ -20,6 +20,7 @@
 #    include "StartupLog.h"
 #    include "Module.h"
 #    include "wdt.h"
+#include "Scheduler/SchedulerTask.h"
 
 #    include "Driver/localfs.h"
 
@@ -32,6 +33,9 @@ void setup() {
 
     try {
         timing_init();
+
+        // Start the scheduler immediately
+        Scheduler::SchedulerTask::start();
 
         // Load settings from non-volatile storage
         settings_init();

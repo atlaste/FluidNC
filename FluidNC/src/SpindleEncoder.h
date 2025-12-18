@@ -3,6 +3,7 @@
 #include "Module.h"
 #include "Pin.h"
 #include "Spindles/Spindle.h"
+#include "Scheduler/ISchedulable.h"
 
 #include <driver/pulse_cnt.h>
 
@@ -23,6 +24,8 @@ class SpindleEncoder : public ConfigurableModule {
     int32_t tolerance = 10; // 10% RPM tolerance. If we go out of this range, it's an alarm.
     int64_t lastCount = 0;
     int32_t countPerRevolution = 800; // encoder CPR
+    
+    Scheduler::Event* monitorTask_ = nullptr;  // Track the scheduled monitoring task
 
 public:
     SpindleEncoder(const char* name) : ConfigurableModule(name) {}
@@ -36,6 +39,9 @@ public:
     
     // ISR-safe validation - returns true if out of tolerance, false if OK
     bool validateSpeed(int32_t usecs);
+    
+    // Coroutine for periodic spindle speed monitoring (runs when idle)
+    Scheduler::Schedulable<void> monitorSpeed();
 
     uint32_t lastEncoderSpeed_ = 0;
 

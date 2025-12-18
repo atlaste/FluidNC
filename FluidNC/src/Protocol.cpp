@@ -117,6 +117,7 @@ void output_loop(void* unused) {
     }
 }
 
+
 Channel* activeChannel = nullptr;  // Channel associated with the input line
 
 TaskHandle_t pollingTask = nullptr;
@@ -225,6 +226,7 @@ void start_polling() {
                                 &outputTask,       // task handle
                                 SUPPORT_TASK_CORE  // core
         );
+        
     }
 }
 
@@ -1261,6 +1263,7 @@ QueueHandle_t event_queue;
 void protocol_init() {
     event_queue   = xQueueCreate(10, sizeof(EventItem));
     message_queue = xQueueCreate(10, sizeof(LogMessage));
+    
 }
 
 void IRAM_ATTR protocol_send_event_from_ISR(const Event* evt, void* arg) {

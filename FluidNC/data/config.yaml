@@ -38,7 +38,7 @@ state_persistence:
 
 spindle_encoder:
   pin_a: gpio.38
-  pin_b: gpio.40
+  pin_b: gpio.39
   cpr: 400
   gear_ratio: 1
 
