@@ -37,10 +37,10 @@ state_persistence:
   save_parameters: true
 
 spindle_encoder:
-  pin_a: gpio.38
-  pin_b: gpio.39
-  cpr: 400
-  gear_ratio: 1
+  pin_a: gpio.40
+  pin_b: gpio.41
+  cpr: 2000
+  gear_ratio: -1
 
 odrive:
   can_tx: gpio.9

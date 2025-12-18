@@ -111,8 +111,6 @@ Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
             int64_t currentTime = Timer::currentTime();
             int32_t deltaUs     = int32_t(currentTime - lastCheckTime);
             
-            log_verbose("Checking speed: deltaUs=" << deltaUs << ", lastCheckTime=" << lastCheckTime << ", currentTime=" << currentTime);
-            
             lastCheckTime       = currentTime;
 
             if (!validateSpeed(deltaUs, false)) {  // fromISR = false
