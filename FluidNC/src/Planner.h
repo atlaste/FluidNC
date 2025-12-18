@@ -15,6 +15,13 @@
 
 #include <cstdint>
 
+// Spindle synchronization modes
+enum class SpindleSyncMode : uint8_t {
+    None = 0,   // Normal time-based motion (G94)
+    PerRev = 1, // Feed per revolution - soft sync, allows overrides (G95)
+    Rigid = 2,  // Rigid threading - hard sync, no overrides (G33)
+};
+
 // Define planner data condition flags. Used to denote running conditions of a block.
 struct PlMotion {
     uint8_t rapidMotion : 1;
@@ -56,6 +63,10 @@ struct plan_block_t {
     // Stored spindle speed data used by spindle overrides and resuming methods.
     SpindleSpeed spindle_speed;  // Block spindle speed. Copied from pl_line_data.
 
+    // Spindle synchronization data for G95/G33 moves
+    SpindleSyncMode sync_mode;           // Synchronization mode
+    float           feed_per_revolution; // Feed rate in mm/rev (for G95/G33)
+
     bool is_jog;
 };
 
@@ -69,6 +80,10 @@ struct plan_line_data_t {
     int32_t      line_number;     // Desired line number to report when executing.
     bool         is_jog;          // true if this was generated due to a jog command
     bool         limits_checked;  // true if soft limits already checked
+    
+    // Spindle synchronization data
+    SpindleSyncMode sync_mode;           // Synchronization mode (None/PerRev/Rigid)
+    float           feed_per_revolution; // Feed rate in mm/rev (for G95/G33)
 };
 
 void plan_init();

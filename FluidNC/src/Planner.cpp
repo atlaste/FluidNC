@@ -302,12 +302,14 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
     // Prepare and initialize new block. Copy relevant pl_data for block execution.
     plan_block_t* block = &block_buffer[block_buffer_head];
     memset(block, 0, sizeof(plan_block_t));  // Zero all block values.
-    block->motion        = pl_data->motion;
-    block->coolant       = pl_data->coolant;
-    block->spindle       = pl_data->spindle;
-    block->spindle_speed = pl_data->spindle_speed;
-    block->line_number   = pl_data->line_number;
-    block->is_jog        = pl_data->is_jog;
+    block->motion             = pl_data->motion;
+    block->coolant            = pl_data->coolant;
+    block->spindle            = pl_data->spindle;
+    block->spindle_speed      = pl_data->spindle_speed;
+    block->line_number        = pl_data->line_number;
+    block->is_jog             = pl_data->is_jog;
+    block->sync_mode          = pl_data->sync_mode;
+    block->feed_per_revolution = pl_data->feed_per_revolution;
 
     // Compute and store initial move distance data.
     // Copy position data based on type of motion being planned.

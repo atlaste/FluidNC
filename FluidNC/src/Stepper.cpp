@@ -16,6 +16,7 @@
 #include "Planner.h"
 #include "Protocol.h"
 #include "SpindleEncoder.h"
+
 #include <cmath>
 
 using namespace Stepper;
@@ -32,7 +33,8 @@ struct st_block_t {
     uint32_t steps[MAX_N_AXIS];
     uint32_t step_event_count;
     AxisMask direction_bits;
-    bool     is_pwm_rate_adjusted;  // Tracks motions that require constant laser power/rate
+    bool     is_pwm_rate_adjusted;        // Tracks motions that require constant laser power/rate
+    int32_t  encoder_counts_per_step_fp;  // For encoder-driven stepping (fixed-point * 1000), 0 = timer mode
 };
 static volatile st_block_t* st_block_buffer = nullptr;
 
@@ -41,12 +43,13 @@ static volatile st_block_t* st_block_buffer = nullptr;
 // planner buffer. Once "checked-out", the steps in the segments buffer cannot be modified by
 // the planner, where the remaining planner block steps still can.
 struct segment_t {
-    uint16_t     n_step;             // Number of step events to be executed for this segment
-    uint16_t     isrPeriod;          // Time to next ISR tick, in units of timer ticks
-    uint8_t      st_block_index;     // Stepper block data index. Uses this information to execute this segment.
-    uint8_t      amass_level;        // AMASS level for the ISR to execute this segment
-    uint32_t     spindle_dev_speed;  // Spindle speed scaled to the device
-    SpindleSpeed spindle_speed;      // Spindle speed in GCode units
+    uint16_t     n_step;                      // Number of step events to be executed for this segment
+    uint16_t     isrPeriod;                   // Time to next ISR tick, in units of timer ticks
+    uint8_t      st_block_index;              // Stepper block data index. Uses this information to execute this segment.
+    uint8_t      amass_level;                 // AMASS level for the ISR to execute this segment
+    uint32_t     spindle_dev_speed;           // Spindle speed scaled to the device
+    SpindleSpeed spindle_speed;               // Spindle speed in GCode units
+    int32_t      encoder_counts_per_step_fp;  // For encoder-driven stepping (fixed-point * 1000), 0 = timer mode
 };
 static segment_t* segment_buffer = nullptr;
 
@@ -185,6 +188,19 @@ uint32_t Stepper::isr_count;  // for debugging only
 
 int32_t lastCpuTicks = 0;
 
+void IRAM_ATTR start_spindle_encoder() {
+    if (spindle_encoder) {
+        spindle_encoder->registerStepCallback(Stepper::pulse_func);
+        spindle_encoder->startStepCallback();
+    }
+}
+
+void IRAM_ATTR stop_spindle_encoder() {
+    if (spindle_encoder) {
+        spindle_encoder->stopStepCallback();
+    }
+}
+
 /**
  * This phase of the ISR should ONLY create the pulses for the steppers.
  * This prevents jitter caused by the interval between the start of the
@@ -208,25 +224,31 @@ bool IRAM_ATTR Stepper::pulse_func() {
 
     // If there is no step segment, attempt to pop one from the stepper buffer
     if (st.exec_segment == NULL) {
-        auto spval = spindle_encoder;
-        if (spval) {
-            int32_t newCpuTicks = getCpuTicks();  // NOTE: We just bluntly assume ticks_per_us == 1 for now
-            int32_t deltaUs     = newCpuTicks - lastCpuTicks;
-            lastCpuTicks        = newCpuTicks;
-            if (!spval->validateSpeed(deltaUs)) {
-                // ALARM!
-                // send_alarm_from_ISR(ExecAlarm::SpindleControl);
-                // TODO FIXME!
-            }
-        }
-
         // Anything in the buffer? If so, load and initialize next step segment.
         if (segment_buffer_head != segment_buffer_tail) {
             // Initialize new step segment and load number of steps to execute
             st.exec_segment = &segment_buffer[segment_buffer_tail];
-            // Initialize step segment timing per step and load number of steps to execute.
-            Stepping::setTimerPeriod(st.exec_segment->isrPeriod);
+
+            // Choose between encoder-driven or timer-driven stepping based on segment mode
+            if (st.exec_segment->encoder_counts_per_step_fp != 0) {
+                // Encoder-driven mode (G95/G33)
+                Stepping::stopTimer();
+
+                // Convert fixed-point (x1000) to actual encoder counts (rounded)
+                int32_t encoder_counts = (st.exec_segment->encoder_counts_per_step_fp + 500) / 1000;
+                spindle_encoder->setStepAlarmValue(encoder_counts);
+                start_spindle_encoder();
+            } else {
+                // Timer-driven mode (normal)
+                stop_spindle_encoder();
+
+                // Initialize step segment timing per step and load number of steps to execute.
+                Stepping::setTimerPeriod(st.exec_segment->isrPeriod);
+                Stepping::startTimer();
+            }
+
             st.step_count = st.exec_segment->n_step;  // NOTE: Can sometimes be zero when moving slow.
+
             // If the new segment starts a new planner block, initialize stepper variables and counters.
             // NOTE: When the segment data index changes, this indicates a new planner block.
             if (st.exec_block_index != st.exec_segment->st_block_index) {
@@ -248,6 +270,7 @@ bool IRAM_ATTR Stepper::pulse_func() {
         } else {
             // Segment buffer empty. Shutdown.
             stop_stepping();
+
             if (!state_is(State::Jog)) {  // added to prevent ... jog after probing crash
                 // Ensure pwm is set properly upon completion of rate-controlled motion.
                 if (st.exec_block != NULL && st.exec_block->is_pwm_rate_adjusted) {
@@ -288,21 +311,31 @@ void Stepper::wake_up() {
         return;
     }
     awake = true;
+
     // Cancel any pending stepper disable
     protocol_cancel_disable_steppers();
+
     // Enable stepper drivers.
     Axes::set_disable(false);
 
     // Set cpu ticks just before enabling the timer:
     lastCpuTicks = getCpuTicks();
 
-    // Enable Stepping Driver Interrupt
-    Stepping::startTimer();
+    // What we enable depends on the situation
+    auto firstSegment = st.exec_segment;
+    if (firstSegment != nullptr && firstSegment->encoder_counts_per_step_fp != 0 && spindle_encoder != nullptr) {
+        start_spindle_encoder();
+    } else {
+        // Enable Stepping Driver Interrupt
+        Stepping::startTimer();
+    }
 }
 
 void Stepper::go_idle() {
     awake = false;
     stop_stepping();
+    stop_spindle_encoder();
+
     protocol_disable_steppers();
 }
 
@@ -311,7 +344,7 @@ void Stepper::reset() {
     // Initialize Stepping driver idle state.
     Stepping::reset();
 
-    go_idle();
+    go_idle();  // This will already stop and unregister the encoder callback
 
     // Initialize stepper algorithm variables.
     memset(&prep, 0, sizeof(st_prep_t));
@@ -434,6 +467,13 @@ void Stepper::prep_buffer() {
                     st_prep_block->steps[axis] = pl_block->steps[axis] << maxAmassLevel;
                 }
                 st_prep_block->step_event_count = pl_block->step_event_count << maxAmassLevel;
+
+                // Check if this block requires encoder-driven stepping (G95/G33)
+                if (pl_block->sync_mode != SpindleSyncMode::None && spindle_encoder) {
+                    st_prep_block->encoder_counts_per_step_fp = spindle_encoder->countsPerStep(pl_block->step_event_count);
+                } else {
+                    st_prep_block->encoder_counts_per_step_fp = 0;
+                }
 
                 // Initialize segment buffer data for generating the segments.
                 prep.steps_remaining  = (float)pl_block->step_event_count;
@@ -685,6 +725,7 @@ void Stepper::prep_buffer() {
         }
         prep_segment->spindle_speed     = prep.current_spindle_speed;
         prep_segment->spindle_dev_speed = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);  // Reload segment PWM value
+        prep_segment->encoder_counts_per_step_fp = st_prep_block->encoder_counts_per_step_fp;  // Copy encoder sync mode from block
 
         /* -----------------------------------------------------------------------------------
            Compute segment step rate, steps to execute, and apply necessary rate corrections.

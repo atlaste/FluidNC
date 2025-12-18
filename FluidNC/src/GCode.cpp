@@ -149,23 +149,24 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 
 // TODO FIXME NOTES SdB 
 // LinuxCNC uses some g-codes that aren't supported yet. Namely:
-// - G7: Diameter mode for lathes
-// - G8: Radius mode for lathes
-// - G64: Path control mode with optional blending tolerances to maintain constant velocity
-// - G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations.
-// - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format
-// - G33: Spindle Synchronized Motion (for threading operations)
-// - G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute).
+// - G7: Diameter mode for lathes. Sets some g-code parser state.
+// - G8: Radius mode for lathes. Sets some g-code parser state.
+// - G64: Path control mode with optional blending tolerances to maintain constant velocity. Iirc this is similar to setting arc_tolerance_mm dynamically - which we already have.
 // - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which 
-//   is useful for finishing sharp corners
-// - G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM.
-// - G43: Tool length offset, typically applied after tool changes.
-// - G50: Maximum Spindle Speed
-// - G40: Cutter compensation cancellation
-// - G41 / G42: Cutter compensation left/right
-// - G49: Tool length offset cancellation
-// - G10 L1 / L2 / L20: Used to programmatically update the tool table or set coordinate system origins.
-// - G80-G83, G98/G99 Canned cycles?
+//   is useful for finishing sharp corners. I'm not sure if this is the same as waiting for the planner to complete after each point.
+// - G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
+// - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
+// - G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
+// - G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
+// - G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the 
+//   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
+// - G43: Tool length offset, typically applied after tool changes. Let's do this later.
+// - G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
+// - G40: Cutter compensation cancellation. We'll deal with this later.
+// - G41 / G42: Cutter compensation left/right. We'll deal with this later.
+// - G49: Tool length offset cancellation. We'll deal with this later.
+// - G10 L1 / L2 / L20: Used to programmatically update the tool table or set coordinate system origins. Let's deal with this later.
+// - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
 
 // Edit GCode line in-place, removing whitespace and comments and
 // converting to uppercase

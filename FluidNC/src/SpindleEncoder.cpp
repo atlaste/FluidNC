@@ -70,17 +70,52 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, false);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, false);
 
-    // TODO: Some real work here.
+    // Handle the callback (G95/G33 encoder-driven stepping):
+    auto cb = enc->encoder_callback;
+    if (!cb) {
+        // No callback registered - shouldn't happen, but handle gracefully
+        pcnt_ll_clear_count(group->hal.dev, unit_id);
+        pcnt_unit_stop(enc->pcnt_alm);
+        return pdFALSE;
+    }
 
-    // Calculate new watch point
-    int output = 0;
-    pcnt_unit_get_count(enc->pcnt_total, &output);
-    int64_t sum       = enc->totalCount + int64_t(output);
-    int     remainder = int(100 - (sum % 100));
+    int32_t next_threshold = 0;
+
+    // Check if we need to execute another step
+    // TODO FIXME: Can be negative when going the other direction!
+    if (enc->encoder_counts_remaining <= 0) {
+        // Execute one step and get counts to next step
+        if (!cb()) {
+            // Motion complete - cleanup and exit
+            enc->encoder_callback         = nullptr;
+            enc->encoder_counts_remaining = 0;
+            pcnt_ll_clear_count(group->hal.dev, unit_id);
+            pcnt_unit_stop(enc->pcnt_alm);
+            return pdFALSE;
+        }
+
+        // TODO FIXME: Calculate this off the 'total' value and don't do this incrementally.
+        // It's just asking for trouble because the callback takes time.
+        enc->encoder_counts_remaining = enc->alarmValue;
+    }
+
+    // Set threshold, handling PCNT 16-bit limit (max ~16383 for safety)
+    if (enc->encoder_counts_remaining > 16383) {
+        next_threshold = 16383;
+        enc->encoder_counts_remaining -= 16383;
+    } else {
+        next_threshold                = enc->encoder_counts_remaining;
+        enc->encoder_counts_remaining = 0;  // Will trigger callback next time
+    }
+
+    // Clamp threshold to valid range
+    if (next_threshold < 1) {
+        next_threshold = 1;
+    }
 
     // Set new threshold values and enable them (ISR-safe)
-    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, remainder);
-    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -remainder);
+    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
+    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
 
@@ -228,7 +263,7 @@ void SpindleEncoder::init() {
 
     AssertOK(pcnt_unit_enable(pcnt_alm));
     AssertOK(pcnt_unit_clear_count(pcnt_alm));
-    AssertOK(pcnt_unit_start(pcnt_alm));
+    // AssertOK(pcnt_unit_start(pcnt_alm));
 
     // Register and then we're done.
     spindle_encoder = this;
@@ -236,6 +271,39 @@ void SpindleEncoder::init() {
     // Schedule the monitoring coroutine for idle-time validation
     monitorTask_ = Scheduler::schedule(monitorSpeed());
     log_info("Spindle encoder monitoring task scheduled");
+}
+
+void SpindleEncoder::registerStepCallback(encoder_step_callback_t callback) {
+    encoder_callback = callback;
+}
+
+void SpindleEncoder::unregisterStepCallback() {
+    encoder_callback         = nullptr;
+    encoder_counts_remaining = 0;
+}
+
+void IRAM_ATTR SpindleEncoder::startStepCallback() {
+    int output = 0;
+    pcnt_unit_get_count(pcnt_total, &output);
+    int64_t sum = totalCount + int64_t(output);
+
+    // Store the last total count as the starting point
+    encoder_last_alm_count = sum;
+
+    // Initialize remaining counts (will trigger callback on first ISR)
+    encoder_counts_remaining = 0;
+
+    // Start the ALM counter
+    AssertOK(pcnt_unit_start(pcnt_alm));
+}
+
+void IRAM_ATTR SpindleEncoder::stopStepCallback() {
+    pcnt_unit_stop(pcnt_alm);
+    encoder_counts_remaining = 0;
+}
+
+void IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t value) {
+    alarmValue = value;
 }
 
 void SpindleEncoder::deinit() {
@@ -273,9 +341,9 @@ tryAgain:
 }
 
 bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
-    auto spindle = ::spindle;
+    auto     spindle      = ::spindle;
     int64_t& lastCountRef = fromISR ? lastCount : lastCountIdle;
-    int64_t count = getCount();
+    int64_t  count        = getCount();
 
     if (spindle == nullptr || !spindle->speedIsValid()) {
         // Update the appropriate lastCount; otherwise the first reading will be off.
@@ -293,7 +361,7 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     }
 
     // Use separate lastCount tracking for ISR vs idle coroutine to avoid race conditions
-    int32_t  delta        = int32_t(count - lastCountRef);
+    int32_t delta = int32_t(count - lastCountRef);
 
     // At low RPM, delta might be 0 if sampled too frequently
     // Only validate if we have enough ticks (at least 20 to be meaningful)
@@ -321,10 +389,10 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     int64_t denominator   = int64_t(usecs) * countPerRevolution * ratio;
     int32_t revsPerMinute = int32_t(numerator / denominator);
 
-    log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
-                                        << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
-                                        << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
-                                        << ", fromISR=" << fromISR);
+    // log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
+    //                                     << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
+    //                                     << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
+    //                                     << ", fromISR=" << fromISR);
 
     lastEncoderSpeed_ = revsPerMinute;
     lastCountRef      = count;  // Update the appropriate lastCount
