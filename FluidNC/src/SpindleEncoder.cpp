@@ -271,9 +271,12 @@ tryAgain:
 
 bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     auto spindle = ::spindle;
+    int64_t& lastCountRef = fromISR ? lastCount : lastCountIdle;
+    int64_t count = getCount();
+
     if (spindle == nullptr || !spindle->speedIsValid()) {
         // Update the appropriate lastCount; otherwise the first reading will be off.
-        lastCountRef = getCount();
+        lastCountRef = count;
         return true;
     }
 
@@ -286,17 +289,14 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
         return true;  // Nothing to validate.
     }
 
-    int64_t count = getCount();
-
     // Use separate lastCount tracking for ISR vs idle coroutine to avoid race conditions
-    int64_t& lastCountRef = fromISR ? lastCount : lastCountIdle;
     int32_t  delta        = int32_t(count - lastCountRef);
 
     // At low RPM, delta might be 0 if sampled too frequently
     // Only validate if we have enough ticks (at least 20 to be meaningful)
     if (delta < 20 && delta > -20) {
         // Don't update lastCount - let ticks accumulate for next measurement -- BUT we should update usecs as well then...
-        lastcountRef = count;
+        lastCountRef = count;
         return true;  // Not enough data to validate yet
     }
 
