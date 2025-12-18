@@ -110,8 +110,8 @@ Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
         if (state_is(State::Idle) || state_is(State::Held)) {
             int64_t currentTime = Timer::currentTime();
             int32_t deltaUs     = int32_t(currentTime - lastCheckTime);
-            
-            lastCheckTime       = currentTime;
+
+            lastCheckTime = currentTime;
 
             if (!validateSpeed(deltaUs, false)) {  // fromISR = false
                 // Out of tolerance - trigger alarm
@@ -272,6 +272,8 @@ tryAgain:
 bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     auto spindle = ::spindle;
     if (spindle == nullptr || !spindle->speedIsValid()) {
+        // Update the appropriate lastCount; otherwise the first reading will be off.
+        lastCountRef = getCount();
         return true;
     }
 
@@ -285,15 +287,16 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     }
 
     int64_t count = getCount();
-    
+
     // Use separate lastCount tracking for ISR vs idle coroutine to avoid race conditions
     int64_t& lastCountRef = fromISR ? lastCount : lastCountIdle;
-    int32_t delta = int32_t(count - lastCountRef);
+    int32_t  delta        = int32_t(count - lastCountRef);
 
     // At low RPM, delta might be 0 if sampled too frequently
     // Only validate if we have enough ticks (at least 20 to be meaningful)
     if (delta < 20 && delta > -20) {
-        // Don't update lastCount - let ticks accumulate for next measurement
+        // Don't update lastCount - let ticks accumulate for next measurement -- BUT we should update usecs as well then...
+        lastcountRef = count;
         return true;  // Not enough data to validate yet
     }
 
@@ -311,22 +314,31 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     // Use int64_t for calculation to prevent overflow
     // CRITICAL: Cast denominator to int64_t to prevent 32-bit overflow
     // (usecs * countPerRevolution * ratio can exceed 2^31)
-    int64_t numerator = delta * 60'000'000LL * 10'000LL;
-    int64_t denominator = int64_t(usecs) * countPerRevolution * ratio;
+    int64_t numerator     = delta * 60'000'000LL * 10'000LL;
+    int64_t denominator   = int64_t(usecs) * countPerRevolution * ratio;
     int32_t revsPerMinute = int32_t(numerator / denominator);
-    
-    log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << 
-                ", CPR=" << countPerRevolution << ", ratio=" << ratio << 
-                ", numerator=" << numerator << ", denominator=" << denominator <<
-                ", rpm_calc=" << revsPerMinute << ", target_rpm=" << rpm <<
-                ", minRPM=" << minRPM << ", maxRPM=" << maxRPM <<
-                ", fromISR=" << fromISR);
+
+    log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
+                                        << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
+                                        << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
+                                        << ", fromISR=" << fromISR);
 
     lastEncoderSpeed_ = revsPerMinute;
-    lastCountRef = count;  // Update the appropriate lastCount
+    lastCountRef      = count;  // Update the appropriate lastCount
 
     // Return true if out of tolerance (caller should handle the error outside ISR)
-    return (revsPerMinute >= minRPM && revsPerMinute <= maxRPM);
+    if (revsPerMinute >= minRPM && revsPerMinute <= maxRPM) {
+        errorCount = 0;
+        return true;
+    } else {
+        ++errorCount;
+        if (errorCount >= allowedErrors) {
+            return false;
+        } else {
+            log_error("Ignoring error; a few errors are allowed.");
+            return true;
+        }
+    }
 }
 
 SpindleEncoder* spindle_encoder = nullptr;

@@ -11,6 +11,8 @@ class SpindleEncoder : public ConfigurableModule {
     Pin   pin_a;
     Pin   pin_b;
     int32_t ratio; // in 1/10000
+    int32_t allowedErrors = 5;
+    int32_t errorCount    = 0;
 
     volatile int64_t   totalCount = 0;
     pcnt_unit_handle_t pcnt_total = NULL;
@@ -51,6 +53,7 @@ public:
         handler.item("pin_a", pin_a);
         handler.item("pin_b", pin_b);
         handler.item("tolerance", tolerance);
+        handler.item("allowed_errors", allowedErrors);
         handler.item("cpr", countPerRevolution);
         float r = float(ratio / 10000.0);
         handler.item("gear_ratio", r);

@@ -402,6 +402,9 @@ namespace Spindles {
         }
 
         if (_current_dev_speed != dev_speed || change_direction) {
+            // Invalidate the speed; we're ramping:
+            startRamp(100000);
+
             // It's okay to set the speed again.
             log_debug("Set speed " << int(dev_speed));
             setSpeed(dev_speed);
@@ -418,8 +421,6 @@ namespace Spindles {
 
         _syncing = true;  // poll for speed
 
-        // Invalidate the speed; we're ramping:
-        startRamp(100000);
 
         auto minSpeedAllowed = dev_speed > _slop ? (dev_speed - _slop) : 0;
         auto maxSpeedAllowed = dev_speed + _slop;
@@ -440,7 +441,7 @@ namespace Spindles {
                 _syncing = false;
 
                 // Let's just say it's valid again; otherwise we get issues later.
-                startRamp(0);
+                endRamp();
                 _speedIsValidAfter = 0;
                 return;
             }
@@ -452,7 +453,7 @@ namespace Spindles {
         }
 
         // Make the speed valid again:
-        startRamp(0);
+        endRamp();
         _speedIsValidAfter = 0;
 
         _syncing = false;
