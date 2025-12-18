@@ -114,6 +114,9 @@ namespace Spindles {
         velCmd.Input_Vel       = targetVelocity;  // 1000 RPM = 16.67 rev/s
         velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
+        
+        // Mark speed as invalid during ramp (for encoder validation)
+        startRamp(timeout * 1000);  // timeout converted to milliseconds
 
         if (sync) {
             // Wait till speed reaches target RPM
@@ -127,6 +130,7 @@ namespace Spindles {
                 }
                 if (diff < tolerance) {
                     speedReached = true;
+                    endRamp();  // Mark speed as valid now
                     log_info("Target speed reached: " << lastVelocity << " rev/s");
                     break;
                 }

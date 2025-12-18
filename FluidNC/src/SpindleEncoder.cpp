@@ -101,7 +101,10 @@ Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
 
         auto spindle = ::spindle;
         if (!spindle || !spindle->speedIsValid()) {
-            // No spindle or speed not set, nothing to validate
+            // No spindle or speed not set/ramping, nothing to validate
+            // speedIsValid() returns false during ramp-up
+            lastCheckTime = Timer::currentTime();
+            lastCountIdle = getCount();
             continue;
         }
 
