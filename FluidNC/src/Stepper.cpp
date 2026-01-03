@@ -187,6 +187,7 @@ uint32_t Stepper::isr_count;  // for debugging only
 #endif
 
 int32_t lastCpuTicks = 0;
+bool    timerMode    = true;
 
 void IRAM_ATTR start_spindle_encoder() {
     if (spindle_encoder) {
@@ -232,7 +233,10 @@ bool IRAM_ATTR Stepper::pulse_func() {
             // Choose between encoder-driven or timer-driven stepping based on segment mode
             if (st.exec_segment->encoder_counts_per_step_fp != 0) {
                 // Encoder-driven mode (G95/G33)
-                Stepping::stopTimer();
+                if (timerMode) {
+                    Stepping::stopTimer();
+                    timerMode = false;
+                }
 
                 // Convert fixed-point (x1000) to actual encoder counts (rounded)
                 int32_t encoder_counts = (st.exec_segment->encoder_counts_per_step_fp + 500) / 1000;
@@ -243,8 +247,11 @@ bool IRAM_ATTR Stepper::pulse_func() {
                 stop_spindle_encoder();
 
                 // Initialize step segment timing per step and load number of steps to execute.
+                if (!timerMode) {
+                    Stepping::startTimer();
+                    timerMode = true;
+                }
                 Stepping::setTimerPeriod(st.exec_segment->isrPeriod);
-                Stepping::startTimer();
             }
 
             st.step_count = st.exec_segment->n_step;  // NOTE: Can sometimes be zero when moving slow.
@@ -325,9 +332,11 @@ void Stepper::wake_up() {
     auto firstSegment = st.exec_segment;
     if (firstSegment != nullptr && firstSegment->encoder_counts_per_step_fp != 0 && spindle_encoder != nullptr) {
         start_spindle_encoder();
+        timerMode = false;
     } else {
         // Enable Stepping Driver Interrupt
         Stepping::startTimer();
+        timerMode = true;
     }
 }
 
