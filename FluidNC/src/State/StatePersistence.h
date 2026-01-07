@@ -43,12 +43,14 @@ private:
     void     saveParserState();
     void     saveParameters();
     void     saveOverrides();
+    void     saveSpindleState();
 
     void restoreAllSections();
     void restorePositionState();
     void restoreParserState();
     void restoreParameters();
     void restoreOverrides();
+    void restoreSpindleState();
 
     static void saveTaskFunc(void* param);
 
