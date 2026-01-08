@@ -60,6 +60,7 @@ void stepTimerInit(uint32_t frequency, bool (*callback)(void)) {
     timer_ll_set_counter_enable(&TIMERG0, TIMER_0, TIMER_PAUSE);
     timer_ll_set_counter_value(&TIMERG0, TIMER_0, 0ULL);
 
+    timer_ll_set_clock_source(&TIMERG0, TIMER_0, GPTIMER_CLK_SRC_APB);
     timer_ll_set_divider(&TIMERG0, TIMER_0, fTimers / frequency);
     timer_ll_set_counter_increase(&TIMERG0, TIMER_0, true);
     timer_ll_intr_disable(&TIMERG0, TIMER_0);
@@ -91,6 +92,7 @@ void stepTimerInit(uint32_t frequency, bool (*callback)(void)) {
 #    include <esp_compiler.h>
 #    include "esp_intr_types.h"
 #    include "soc/timer_periph.h"
+#include "esp_rom_sys.h"
 
 #    define IRAM IRAM_ATTR
 
@@ -102,6 +104,7 @@ static bool (*timer_isr_callback)(void);
 static void IRAM timer_isr(void* arg) {
     // esp_intr_alloc_intrstatus() takes care of filtering based on the interrupt status register
     timer_ll_clear_intr_status(&TIMERG0, TIMER_LL_EVENT_ALARM(TIMER_0));
+    timer_ll_trigger_soft_reload(&TIMERG0, TIMER_0);
 
     if (timer_isr_callback()) {
         // We could just pass the result of timer_isr_callback() as
