@@ -106,6 +106,9 @@ static void IRAM timer_isr(void* arg) {
     timer_ll_clear_intr_status(&TIMERG0, TIMER_LL_EVENT_ALARM(TIMER_0));
     timer_ll_trigger_soft_reload(&TIMERG0, TIMER_0);
 
+    // Force counter reload to 0 - auto-reload may not work correctly in IDF v5
+    timer_ll_trigger_soft_reload(&TIMERG0, TIMER_0);
+
     if (timer_isr_callback()) {
         // We could just pass the result of timer_isr_callback() as
         // the argument to timer_ll_enable_alarm(), but the
@@ -147,6 +150,7 @@ void stepTimerInit(uint32_t frequency, bool (*callback)(void)) {
     timer_ll_set_reload_value(&TIMERG0, TIMER_0, 0ULL);
     timer_ll_trigger_soft_reload(&TIMERG0, TIMER_0);
 
+    timer_ll_set_clock_source(&TIMERG0, TIMER_0, GPTIMER_CLK_SRC_APB);
     timer_ll_set_clock_prescale(&TIMERG0, TIMER_0, fTimers / frequency);
     timer_ll_set_count_direction(&TIMERG0, TIMER_0, gptimer_count_direction_t::GPTIMER_COUNT_UP);
     timer_ll_enable_intr(&TIMERG0, TIMER_LL_EVENT_ALARM(TIMER_0), false);

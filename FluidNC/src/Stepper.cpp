@@ -187,7 +187,7 @@ uint32_t Stepper::isr_count;  // for debugging only
 #endif
 
 int32_t lastCpuTicks = 0;
-bool timerMode = 0;
+bool    timerMode    = true;
 
 void IRAM_ATTR start_spindle_encoder() {
     if (spindle_encoder) {
@@ -333,11 +333,11 @@ void Stepper::wake_up() {
     auto firstSegment = st.exec_segment;
     if (firstSegment != nullptr && firstSegment->encoder_counts_per_step_fp != 0 && spindle_encoder != nullptr) {
         start_spindle_encoder();
-	timerMode = false;
+        timerMode = false;
     } else {
         // Enable Stepping Driver Interrupt
         Stepping::startTimer();
-	timerMode = true;
+        timerMode = true;
     }
 }
 

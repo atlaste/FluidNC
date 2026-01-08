@@ -9,6 +9,9 @@
 
 #include "Channel.h"
 #include "Module.h"
+
+#include <cstring>
+
 namespace ATCs {
     class ATC : public Configuration::Configurable {
     protected:
@@ -24,21 +27,32 @@ namespace ATCs {
         ATC& operator=(const ATC&) = delete;
         ATC& operator=(ATC&&)      = delete;
 
-        virtual ~ATC() = default;
-
         const char* name() { return _name; }
 
         virtual void init() = 0;
 
-        virtual void probe_notification()                                      = 0;
-        virtual bool tool_change(tool_t value, bool pre_select, bool set_tool) = 0;
-
-        ATC* _atc;
+        // ATC* _atc; // huh? That doesn't belong here.
 
         // Configuration handlers:
         void validate() override {}
-        void afterParse() override {};
+        void afterParse() override {}
         void group(Configuration::HandlerBase& handler) override {}
+
+        virtual void probe_notification()                                      = 0;
+        virtual bool tool_change(tool_t value, bool pre_select, bool set_tool) = 0;
+        
+        virtual void save_atc_data(std::vector<uint8_t>& buffer) { 
+            auto size = buffer.size();
+            buffer.resize(buffer.size() + 4);
+            memcpy(buffer.data() + size, &_last_tool, 4);
+
+        }
+        virtual void restore_atc_data(const std::vector<uint8_t>& buffer, size_t& index) { 
+            memcpy(&_last_tool, buffer.data() + index, 4);
+            index += 4;
+        }
+
+        virtual ~ATC() = default;
     };
 
     using ATCFactory = Configuration::GenericFactory<ATC>;

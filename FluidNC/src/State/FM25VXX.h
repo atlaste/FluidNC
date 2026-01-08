@@ -57,17 +57,6 @@ private:
         WEL  = 1,  // Write enable latch
     };
 
-    // Error codes
-    enum class FM25VXXError {
-        Success = 0,
-        WritePastFence,
-        ReadPastMaxAddress,
-        UnsupportedDensity,
-        UnknownManufacturer,
-        ChipVariantError,
-        InitTestFailed,
-    };
-
     // Supported manufacturers
     enum class FM25VXXManufacturer {
         Unknown        = 0,
@@ -114,14 +103,23 @@ private:
 public:
     FM25VXX(Pin& csPin, Pin& wPin, Pin& holdPin, uint32_t fence, uint32_t spiFreqHz);
 
+    // Error codes
+    enum class FM25VXXError {
+        Success = 0,
+        WritePastFence,
+        ReadPastMaxAddress,
+        UnsupportedDensity,
+        UnknownManufacturer,
+        ChipVariantError,
+        InitTestFailed,
+    };
+
     void         Initialize();
     bool         IsInitialized();
     void         Sleep();
     void         Wakeup();
     uint32_t     GetTheFence();
     void         MoveTheFence(uint32_t newFence);
-    FM25VXXError ProtectStatusRegister(bool protect);
-    FM25VXXError WriteProtectFM25VXX(bool quarter, bool half, bool all);
     void         WriteStatusRegister(uint8_t wpen, uint8_t bp0, uint8_t bp1, uint8_t wel);
     void         WriteStatusRegister(uint8_t sRegister);
     void         ReadStatusRegister(uint8_t* wpen, uint8_t* bp0, uint8_t* bp1, uint8_t* wel);

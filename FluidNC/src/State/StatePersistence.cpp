@@ -13,6 +13,8 @@
 #include "Parameters.h"
 #include "SettingsDefinitions.h"
 #include "Machine/Axes.h"
+#include "Spindles/Spindle.h"
+#include "ToolChangers/atc.h"
 
 #include <mbedtls/sha256.h>
 #include <cstring>
@@ -25,7 +27,8 @@ namespace {
     static const uint16_t FRAM_HOMING_STATUS_ADDR = 0x0030;
     static const uint16_t FRAM_OVERRIDES_ADDR     = 0x0040;
     static const uint16_t FRAM_PARSER_STATE_ADDR  = 0x0050;
-    static const uint16_t FRAM_PARAMETERS_ADDR    = 0x0200;
+    static const uint16_t FRAM_ATC_ADDR           = 0x0200;
+    static const uint16_t FRAM_PARAMETERS_ADDR    = 0x1000;
 }
 
 // Static members
@@ -172,6 +175,19 @@ void StatePersistence::saveOverrides() {
     _fram->WriteBlock(offset, sizeof(spindle_ovr), 1, (uint8_t*)&spindle_ovr);
 }
 
+void StatePersistence::saveSpindleState()
+{
+    auto                 spindles = Spindles::SpindleFactory::objects();
+    std::vector<uint8_t> atcData;
+    atcData.resize(4);
+    for (auto it : spindles) {
+        it->save_atc_data(atcData);
+    }
+    uint32_t size = atcData.size();
+    memcpy(atcData.data(), &size, 4);
+    _fram->WriteBlock(FRAM_ATC_ADDR, 1, atcData.size(), atcData.data());
+}
+
 void StatePersistence::saveAllSections() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
@@ -181,6 +197,7 @@ void StatePersistence::saveAllSections() {
     saveParserState();
     saveParameters();
     saveOverrides();
+    saveSpindleState();
 }
 
 void StatePersistence::restorePositionState() {
@@ -281,6 +298,26 @@ void StatePersistence::restoreOverrides() {
     sys.set_spindle_speed_ovr(spindle_ovr);
 }
 
+
+void StatePersistence::restoreSpindleState() {
+    if (!_fram || !_fram->IsInitialized()) {
+        return;
+    }
+    uint32_t length;
+    _fram->ReadBlock(FRAM_ATC_ADDR, 1, 4, (uint8_t*)&length);
+    if (length != 0) {
+        std::vector<uint8_t> atcData;
+        atcData.resize(length);
+        _fram->ReadBlock(FRAM_ATC_ADDR, 1, length, atcData.data());
+        
+        size_t index = 4;
+        auto spindles = Spindles::SpindleFactory::objects();
+        for (auto it : spindles) {
+            it->restore_atc_data(atcData, index);
+        }
+    }
+}
+
 void StatePersistence::restoreAllSections() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
@@ -290,6 +327,7 @@ void StatePersistence::restoreAllSections() {
     restoreParserState();
     restoreParameters();
     restoreOverrides();
+    restoreSpindleState();
 }
 
 void StatePersistence::saveTaskFunc(void* param) {
