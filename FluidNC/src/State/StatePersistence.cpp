@@ -31,6 +31,8 @@ namespace {
     static const uint16_t FRAM_PARAMETERS_ADDR    = 0x1000;
 }
 
+extern const char* git_info;
+
 // Static members
 QueueHandle_t StatePersistence::_forceSaveQueue = nullptr;
 
@@ -80,6 +82,9 @@ uint32_t StatePersistence::calculateConfigHash() {
             mbedtls_sha256_update(&ctx, buffer, to_read);
             remaining -= to_read;
         }
+
+        size_t git_len = strlen(git_info);
+        mbedtls_sha256_update(&ctx, reinterpret_cast<const unsigned char*>(git_info), git_len);
 
         mbedtls_sha256_finish(&ctx, hash);
         mbedtls_sha256_free(&ctx);
@@ -177,15 +182,28 @@ void StatePersistence::saveOverrides() {
 
 void StatePersistence::saveSpindleState()
 {
+    if (!_fram || !_fram->IsInitialized()) {
+        return;
+    }
+    
     auto                 spindles = Spindles::SpindleFactory::objects();
     std::vector<uint8_t> atcData;
+    
+    // Reserve space for size at the beginning
     atcData.resize(4);
+    
+    // Collect ATC data from all spindles (appends after the size field)
     for (auto it : spindles) {
         it->save_atc_data(atcData);
     }
+    
+    // Write the total size at the beginning (now that we know the final size)
     uint32_t size = atcData.size();
     memcpy(atcData.data(), &size, 4);
-    _fram->WriteBlock(FRAM_ATC_ADDR, 1, atcData.size(), atcData.data());
+    
+    // Write the entire buffer to FRAM
+    // WriteBlock signature: WriteBlock(address, blockSize, numBlocks, data)
+    _fram->WriteBlock(FRAM_ATC_ADDR, atcData.size(), 1, atcData.data());
 }
 
 void StatePersistence::saveAllSections() {
@@ -298,23 +316,35 @@ void StatePersistence::restoreOverrides() {
     sys.set_spindle_speed_ovr(spindle_ovr);
 }
 
-
 void StatePersistence::restoreSpindleState() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
     }
+    
+    // Read the size first
     uint32_t length;
-    _fram->ReadBlock(FRAM_ATC_ADDR, 1, 4, (uint8_t*)&length);
-    if (length != 0) {
-        std::vector<uint8_t> atcData;
-        atcData.resize(length);
-        _fram->ReadBlock(FRAM_ATC_ADDR, 1, length, atcData.data());
-        
-        size_t index = 4;
-        auto spindles = Spindles::SpindleFactory::objects();
-        for (auto it : spindles) {
-            it->restore_atc_data(atcData, index);
+    // ReadBlock signature: ReadBlock(address, blockSize, numBlocks, data)
+    _fram->ReadBlock(FRAM_ATC_ADDR, 4, 1, (uint8_t*)&length);
+    
+    // Sanity check
+    if (length == 0 || length > 4096) {  // Reasonable upper limit
+        log_debug("Invalid ATC data length: " << length);
+        return;
+    }
+    
+    // Read the entire ATC data block
+    std::vector<uint8_t> atcData;
+    atcData.resize(length);
+    _fram->ReadBlock(FRAM_ATC_ADDR, length, 1, atcData.data());
+    
+    // Restore ATC data to all spindles (starting after the 4-byte size header)
+    size_t index = 4;
+    auto spindles = Spindles::SpindleFactory::objects();
+    for (auto it : spindles) {
+        if (index >= length) {
+            break;  // No more data to read
         }
+        it->restore_atc_data(atcData, index);
     }
 }
 
