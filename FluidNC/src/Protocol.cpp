@@ -20,6 +20,7 @@
 #include "Job.h"
 #include "State/StatePersistence.h"
 
+#include "esp32/wdt.h"
 #include "Driver/restart.h"
 #include <esp_task_wdt.h>
 
@@ -1019,6 +1020,8 @@ static void protocol_exec_rt_suspend() {
         if (sys.abort()) {
             return;
         }
+        feed_WDT();
+
         // if a jogCancel comes in and we have a jog "in-flight" (parsed and handed over to mc_move_motors()),
         //  then we need to cancel it before it reaches the planner.  otherwise we may try to move way out of
         //  normal bounds, especially with senders that issue a series of jog commands before sending a cancel.
