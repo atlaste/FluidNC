@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include "Pin.h"
+#include "System.h"
 #include "Machine/MachineConfig.h"
 #include "NutsBolts.h"
 #include "atc.h"
@@ -87,6 +88,19 @@ namespace ATCs {
 
         run("G53 G0 X0\n");  // TODO: Safe_x and Safe_z ?
         run("G53 G0 Z0\n");
+
+        // Before doing the tool change, we need to check if the pressure is on:
+        while (pneumaticSensor.readBar() < 2.0f) {
+            log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar() << " bar.");
+            for (int i = 0; i < 20 && pneumaticSensor.readBar() < 2.0f && sys.state() != State::Alarm; ++i) {
+                delay_ms(50);
+                protocol_buffer_synchronize();
+            }
+        }
+        if (sys.state() == State::Alarm)
+        {
+            return false;
+        }
 
         // Start tool change
         run(pneumaticActionOn);

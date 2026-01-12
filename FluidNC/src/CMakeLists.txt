@@ -146,6 +146,8 @@ idf_component_register(SRCS BTConfig.cpp
 							ToolChangers/atc.cpp
 							ToolChangers/atc_manual.cpp
 							ToolChangers/PneumaticToolTurret.cpp
+							ToolChangers/ADC.cpp
+							ToolChangers/PressureSensor.cpp
 							WebUI/Authentication.cpp
 							WebUI/EthernetConfig.cpp
 							WebUI/Mdns.cpp
