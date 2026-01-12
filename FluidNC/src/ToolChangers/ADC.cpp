@@ -2,7 +2,7 @@
 #include "Logging.h"
 
 namespace ATCs {
-    ADC::ADC(adc_unit_t unit, adc_channel_t chan, adc_atten_t atten = ADC_ATTEN_DB_12) : channel(chan), attenuation(atten) {
+    ADC::ADC(adc_unit_t unit, adc_channel_t chan, adc_atten_t atten) : channel(chan), attenuation(atten) {
         // Configure ADC
         adc_oneshot_unit_init_cfg_t init_config = {
             .unit_id  = unit,

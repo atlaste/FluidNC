@@ -4,7 +4,7 @@ namespace ATCs {
     // Pressure Sensor Class - Converts ADC readings to pressure values
     class PressureSensor {
     private:
-        ADC&  adc;
+        ADC   adc;
         float min_voltage_mv;    // Minimum voltage in mV (after voltage divider)
         float max_voltage_mv;    // Maximum voltage in mV (after voltage divider)
         float min_pressure_mpa;  // Minimum pressure in MPa
@@ -14,8 +14,7 @@ namespace ATCs {
         float readAverageVoltage();
 
     public:
-        PressureSensor(ADC&  adc_instance,
-                       float sensor_min_v          = 0.5f,
+        PressureSensor(float sensor_min_v          = 0.5f,
                        float sensor_max_v          = 4.5f,
                        float min_press_mpa         = 0.0f,
                        float max_press_mpa         = 1.6f,

@@ -74,6 +74,7 @@ axes:
     max_travel_mm: 1000.000000
     soft_limits: false
     homing:
+      cycle: 1
       positive_direction: false
     motor0:
       limit_neg_pin: NO_PIN
@@ -93,6 +94,7 @@ axes:
     max_travel_mm: 300.000000
     soft_limits: false
     homing:
+      cycle: 2
       positive_direction: false
     motor0:
       limit_neg_pin: NO_PIN
@@ -111,6 +113,7 @@ axes:
     max_travel_mm: 300.000000
     soft_limits: false
     homing:
+      cycle: 2
       positive_direction: false
     motor0:
       limit_neg_pin: NO_PIN
@@ -226,8 +229,8 @@ user_inputs:
 #   buffer_count: 3
 #
 pneumatic_tool_turret:
-  offsetsPerRevolution: 
-  toolOffsets: [0, 10, 20, 30, 40, 50, 60, 70]
+  offsetsPerRevolution: 80
+  toolOffsets: 0 10 20 30 40 50 60 70
   useTLO: false
 
 arc_tolerance_mm: 0.002000
