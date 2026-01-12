@@ -127,7 +127,6 @@ axes:
     soft_limits: false
     motor0:
       hard_limits: false
-      pulloff_mm: 1.000000
       standard_stepper:
           disable_pin: i2so.12
           direction_pin: i2so.15
