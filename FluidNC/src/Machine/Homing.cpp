@@ -270,7 +270,7 @@ namespace Machine {
 
         float*      mpos = get_mpos();
         std::string homedAxes;
-        //        logArray("mpos was", mpos, n_axis);
+        logArray("mpos was", mpos, n_axis);
         // Replace coordinates homed axes with the homing values.
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
             if (bitnum_is_true(_cycleAxes, axis)) {
@@ -283,8 +283,7 @@ namespace Machine {
             }
         }
         log_msg("Homed:" << homedAxes);
-        //        logArray("mpos becomes", mpos, n_axis);
-
+        logArray("mpos becomes", mpos, n_axis);
         config->_kinematics->set_homed_mpos(mpos);
 
         mpos = get_mpos();
