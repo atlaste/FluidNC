@@ -191,5 +191,5 @@ void logArray(const char* legend, S* src, size_t n) {
         s += " ";
         s += std::to_string(src[i]);
     }
-    log_debug(s);
+    log_info(s);
 }

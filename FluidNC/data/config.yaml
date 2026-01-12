@@ -77,9 +77,7 @@ axes:
       cycle: 1
       positive_direction: false
     motor0:
-      limit_neg_pin: NO_PIN
-      limit_pos_pin: NO_PIN
-      limit_all_pin: gpio.18
+      limit_neg_pin: gpio.18
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -97,9 +95,7 @@ axes:
       cycle: 2
       positive_direction: false
     motor0:
-      limit_neg_pin: NO_PIN
-      limit_pos_pin: NO_PIN
-      limit_all_pin: gpio.48
+      limit_neg_pin: gpio.48
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -116,9 +112,7 @@ axes:
       cycle: 2
       positive_direction: false
     motor0:
-      limit_neg_pin: NO_PIN
-      limit_pos_pin: NO_PIN
-      limit_all_pin: gpio.16
+      limit_neg_pin: gpio.16
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -132,9 +126,6 @@ axes:
     max_travel_mm: 1000.000000
     soft_limits: false
     motor0:
-      limit_neg_pin: NO_PIN
-      limit_pos_pin: NO_PIN
-      limit_all_pin: NO_PIN
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
