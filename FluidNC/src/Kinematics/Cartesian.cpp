@@ -350,7 +350,7 @@ namespace Kinematics {
         bool seeking  = phase == Machine::Homing::Phase::FastApproach;
         bool approach = seeking || phase == Machine::Homing::Phase::SlowApproach;
 
-        if (approach && ((axisMask & (Machine::Axes::posLimitMask | Machine::Axes::posLimitMask)) != axisMask)) {
+        if (approach && ((axisMask & (Machine::Axes::posLimitMask | Machine::Axes::negLimitMask)) != axisMask)) {
             log_error("An axis in this homing cycle has no limit switches so it cannot be homed");
             Homing::fail(ExecAlarm::HomingFailApproach);
             return;
