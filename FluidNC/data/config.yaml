@@ -134,7 +134,7 @@ axes:
           step_pin: i2so.14
 
 control:
-  safety_door_pin: NO_PIN
+  safety_door_pin: gpio.6:low
   reset_pin: NO_PIN
   feed_hold_pin: NO_PIN
   cycle_start_pin: NO_PIN
@@ -232,3 +232,7 @@ enable_parking_override_control: false
 use_line_numbers: false
 planner_blocks: 16
 
+# Set RS485 to RX by pulling TX high
+pin_on:
+    pin1: gpio.1
+    value1: 1
