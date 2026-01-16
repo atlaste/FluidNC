@@ -31,9 +31,9 @@ namespace Extra {
         }
     }
 
-    // Task runs at ~60 FPS for smooth animations
-    static constexpr uint32_t UPDATE_INTERVAL_MS   = 16;
-    static constexpr uint32_t PROBE_FLASH_DURATION = 30;  // frames (~500ms)
+    // Task runs at ~6 FPS - plenty for status feedback
+    static constexpr uint32_t UPDATE_INTERVAL_MS   = 167;
+    static constexpr uint32_t PROBE_FLASH_DURATION = 3;  // frames (~500ms)
 
     LedStripFeedback::~LedStripFeedback() {
         deinit();
@@ -493,7 +493,7 @@ namespace Extra {
             }
             
             animationCounter_++;
-            co_yield 16_msec;  // 60 FPS
+            co_yield 167_msec;  // ~6 FPS
         }
     }
 
