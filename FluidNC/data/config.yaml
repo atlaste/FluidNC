@@ -250,5 +250,5 @@ led_strip:
       idle_brightness: 70
       idle_breathe_period: 30000
       running_boost: 10
-      position_boost: 25  # For future use
+      position_boost: 25
 
