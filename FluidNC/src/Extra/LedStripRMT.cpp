@@ -401,107 +401,94 @@ namespace Extra {
                 }
             }
         }
+        
+        // TODO FIXME: validations
 
-        // Validate: directions and travel should have same length
-        if (directions.size() != travel_.size()) {
-            log_error("LED strip: direction length (" << directions.size() << ") != travel length (" << travel_.size() << ")");
-            return;
-        }
+        // Calculate directions and travel:
+        int start = 0;
+        int  n       = 0;
+        char current = directions[0];
 
-        // Build segments
-        struct Segment {
-            char  axis;
-            float distance;
-            int   startLed;
-            int   numLeds;
-        };
-        std::vector<Segment> segments;
-
-        int ledIndex = 0;
-        for (size_t i = 0; i < directions.size(); i++) {
-            Segment seg;
-            seg.axis     = directions[i];
-            seg.distance = travel_[i];
-            seg.startLed = ledIndex;
-
-            // Count consecutive LEDs with same direction
-            int numInSegment = 0;
-            while (ledIndex < numLeds && directions.size() > i) {
-                // Check if we've moved to next segment
-                if (i + 1 < directions.size() && ledIndex > 0) {
-                    // Simple heuristic: if we have more segments than LEDs left, move to next
-                    int ledsRemaining     = numLeds - ledIndex;
-                    int segmentsRemaining = directions.size() - i;
-                    if (numInSegment > 0 && ledsRemaining <= segmentsRemaining) {
-                        break;
-                    }
-                }
-                numInSegment++;
-                ledIndex++;
-
-                // If this is the last segment, take all remaining LEDs
-                if (i == directions.size() - 1) {
-                    numInSegment = numLeds - seg.startLed;
-                    ledIndex     = numLeds;
-                    break;
-                }
-
-                // Otherwise, distribute evenly
-                float avgLedsPerSegment = (float)(numLeds - seg.startLed) / (directions.size() - i);
-                if (numInSegment >= avgLedsPerSegment) {
-                    break;
-                }
-            }
-
-            seg.numLeds = numInSegment;
-            if (seg.numLeds > 0) {
-                segments.push_back(seg);
-            }
-        }
-
+        // Initialize position:
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        
         // Calculate positions
         ledPositions_.clear();
         ledPositions_.reserve(numLeds);
 
-        float currentX = 0, currentY = 0, currentZ = 0;
+        for (int i=1; i<directions.size(); i++) {
+            if (directions[i] != current) {
+                int end = i;
+                
+                // Process [start..end]
+                Assert(n < travel_.size(), "Not enough travel values for direction segments");
+                float machineLength = travel_[n++];
+                int   numberLeds    = end - start;
+                float ledSpacing    = machineLength / numberLeds;
+                
+                for (int j = start; j < end; j++) {
+                    LedPosition pos;
+                    pos.x = x;
+                    pos.y = y;
+                    pos.z = z;
+                    ledPositions_.push_back(pos);
 
-        for (const auto& seg : segments) {
-            float startX = currentX, startY = currentY, startZ = currentZ;
+                    switch (current) {
+                        case 'X':
+                            x += ledSpacing;
+                            break;
+                        case 'Y':
+                            y += ledSpacing;
+                            break;
+                        case 'Z':
+                            z += ledSpacing;
+                            break;
+                    }
 
-            // Calculate end position for this segment
-            float endX = currentX, endY = currentY, endZ = currentZ;
-            switch (seg.axis) {
-                case 'X':
-                    endX += seg.distance;
-                    break;
-                case 'Y':
-                    endY += seg.distance;
-                    break;
-                case 'Z':
-                    endZ += seg.distance;
-                    break;
-                default:
-                    continue;  // ignore.
+                    travel_[j] = ledSpacing;
+                }
+
+                // New segment
+                current = directions[i];
+                start = i;
             }
+        }
+        {
+            // Process last segment:
+            int end = directions.size();
 
-            // Distribute LEDs along segment
-            for (int i = 0; i < seg.numLeds; i++) {
-                float t = (seg.numLeds > 1) ? (float)i / (seg.numLeds - 1) : 0.5f;
+            // Process [start..end]
+            Assert(n < travel_.size(), "Not enough travel values for direction segments");
+            float machineLength = travel_[n++];
+            int   numberLeds    = end - start;
+            float ledSpacing    = machineLength / numberLeds;
 
+            for (int j = start; j < end; j++) {
                 LedPosition pos;
-                pos.x = startX + t * (endX - startX);
-                pos.y = startY + t * (endY - startY);
-                pos.z = startZ + t * (endZ - startZ);
-
+                pos.x = x;
+                pos.y = y;
+                pos.z = z;
                 ledPositions_.push_back(pos);
-            }
 
-            currentX = endX;
-            currentY = endY;
-            currentZ = endZ;
+                switch (current) {
+                    case 'X':
+                        x += ledSpacing;
+                        break;
+                    case 'Y':
+                        y += ledSpacing;
+                        break;
+                    case 'Z':
+                        z += ledSpacing;
+                        break;
+                }
+
+                travel_[j] = ledSpacing;
+            }
         }
 
-        log_info("LED strip: calculated positions for " << ledPositions_.size() << " LEDs over " << segments.size() << " segments");
+        log_info("Calculated positions for " << ledPositions_.size() << " LEDs.");
     }
 
     // Configuration registration
