@@ -46,7 +46,7 @@ namespace Extra {
         };
 
         // RMT encoder callbacks
-        static size_t led_strip_rmt_encode(
+        static size_t IRAM led_strip_rmt_encode(
             rmt_encoder_t* encoder, rmt_channel_handle_t channel, const void* primary_data, size_t data_size, rmt_encode_state_t* ret_state) {
             led_strip_encoder_t* led_encoder     = __containerof(encoder, led_strip_encoder_t, base);
             rmt_encode_state_t   session_state   = RMT_ENCODING_RESET;
@@ -85,7 +85,7 @@ namespace Extra {
             return encoded_symbols;
         }
 
-        static esp_err_t led_strip_rmt_encoder_del(rmt_encoder_t* encoder) {
+        static esp_err_t IRAM led_strip_rmt_encoder_del(rmt_encoder_t* encoder) {
             led_strip_encoder_t* led_encoder = __containerof(encoder, led_strip_encoder_t, base);
             rmt_del_encoder(led_encoder->bytes_encoder);
             rmt_del_encoder(led_encoder->copy_encoder);
@@ -93,7 +93,7 @@ namespace Extra {
             return ESP_OK;
         }
 
-        static esp_err_t led_strip_rmt_encoder_reset(rmt_encoder_t* encoder) {
+        static esp_err_t IRAM led_strip_rmt_encoder_reset(rmt_encoder_t* encoder) {
             led_strip_encoder_t* led_encoder = __containerof(encoder, led_strip_encoder_t, base);
             rmt_encoder_reset(led_encoder->bytes_encoder);
             rmt_encoder_reset(led_encoder->copy_encoder);
