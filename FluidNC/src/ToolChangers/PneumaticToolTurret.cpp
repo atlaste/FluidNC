@@ -33,9 +33,11 @@ namespace ATCs {
         setToolChangeStepperEnable(false);
 
         // Set the correct tool length offset:
-        char setTLO[50];
-        snprintf(setTLO, 100, "G43.1 %c%0.4f\n", toolProbeDirections[currentToolNumber], toolLengthOffsets[currentToolNumber]);
-        run(setTLO);
+        if (useTLO) {
+            char setTLO[50];
+            snprintf(setTLO, 100, "G43.1 %c%0.4f\n", toolProbeDirections[currentToolNumber], toolLengthOffsets[currentToolNumber]);
+            run(setTLO);
+        }
     }
 
     void PneumaticToolTurret::group(Configuration::HandlerBase& handler) {
