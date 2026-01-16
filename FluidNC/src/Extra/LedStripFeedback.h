@@ -4,6 +4,7 @@
 #include "../State.h"
 #include "../System.h"
 #include "Configuration/HandlerBase.h"
+#include "../Scheduler/ISchedulable.h"
 
 namespace Extra {
     // Global callbacks (set by LedStripFeedback when initialized)
@@ -41,9 +42,8 @@ namespace Extra {
         static constexpr int SINE_TABLE_SIZE = 256;
         uint8_t              sineTable_[SINE_TABLE_SIZE];
 
-        // Task handle
-        TaskHandle_t  taskHandle_ = nullptr;
-        volatile bool running_    = false;
+        // Scheduler event
+        Scheduler::Event* schedulerEvent_ = nullptr;
 
         // Color helpers (returns brightness 0-255)
         struct Color {
@@ -73,7 +73,8 @@ namespace Extra {
         uint8_t fastSine(uint32_t phase);                         // phase 0-255
         Color   hsvToRgb(uint8_t hue, uint8_t sat, uint8_t val);  // Fast HSV->RGB
 
-        static void updateTask(void* parameter);
+        // Coroutine for LED updates
+        Scheduler::Schedulable<void> updateCoroutine();
 
     public:
         LedStripFeedback() = default;

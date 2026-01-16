@@ -1,6 +1,7 @@
 #include "LedStripFeedback.h"
 #include "../System.h"
 #include "../Config.h"
+#include "../Platform.h"
 #include <cmath>
 #include <algorithm>
 
@@ -57,16 +58,8 @@ namespace Extra {
         g_progressCallback        = globalProgressCallback;
         g_startupCompleteCallback = globalStartupCompleteCallback;
 
-        // Start update task on core 0 (support core)
-        running_ = true;
-        xTaskCreatePinnedToCore(updateTask,
-                                "LedFeedback",
-                                4096,
-                                this,
-                                1,  // Low priority
-                                &taskHandle_,
-                                0  // Core 0 (APP_CPU)
-        );
+        // Start LED update coroutine
+        schedulerEvent_ = Scheduler::schedule(updateCoroutine());
 
         log_info("LED feedback initialized");
     }
@@ -80,11 +73,10 @@ namespace Extra {
             g_feedbackInstance        = nullptr;
         }
 
-        if (taskHandle_) {
-            running_ = false;
-            vTaskDelay(pdMS_TO_TICKS(100));  // Give task time to exit
-            vTaskDelete(taskHandle_);
-            taskHandle_ = nullptr;
+        // Cancel scheduler event
+        if (schedulerEvent_) {
+            Scheduler::slowScheduler->cancel(schedulerEvent_);
+            schedulerEvent_ = nullptr;
         }
     }
 
@@ -440,73 +432,69 @@ namespace Extra {
         probeFlashCounter_--;
     }
 
-    void LedStripFeedback::updateTask(void* parameter) {
-        auto* feedback = static_cast<LedStripFeedback*>(parameter);
-
-        while (feedback->running_) {
-            if (!feedback->enabled_) {
-                vTaskDelay(pdMS_TO_TICKS(100));
+    Scheduler::Schedulable<void> LedStripFeedback::updateCoroutine() {
+        while (true) {
+            if (!enabled_) {
+                co_yield 100_msec;
                 continue;
             }
-
+            
             // Startup rainbow overrides everything except probe flash
-            if (feedback->inStartup_) {
-                if (feedback->probeFlashCounter_ > 0) {
-                    feedback->renderProbeFlash();
+            if (inStartup_) {
+                if (probeFlashCounter_ > 0) {
+                    renderProbeFlash();
                 } else {
-                    feedback->updateStartup();
+                    updateStartup();
                 }
             }
             // Probe flash overrides everything else
-            else if (feedback->probeFlashCounter_ > 0) {
-                feedback->renderProbeFlash();
+            else if (probeFlashCounter_ > 0) {
+                renderProbeFlash();
             } else {
                 // Update based on current state
-                switch (feedback->currentState_) {
+                switch (currentState_) {
                     case State::Idle:
                     case State::CheckMode:
-                        feedback->updateIdle();
+                        updateIdle();
                         break;
-
+                        
                     case State::Cycle:
                     case State::Jog:
-                        feedback->updateRunning();
+                        updateRunning();
                         break;
-
+                        
                     case State::Homing:
-                        feedback->updateHoming();
+                        updateHoming();
                         break;
-
+                        
                     case State::Hold:
                     case State::Held:
-                        feedback->updateHold();
+                        updateHold();
                         break;
-
+                        
                     case State::SafetyDoor:
-                        feedback->updateSafetyDoor();
+                        updateSafetyDoor();
                         break;
-
+                        
                     case State::Alarm:
                     case State::ConfigAlarm:
                     case State::Critical:
-                        feedback->updateAlarm();
+                        updateAlarm();
                         break;
-
+                        
                     case State::Sleep:
-                        // Maybe just turn off LEDs?
-                        if (feedback->strip_) {
-                            feedback->strip_->clear();
-                            feedback->strip_->refresh();
+                        // Turn off LEDs
+                        if (strip_) {
+                            strip_->clear();
+                            strip_->refresh();
                         }
                         break;
                 }
             }
-
-            feedback->animationCounter_++;
-            vTaskDelay(pdMS_TO_TICKS(UPDATE_INTERVAL_MS));
+            
+            animationCounter_++;
+            co_yield 16_msec;  // 60 FPS
         }
-
-        vTaskDelete(nullptr);
     }
 
     void LedStripFeedback::group(Configuration::HandlerBase& handler) {
