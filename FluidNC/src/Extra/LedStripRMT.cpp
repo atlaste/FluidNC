@@ -179,7 +179,8 @@ namespace Extra {
 
         log_info("Created LED strip");
 
-        ledStripHandle_ = strip.release();
+        encoder.release();  // Prevent unique_ptr from deleting the encoder
+        ledStripHandle_ = strip.release(); // Transfer ownership to the member variable
 
         // Calculate LED positions if direction/travel configured
         calculateLedPositions();
