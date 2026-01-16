@@ -1,7 +1,7 @@
 #include "LedStripFeedback.h"
 #include "../System.h"
 #include "../Config.h"
-#include "../Platform.h"
+#include "../Scheduler/Platform.h"
 #include <cmath>
 #include <algorithm>
 
@@ -75,7 +75,7 @@ namespace Extra {
 
         // Cancel scheduler event
         if (schedulerEvent_) {
-            Scheduler::slowScheduler->cancel(schedulerEvent_);
+            Scheduler::slowScheduler->unschedule(schedulerEvent_);
             schedulerEvent_ = nullptr;
         }
     }
