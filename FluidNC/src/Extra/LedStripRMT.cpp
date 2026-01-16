@@ -89,7 +89,7 @@ namespace Extra {
             led_strip_encoder_t* led_encoder = __containerof(encoder, led_strip_encoder_t, base);
             rmt_del_encoder(led_encoder->bytes_encoder);
             rmt_del_encoder(led_encoder->copy_encoder);
-            free(led_encoder);
+            delete led_encoder;
             return ESP_OK;
         }
 
