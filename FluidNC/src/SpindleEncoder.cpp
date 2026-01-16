@@ -404,6 +404,12 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     } else {
         ++errorCount;
         if (errorCount >= allowedErrors) {
+            if (!fromISR) {
+                log_warn("ValidateSpeed errors: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
+                                                 << ", numerator=" << numerator << ", denominator=" << denominator
+                                                 << ", rpm_calc=" << revsPerMinute << ", target_rpm=" << rpm << ", minRPM=" << minRPM
+                                                 << ", maxRPM=" << maxRPM);
+            }
             return false;
         } else {
             log_error("Ignoring error; a few errors are allowed.");
