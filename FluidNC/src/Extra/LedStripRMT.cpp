@@ -29,11 +29,12 @@ namespace Extra {
 
         // LED strip structure
         struct led_strip_t {
-            rmt_channel_handle_t rmtChannel   = nullptr;
-            rmt_encoder_handle_t rmtEncoder   = nullptr;
-            uint8_t*             buffer       = nullptr;
-            size_t               bufferSize   = 0;
-            bool                 transmitting = false;  // Track if transmission is in progress
+            rmt_channel_handle_t rmtChannel      = nullptr;
+            rmt_encoder_handle_t rmtEncoder      = nullptr;
+            uint8_t*             buffer[2]       = {nullptr, nullptr};  // Double buffer
+            size_t               bufferSize      = 0;
+            uint8_t              writeBuffer     = 0;  // Which buffer we're writing to (0 or 1)
+            bool                 transmitting    = false;  // Track if transmission is in progress
         };
 
         // RMT encoder for LED strips
@@ -124,10 +125,12 @@ namespace Extra {
 
         auto strip = std::make_unique<led_strip_t>();
 
-        // Allocate buffer for all LEDs up to max index
+        // Allocate double buffers for all LEDs up to max index
         strip->bufferSize = (maxLedIndex + 1) * bytesPerLed_;
-        strip->buffer     = new uint8_t[strip->bufferSize];
-        memset(strip->buffer, 0, strip->bufferSize);  // Initialize to off
+        strip->buffer[0]  = new uint8_t[strip->bufferSize];
+        strip->buffer[1]  = new uint8_t[strip->bufferSize];
+        memset(strip->buffer[0], 0, strip->bufferSize);  // Initialize to off
+        memset(strip->buffer[1], 0, strip->bufferSize);  // Initialize to off
 
         // Configure RMT TX channel
         rmt_tx_channel_config_t txConfig = {};
@@ -206,7 +209,8 @@ namespace Extra {
             rmt_disable(strip->rmtChannel);
             rmt_del_encoder(strip->rmtEncoder);
             rmt_del_channel(strip->rmtChannel);
-            delete[] strip->buffer;
+            delete[] strip->buffer[0];
+            delete[] strip->buffer[1];
             delete strip;
         }
     }
@@ -220,7 +224,8 @@ namespace Extra {
         int32_t physicalIndex = leds_[index];
 
         auto     strip = static_cast<led_strip_t*>(ledStripHandle_);
-        uint8_t* pixel = strip->buffer + (physicalIndex * bytesPerLed_);
+        // Write to the buffer we're currently modifying
+        uint8_t* pixel = strip->buffer[strip->writeBuffer] + (physicalIndex * bytesPerLed_);
 
         // Set color based on color order
         switch (colorOrder_) {
@@ -263,26 +268,31 @@ namespace Extra {
                 strip->transmitting = false;
             } else {
                 // Previous transmission still in progress, skip this frame
-                // This prevents modifying the buffer while RMT is reading it
+                // Keep writing to the same buffer for next frame
                 return;
             }
         }
 
-        // Now safe to transmit - previous transmission is complete
+        // Transmit from the buffer we just finished writing
         rmt_transmit_config_t tx_cfg   = {};
         tx_cfg.loop_count              = 0;
         tx_cfg.flags.queue_nonblocking = 1;
 
-        if (rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer, strip->bufferSize, &tx_cfg) == ESP_OK) {
+        uint8_t transmitBuffer = strip->writeBuffer;
+        if (rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer[transmitBuffer], strip->bufferSize, &tx_cfg) == ESP_OK) {
             strip->transmitting = true;
+            // Swap to the other buffer for next frame's writes
+            // While RMT reads from transmitBuffer, we can safely write to the other one
+            strip->writeBuffer = 1 - strip->writeBuffer;
         }
-        // If transmit fails (queue full), we just skip this frame - no big deal for visual feedback
+        // If transmit fails (queue full), keep using the same write buffer and try again next frame
     }
 
     void LedStripRMT::clear() {
         if (ledStripHandle_) {
             auto strip = static_cast<led_strip_t*>(ledStripHandle_);
-            memset(strip->buffer, 0, strip->bufferSize);
+            // Clear the buffer we're currently writing to
+            memset(strip->buffer[strip->writeBuffer], 0, strip->bufferSize);
         }
     }
 
