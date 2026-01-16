@@ -41,6 +41,8 @@ namespace ATCs {
         void setToolChangeStepperEnable(bool enabled);
 
     public:
+	PneumaticToolTurret(const char* name) : ATC(name), pneumaticSensor() {}
+
         void init() override;
 
         void group(Configuration::HandlerBase& handler) override;
@@ -55,6 +57,6 @@ namespace ATCs {
 
         // // ATC API:
         void probe_notification() override;
-        bool tool_change(uint8_t value, bool pre_select, bool set_tool) override;
+        bool tool_change(tool_t value, bool pre_select, bool set_tool) override;
     };
 }

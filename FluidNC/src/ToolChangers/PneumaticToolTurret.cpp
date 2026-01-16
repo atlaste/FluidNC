@@ -60,7 +60,7 @@ namespace ATCs {
         }
     }
 
-    bool PneumaticToolTurret::changeTool(int toolNumber, bool probe = false) {
+    bool PneumaticToolTurret::changeTool(int toolNumber, bool probe) {
         // NOTE: See manual_atc for details on how to set this up.
         //
         // Sequence:
@@ -198,7 +198,7 @@ namespace ATCs {
 
         // do a fast probe if there is a seek that is faster than feed
         if (probeSeekRate > probeFeedRate) {
-            snprintf(buf, 100, "G53 G38.2 %c%0.3f F%0.3f\n", direction, maxTravel, probeSeekRate);
+            snprintf(buf, 100, "G53 G38.2 %c%0.3f F%0.3f\n", direction, double(maxTravel), double(probeSeekRate));
             run(buf);
             run("G0Z[#<_z> + 5]\n");  // retract befor next probe
 
@@ -206,7 +206,7 @@ namespace ATCs {
         }
 
         // do the feed rate probe
-        snprintf(buf, 100, "G53 G38.2 %c%0.3f F%0.3f\n", direction, maxTravel, probeFeedRate);
+        snprintf(buf, 100, "G53 G38.2 %c%0.3f F%0.3f\n", direction, double(maxTravel), double(probeFeedRate));
 
         // get the position:
         float probe_position[MAX_N_AXIS];
@@ -216,7 +216,7 @@ namespace ATCs {
 
     // // ATC API:
     void PneumaticToolTurret::probe_notification() {}
-    bool PneumaticToolTurret::tool_change(uint8_t value, bool pre_select, bool set_tool) {
+    bool PneumaticToolTurret::tool_change(tool_t value, bool pre_select, bool set_tool) {
         if (pre_select) {
             // TODO FIXME: Is this ever used?
             return true;

@@ -350,12 +350,6 @@ namespace Kinematics {
         bool seeking  = phase == Machine::Homing::Phase::FastApproach;
         bool approach = seeking || phase == Machine::Homing::Phase::SlowApproach;
 
-        if (approach && ((axisMask & (Machine::Axes::posLimitMask | Machine::Axes::posLimitMask)) != axisMask)) {
-            log_error("An axis in this homing cycle has no limit switches so it cannot be homed");
-            Homing::fail(ExecAlarm::HomingFailApproach);
-            return;
-        }
-
         AxisMask activeAxes = 0;
         // Find the axis that will take the longest
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
