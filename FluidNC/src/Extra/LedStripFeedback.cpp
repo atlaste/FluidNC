@@ -180,6 +180,11 @@ namespace Extra {
             State oldState          = feedback->currentState_;
             feedback->currentState_ = newState;
 
+            // Exit startup mode immediately on alarm/critical states
+            if (newState == State::Alarm || newState == State::ConfigAlarm || newState == State::Critical) {
+                feedback->inStartup_ = false;
+            }
+
             // Clear progress when exiting cycle state
             if (oldState == State::Cycle && newState != State::Cycle && newState != State::Hold && newState != State::Held) {
                 feedback->clearProgress();
