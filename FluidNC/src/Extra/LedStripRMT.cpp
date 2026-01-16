@@ -255,9 +255,9 @@ namespace Extra {
             tx_cfg.loop_count              = 0;
             tx_cfg.flags.queue_nonblocking = 1;
 
-            if (rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer, strip->bufferSize, &tx_cfg) == ESP_OK) {
-                rmt_tx_wait_all_done(strip->rmtChannel, 0);  // non-blocking after all.
-            }
+            // Just queue the transmission, don't wait - we're updating at 60 FPS
+            // and the hardware will catch up. Failed transmits are silently dropped.
+            rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer, strip->bufferSize, &tx_cfg);
         }
     }
 

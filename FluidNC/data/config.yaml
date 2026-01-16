@@ -133,7 +133,8 @@ axes:
           step_pin: i2so.14
 
 control:
-  safety_door_pin: gpio.6:low
+  # safety_door_pin: gpio.6:low
+  safety_door_pin: NO_PIN
   reset_pin: NO_PIN
   feed_hold_pin: NO_PIN
   cycle_start_pin: NO_PIN
