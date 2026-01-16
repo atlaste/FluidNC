@@ -29,10 +29,11 @@ namespace Extra {
 
         // LED strip structure
         struct led_strip_t {
-            rmt_channel_handle_t rmtChannel = nullptr;
-            rmt_encoder_handle_t rmtEncoder = nullptr;
-            uint8_t*             buffer     = nullptr;
-            size_t               bufferSize = 0;
+            rmt_channel_handle_t rmtChannel   = nullptr;
+            rmt_encoder_handle_t rmtEncoder   = nullptr;
+            uint8_t*             buffer       = nullptr;
+            size_t               bufferSize   = 0;
+            bool                 transmitting = false;  // Track if transmission is in progress
         };
 
         // RMT encoder for LED strips
@@ -134,7 +135,7 @@ namespace Extra {
         txConfig.clk_src                 = RMT_CLK_SRC_DEFAULT;
         txConfig.resolution_hz           = rmtResolutionHz_;
         txConfig.mem_block_symbols       = 64;
-        txConfig.trans_queue_depth       = 4;
+        txConfig.trans_queue_depth       = 1;  // Only need 1 slot for slow LED updates
         Assert(rmt_new_tx_channel(&txConfig, &strip->rmtChannel) == ESP_OK, "create RMT TX channel failed");
 
         // Create encoder
@@ -180,8 +181,8 @@ namespace Extra {
 
         log_info("Created LED strip");
 
-        encoder.release();  // Prevent unique_ptr from deleting the encoder
-        ledStripHandle_ = strip.release(); // Transfer ownership to the member variable
+        encoder.release();                  // Prevent unique_ptr from deleting the encoder
+        ledStripHandle_ = strip.release();  // Transfer ownership to the member variable
 
         // Calculate LED positions if direction/travel configured
         calculateLedPositions();
@@ -249,16 +250,33 @@ namespace Extra {
     }
 
     void LedStripRMT::refresh() {
-        if (ledStripHandle_) {
-            auto                  strip    = static_cast<led_strip_t*>(ledStripHandle_);
-            rmt_transmit_config_t tx_cfg   = {};
-            tx_cfg.loop_count              = 0;
-            tx_cfg.flags.queue_nonblocking = 1;
-
-            // Just queue the transmission, don't wait - we're updating at 60 FPS
-            // and the hardware will catch up. Failed transmits are silently dropped.
-            rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer, strip->bufferSize, &tx_cfg);
+        if (!ledStripHandle_) {
+            return;
         }
+
+        auto strip = static_cast<led_strip_t*>(ledStripHandle_);
+
+        // If previous transmission is still in progress, check if it's done (non-blocking)
+        if (strip->transmitting) {
+            // Try to recycle completed transactions with 0 timeout (non-blocking check)
+            if (rmt_tx_wait_all_done(strip->rmtChannel, 0) == ESP_OK) {
+                strip->transmitting = false;
+            } else {
+                // Previous transmission still in progress, skip this frame
+                // This prevents modifying the buffer while RMT is reading it
+                return;
+            }
+        }
+
+        // Now safe to transmit - previous transmission is complete
+        rmt_transmit_config_t tx_cfg   = {};
+        tx_cfg.loop_count              = 0;
+        tx_cfg.flags.queue_nonblocking = 1;
+
+        if (rmt_transmit(strip->rmtChannel, strip->rmtEncoder, strip->buffer, strip->bufferSize, &tx_cfg) == ESP_OK) {
+            strip->transmitting = true;
+        }
+        // If transmit fails (queue full), we just skip this frame - no big deal for visual feedback
     }
 
     void LedStripRMT::clear() {
@@ -403,11 +421,11 @@ namespace Extra {
                 }
             }
         }
-        
+
         // TODO FIXME: validations
 
         // Calculate directions and travel:
-        int start = 0;
+        int  start   = 0;
         int  n       = 0;
         char current = directions[0];
 
@@ -415,21 +433,21 @@ namespace Extra {
         float x = 0;
         float y = 0;
         float z = 0;
-        
+
         // Calculate positions
         ledPositions_.clear();
         ledPositions_.reserve(numLeds);
-        
-        for (int i=1; i<directions.size(); i++) {
+
+        for (int i = 1; i < directions.size(); i++) {
             if (directions[i] != current) {
                 int end = i;
-                
+
                 // Process [start..end]
                 Assert(n < travel_.size(), "Not enough travel values for direction segments");
                 float machineLength = travel_[n++];
                 int   numberLeds    = end - start;
                 float ledSpacing    = machineLength / numberLeds;
-                
+
                 for (int j = start; j < end; j++) {
                     LedPosition pos;
                     pos.x = x;
@@ -452,7 +470,7 @@ namespace Extra {
 
                 // New segment
                 current = directions[i];
-                start = i;
+                start   = i;
             }
         }
         {
