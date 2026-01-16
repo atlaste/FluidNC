@@ -235,3 +235,17 @@ planner_blocks: 16
 pin_on:
     pin1: gpio.1
     value1: 1
+
+led_strip:
+    pin: gpio.xxx
+    type: WS2811_SLOW
+    leds: 0 1 2 3 4 5 6  7 8 9  10 11 12 13 14 15  16 17 18  0 1 2 3 4 5 6
+    direction: "XXXXXX YYY XXXXXX YYY XXXXXX"
+    travel: 300 100 -300 -100 300
+
+    feedback:
+      enabled: true
+      idle_brightness: 70
+      idle_breathe_period: 30000
+      running_boost: 10
+      position_boost: 25  # For future use

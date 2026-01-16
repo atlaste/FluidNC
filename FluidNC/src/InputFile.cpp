@@ -5,6 +5,11 @@
 
 #include "Report.h"
 
+// Optional LED feedback callback
+namespace Extra {
+    extern void (*g_progressCallback)(float percent);
+}
+
 InputFile::InputFile(const char* defaultFs, const char* path) : FileStream(path, "r", defaultFs) {}
 /*
   Read a line from the file
@@ -54,6 +59,11 @@ void InputFile::end_message() {
     _progress = "SD: ";
     _progress += name();
     _progress += ": Sent";
+    
+    // Clear LED progress when file ends
+    if (Extra::g_progressCallback) {
+        Extra::g_progressCallback(1.0f);  // Show 100% complete briefly
+    }
 }
 
 Error InputFile::pollLine(char* line) {
@@ -87,6 +97,11 @@ Error InputFile::pollLine(char* line) {
             std::ostringstream s;
             s << "SD:" << std::fixed << std::setprecision(2) << percent_complete << "," << path().c_str();
             _progress = s.str();
+            
+            // Update LED feedback if available
+            if (Extra::g_progressCallback) {
+                Extra::g_progressCallback(percent_complete / 100.0f);  // Convert to 0.0-1.0
+            }
         }
             return Error::Ok;
         case Error::Eof:

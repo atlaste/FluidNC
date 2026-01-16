@@ -1,4 +1,5 @@
 #include "LedStripRMT.h"
+#include "LedStripFeedback.h"
 
 #include <esp_err.h>
 #include <memory>
@@ -8,12 +9,12 @@ namespace Extra {
         EnumItem LedStripTypeDescr[] = {
             { uint32_t(LedStripType::WS2812), "WS2812" },            // 5V, most common
             { uint32_t(LedStripType::WS2812B), "WS2812B" },          // 5V, improved WS2812
-            { uint32_t(LedStripType::WS2811_FAST), "WS2811_FAST" },  // 5V/12V/24V, WS2812-compatible timing_
-            { uint32_t(LedStripType::WS2811_SLOW), "WS2811_SLOW" },  // 5V/12V/24V, original WS2811 timing_
+            { uint32_t(LedStripType::WS2811_FAST), "WS2811_FAST" },  // 5V/12V/24V, WS2812-compatible timing
+            { uint32_t(LedStripType::WS2811_SLOW), "WS2811_SLOW" },  // 5V/12V/24V, original WS2811 timing
             { uint32_t(LedStripType::SK6812), "SK6812" },            // 5V, RGB variant
             { uint32_t(LedStripType::SK6812_RGBW), "SK6812_RGBW" },  // 5V, with white channel
-            { uint32_t(LedStripType::WS2813), "WS2813" },            // 5V, data backup (same timing_ as WS2812)
-            { uint32_t(LedStripType::WS2815), "WS2815" },            // 12V, data backup (same timing_ as WS2812)
+            { uint32_t(LedStripType::WS2813), "WS2813" },            // 5V, data backup (same timing as WS2812)
+            { uint32_t(LedStripType::WS2815), "WS2815" },            // 12V, data backup (same timing as WS2812)
             EnumItem(uint32_t(LedStripType::WS2812B))                // Default
         };
 
@@ -62,7 +63,7 @@ namespace Extra {
                         session_state = RMT_ENCODING_COMPLETE;
                     }
                     if (state & RMT_ENCODING_MEM_FULL) {
-                        state |= RMT_ENCODING_MEM_FULL;
+                        state = rmt_encode_state_t(state | RMT_ENCODING_MEM_FULL);
                         goto out;
                     }
                 // fallthrough
@@ -106,52 +107,33 @@ namespace Extra {
         Assert(ledPin_.capabilities().has(Pins::PinCapabilities::Native), "Must be a GPIO (RMT capable) pin");
         auto gpio = ledPin_.getNative(Pin::Capabilities::Output | Pin::Capabilities::Native);
 
-        // Invert led indices - basically makes an in-place lookup table.
-        // Indices [0..#leds] is the count here:
-        for (auto it : leds_) {
-            while (it > indices_.size()) {
-                indices_.push_back(0);
+        Assert(!leds_.empty(), "LED strip: must specify leds");
+
+        // Number of logical LEDs (how many we're controlling)
+        numberLeds_ = leds_.size();
+
+        // Find maximum physical LED index for buffer allocation
+        int32_t maxLedIndex = 0;
+        for (auto ledIdx : leds_) {
+            if (ledIdx > maxLedIndex) {
+                maxLedIndex = ledIdx;
             }
-            indices_[it]++;
-        }
-        numberLeds_ = indices_.size();
-
-        // Let's say we have [4,4,5]
-        // Next, we transform it to the start offsets:
-        // We want to end up with [3,7,11] because there are already 3 indices taken.
-        // The first offset is indices.size(). So 3. The second is 4 + 3. The second is 7 + 4. Etc.
-        auto prev   = indices_[0];
-        indices_[0] = numberLeds_;
-        for (int i = 1; i < indices_.size(); ++i) {
-            auto newPrev    = indices_[i - 1] + prev;
-            indices_[i - 1] = prev;
-            prev            = newPrev;
-        }
-
-        // Allocate room for the leds:
-        indices_.resize(indices_.size() + leds_.size());
-
-        // Iterate the list again, and store the led positions while updating the original array.
-        // We end up with [7, 11, 16, [4x offset], [4x offset], [5x offset]]
-        for (auto it : leds_) {
-            auto p      = indices_[it]++;
-            indices_[p] = it;
         }
 
         auto strip = std::make_unique<led_strip_t>();
 
-        // Allocate buffer
-        strip->bufferSize = leds_.size() * bytesPerLed_;
+        // Allocate buffer for all LEDs up to max index
+        strip->bufferSize = (maxLedIndex + 1) * bytesPerLed_;
         strip->buffer     = new uint8_t[strip->bufferSize];
+        memset(strip->buffer, 0, strip->bufferSize);  // Initialize to off
 
         // Configure RMT TX channel
-        rmt_tx_channel_config_t txConfig = {
-            .gpio_num          = gpio,
-            .clk_src           = RMT_CLK_SRC_DEFAULT,
-            .resolution_hz     = rmtResolutionHz_,
-            .mem_block_symbols = 64,
-            .trans_queue_depth = 4,
-        };
+        rmt_tx_channel_config_t txConfig = {};
+        txConfig.gpio_num                = gpio_num_t(gpio);
+        txConfig.clk_src                 = RMT_CLK_SRC_DEFAULT;
+        txConfig.resolution_hz           = rmtResolutionHz_;
+        txConfig.mem_block_symbols       = 64;
+        txConfig.trans_queue_depth       = 4;
         Assert(rmt_new_tx_channel(&txConfig, &strip->rmtChannel) == ESP_OK, "create RMT TX channel failed");
 
         // Create encoder
@@ -198,9 +180,24 @@ namespace Extra {
         log_info("Created LED strip");
 
         ledStripHandle_ = strip.release();
+
+        // Calculate LED positions if direction/travel configured
+        calculateLedPositions();
+
+        // Initialize feedback system
+        if (!feedback_) {
+            feedback_ = new LedStripFeedback();
+        }
+        feedback_->init(this);
     }
 
     void LedStripRMT::deinit() {
+        if (feedback_) {
+            feedback_->deinit();
+            delete feedback_;
+            feedback_ = nullptr;
+        }
+
         if (ledStripHandle_) {
             auto strip = static_cast<led_strip_t*>(ledStripHandle_);
             rmt_disable(strip->rmtChannel);
@@ -212,47 +209,40 @@ namespace Extra {
     }
 
     void LedStripRMT::setPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
-        if (ledStripHandle_) {
-            auto strip = static_cast<led_strip_t*>(ledStripHandle_);
+        if (!ledStripHandle_ || index >= numberLeds_) {
+            return;
+        }
 
-            // Resolve index to actual leds:
-            if (index >= numberLeds_) {
-                return;
-            }
+        // Map logical index to physical LED index
+        int32_t physicalIndex = leds_[index];
 
-            int32_t led   = 2;
-            int32_t start = led == 0 ? numberLeds_ : indices_[led - 1];
-            int32_t end   = indices_[led];
-            for (int32_t ledIdx = start; ledIdx < end; ++ledIdx) {
-                auto     off   = indices_[ledIdx];
-                uint8_t* pixel = strip->buffer + (off * bytesPerLed_);
+        auto     strip = static_cast<led_strip_t*>(ledStripHandle_);
+        uint8_t* pixel = strip->buffer + (physicalIndex * bytesPerLed_);
 
-                // Set color based on color order
-                switch (colorOrder_) {
-                    case LedStripColorOrder::RGB:
-                        pixel[0] = r;
-                        pixel[1] = g;
-                        pixel[2] = b;
-                        break;
-                    case LedStripColorOrder::UseDefault:
-                    case LedStripColorOrder::GRB:
-                        pixel[0] = g;
-                        pixel[1] = r;
-                        pixel[2] = b;
-                        break;
-                    case LedStripColorOrder::BGR:
-                        pixel[0] = b;
-                        pixel[1] = g;
-                        pixel[2] = r;
-                        break;
-                    case LedStripColorOrder::GRBW:
-                        pixel[0] = g;
-                        pixel[1] = r;
-                        pixel[2] = b;
-                        pixel[3] = 0;  // White channel = 0 for RGB mode
-                        break;
-                }
-            }
+        // Set color based on color order
+        switch (colorOrder_) {
+            case LedStripColorOrder::RGB:
+                pixel[0] = r;
+                pixel[1] = g;
+                pixel[2] = b;
+                break;
+            case LedStripColorOrder::UseDefault:
+            case LedStripColorOrder::GRB:
+                pixel[0] = g;
+                pixel[1] = r;
+                pixel[2] = b;
+                break;
+            case LedStripColorOrder::BGR:
+                pixel[0] = b;
+                pixel[1] = g;
+                pixel[2] = r;
+                break;
+            case LedStripColorOrder::GRBW:
+                pixel[0] = g;
+                pixel[1] = r;
+                pixel[2] = b;
+                pixel[3] = 0;  // White channel = 0 for RGB mode
+                break;
         }
     }
 
@@ -289,6 +279,8 @@ namespace Extra {
             colorOrder_ = LedStripColorOrder(v);
         }
         handler.item("leds", leds_);
+        handler.item("travel", travel_);
+        handler.item("direction", direction_);
         handler.item("bytes_per_led", bytesPerLed_);
 
         handler.item("timing_1l", timing_.t1l);
@@ -298,6 +290,9 @@ namespace Extra {
         handler.item("timing_rst", timing_.reset);
 
         handler.item("resolution_hz", rmtResolutionHz_);
+
+        // Feedback configuration
+        handler.section("feedback", feedback_);
     }
 
     void LedStripRMT::afterParse() {
@@ -309,11 +304,11 @@ namespace Extra {
                 case LedStripType::WS2813:
                 case LedStripType::WS2815:
                 case LedStripType::WS2811_FAST:
-                    timing_.t0h   = 4;    // 0.4µs
-                    timing_.t0l   = 9;    // 0.9µs
-                    timing_.t1h   = 8;    // 0.8µs
-                    timing_.t1l   = 6;    // 0.6µs
-                    timing_.reset = 500;  // 50µs
+                    timing_.t0h   = 4;    // 0.4ï¿½s
+                    timing_.t0l   = 9;    // 0.9ï¿½s
+                    timing_.t1h   = 8;    // 0.8ï¿½s
+                    timing_.t1l   = 6;    // 0.6ï¿½s
+                    timing_.reset = 500;  // 50ï¿½s
                     if (colorOrder_ == LedStripColorOrder::UseDefault) {
                         colorOrder_ = LedStripColorOrder::GRB;
                     }
@@ -324,19 +319,19 @@ namespace Extra {
 
                 case LedStripType::SK6812:
                 case LedStripType::SK6812_RGBW:
-                    timing_.t0h   = 3;    // 0.3µs
-                    timing_.t0l   = 9;    // 0.9µs
-                    timing_.t1h   = 6;    // 0.6µs
-                    timing_.t1l   = 6;    // 0.6µs
-                    timing_.reset = 800;  // 80µs
+                    timing_.t0h   = 3;    // 0.3ï¿½s
+                    timing_.t0l   = 9;    // 0.9ï¿½s
+                    timing_.t1h   = 6;    // 0.6ï¿½s
+                    timing_.t1l   = 6;    // 0.6ï¿½s
+                    timing_.reset = 800;  // 80ï¿½s
                     break;
 
                 case LedStripType::WS2811_SLOW:
-                    timing_.t0h   = 5;    // 0.5µs
-                    timing_.t0l   = 20;   // 2.0µs
-                    timing_.t1h   = 12;   // 1.2µs
-                    timing_.t1l   = 13;   // 1.3µs
-                    timing_.reset = 500;  // 50µs
+                    timing_.t0h   = 5;    // 0.5ï¿½s
+                    timing_.t0l   = 20;   // 2.0ï¿½s
+                    timing_.t1h   = 12;   // 1.2ï¿½s
+                    timing_.t1l   = 13;   // 1.3ï¿½s
+                    timing_.reset = 500;  // 50ï¿½s
 
                     break;
             }
@@ -386,6 +381,127 @@ namespace Extra {
                     break;
             }
         }
+    }
+
+    void LedStripRMT::calculateLedPositions() {
+        // Early exit if no direction/travel configured
+        if (direction_.empty() || travel_.empty() || leds_.empty()) {
+            return;
+        }
+
+        int numLeds = leds_.size();
+
+        // Parse direction string - skip spaces
+        std::vector<char> directions;
+        for (char c : direction_) {
+            if (c != ' ' && c != '\t') {
+                char upper = std::toupper(c);
+                if (upper == 'X' || upper == 'Y' || upper == 'Z') {
+                    directions.push_back(upper);
+                }
+            }
+        }
+
+        // Validate: directions and travel should have same length
+        if (directions.size() != travel_.size()) {
+            log_error("LED strip: direction length (" << directions.size() << ") != travel length (" << travel_.size() << ")");
+            return;
+        }
+
+        // Build segments
+        struct Segment {
+            char  axis;
+            float distance;
+            int   startLed;
+            int   numLeds;
+        };
+        std::vector<Segment> segments;
+
+        int ledIndex = 0;
+        for (size_t i = 0; i < directions.size(); i++) {
+            Segment seg;
+            seg.axis     = directions[i];
+            seg.distance = travel_[i];
+            seg.startLed = ledIndex;
+
+            // Count consecutive LEDs with same direction
+            int numInSegment = 0;
+            while (ledIndex < numLeds && directions.size() > i) {
+                // Check if we've moved to next segment
+                if (i + 1 < directions.size() && ledIndex > 0) {
+                    // Simple heuristic: if we have more segments than LEDs left, move to next
+                    int ledsRemaining     = numLeds - ledIndex;
+                    int segmentsRemaining = directions.size() - i;
+                    if (numInSegment > 0 && ledsRemaining <= segmentsRemaining) {
+                        break;
+                    }
+                }
+                numInSegment++;
+                ledIndex++;
+
+                // If this is the last segment, take all remaining LEDs
+                if (i == directions.size() - 1) {
+                    numInSegment = numLeds - seg.startLed;
+                    ledIndex     = numLeds;
+                    break;
+                }
+
+                // Otherwise, distribute evenly
+                float avgLedsPerSegment = (float)(numLeds - seg.startLed) / (directions.size() - i);
+                if (numInSegment >= avgLedsPerSegment) {
+                    break;
+                }
+            }
+
+            seg.numLeds = numInSegment;
+            if (seg.numLeds > 0) {
+                segments.push_back(seg);
+            }
+        }
+
+        // Calculate positions
+        ledPositions_.clear();
+        ledPositions_.reserve(numLeds);
+
+        float currentX = 0, currentY = 0, currentZ = 0;
+
+        for (const auto& seg : segments) {
+            float startX = currentX, startY = currentY, startZ = currentZ;
+
+            // Calculate end position for this segment
+            float endX = currentX, endY = currentY, endZ = currentZ;
+            switch (seg.axis) {
+                case 'X':
+                    endX += seg.distance;
+                    break;
+                case 'Y':
+                    endY += seg.distance;
+                    break;
+                case 'Z':
+                    endZ += seg.distance;
+                    break;
+                default:
+                    continue;  // ignore.
+            }
+
+            // Distribute LEDs along segment
+            for (int i = 0; i < seg.numLeds; i++) {
+                float t = (seg.numLeds > 1) ? (float)i / (seg.numLeds - 1) : 0.5f;
+
+                LedPosition pos;
+                pos.x = startX + t * (endX - startX);
+                pos.y = startY + t * (endY - startY);
+                pos.z = startZ + t * (endZ - startZ);
+
+                ledPositions_.push_back(pos);
+            }
+
+            currentX = endX;
+            currentY = endY;
+            currentZ = endZ;
+        }
+
+        log_info("LED strip: calculated positions for " << ledPositions_.size() << " LEDs over " << segments.size() << " segments");
     }
 
     // Configuration registration

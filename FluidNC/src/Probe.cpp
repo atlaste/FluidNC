@@ -6,6 +6,11 @@
 #include "Machine/EventPin.h"
 #include "Machine/MachineConfig.h"
 
+// Optional LED feedback callback
+namespace Extra {
+    extern void (*g_probeCallback)();
+}
+
 extern void    protocol_do_probe(void* arg);
 const ArgEvent probeEvent { protocol_do_probe };
 
@@ -44,6 +49,12 @@ void protocol_do_probe(void* arg) {
     if (p->tripped() && probing) {
         probing = false;
         get_steps(probe_steps);
+        
+        // Trigger LED feedback if available
+        if (Extra::g_probeCallback) {
+            Extra::g_probeCallback();
+        }
+        
         if (p->_hard_stop) {
             Stepper::reset();
             plan_reset();
