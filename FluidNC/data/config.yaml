@@ -87,8 +87,8 @@ axes:
 
   y:
     steps_per_mm: 640.000000
-    max_rate_mm_per_min: 4000.000000
-    acceleration_mm_per_sec2: 50.000000
+    max_rate_mm_per_min: 2000.000000
+    acceleration_mm_per_sec2: 25.000000
     max_travel_mm: 300.000000
     soft_limits: false
     homing:
@@ -232,13 +232,14 @@ use_line_numbers: false
 planner_blocks: 16
 
 # Set RS485 to RX by pulling TX high
-pin_on:
-    pin1: gpio.1
-    value1: 1
+# Idea is to use the RX as extra pin (gpio.6:low). However, it seems unreliable. Needs a 470 and 150 resistor on resp TX and RX.
+# pin_on:
+#     pin1: gpio.1
+#     value1: 1
 
 led_strip:
-    pin: gpio.xxx
-    type: WS2811_SLOW
+    pin: gpio.45
+    type: WS2811_FAST
     leds: 0 1 2 3 4 5 6  7 8 9  10 11 12 13 14 15  16 17 18  0 1 2 3 4 5 6
     direction: "XXXXXX YYY XXXXXX YYY XXXXXX"
     travel: 300 100 -300 -100 300
@@ -249,3 +250,4 @@ led_strip:
       idle_breathe_period: 30000
       running_boost: 10
       position_boost: 25  # For future use
+
