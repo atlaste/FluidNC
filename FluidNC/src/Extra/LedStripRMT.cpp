@@ -108,6 +108,7 @@ namespace Extra {
         auto gpio = ledPin_.getNative(Pin::Capabilities::Output | Pin::Capabilities::Native);
 
         Assert(!leds_.empty(), "LED strip: must specify leds");
+        Assert(bytesPerLed_ > 0, "LED strip: bytesPerLed_ must be set (afterParse not called?)");
 
         // Number of logical LEDs (how many we're controlling)
         numberLeds_ = leds_.size();
@@ -418,7 +419,7 @@ namespace Extra {
         // Calculate positions
         ledPositions_.clear();
         ledPositions_.reserve(numLeds);
-
+        
         for (int i=1; i<directions.size(); i++) {
             if (directions[i] != current) {
                 int end = i;
@@ -447,8 +448,6 @@ namespace Extra {
                             z += ledSpacing;
                             break;
                     }
-
-                    travel_[j] = ledSpacing;
                 }
 
                 // New segment
@@ -484,8 +483,6 @@ namespace Extra {
                         z += ledSpacing;
                         break;
                 }
-
-                travel_[j] = ledSpacing;
             }
         }
 
