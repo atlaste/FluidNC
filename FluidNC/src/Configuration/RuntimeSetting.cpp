@@ -323,6 +323,54 @@ namespace Configuration {
             }
         }
     }
+    void RuntimeSetting::item(const char* name, std::vector<int32_t>& value) {
+        if (is(name)) {
+            LogStream msg(out_, "");
+            isHandled_ = true;
+            if (newValue_.empty()) {
+                if (value.size() == 0) {
+                    out_ << "None";
+                } else {
+                    String separator = "";
+                    for (int32_t n : value) {
+                        out_ << separator.c_str();
+                        out_ << n;
+                        separator = " ";
+                    }
+                }
+                msg << '\n';
+            } else {
+                // It is distasteful to have this code that essentially duplicates
+                // Parser.cpp speedEntryValue(), albeit using String instead of
+                // StringRange.  It would be better to have a single String version,
+                // then pass it StringRange.str()
+                auto               newStr = newValue_;
+                std::vector<int32_t> smValue;
+                while (newStr = string_util::trim(newStr), newStr.length()) {
+                    int32_t          entry;
+                    std::string_view entryStr;
+                    auto             pos = newStr.find(' ');
+                    if (pos == std::string_view::npos) {
+                        entryStr = newStr;
+                        newStr   = "";
+                    } else {
+                        entryStr = newStr.substr(0, pos);
+                        newStr   = newStr.substr(pos + 1);
+                    }
+                    bool res = string_util::from_decimal(entryStr, entry);
+                    Assert(res == true, "Bad float value");
+
+                    smValue.push_back(entry);
+                }
+                value = smValue;
+
+                if (!value.size()) {
+                    log_info("Using default value");
+                }
+                return;
+            }
+        }
+    }
 
     void RuntimeSetting::item(const char* name, IPAddress& value) {
         if (is(name)) {

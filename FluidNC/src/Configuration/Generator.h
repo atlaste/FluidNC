@@ -110,6 +110,22 @@ namespace Configuration {
             }
         }
 
+        void item(const char* name, std::vector<int32_t>& value) {
+            if (value.size() == 0) {
+                send_item(name, "None");
+            } else {
+                std::ostringstream s;
+                s.precision(3);
+                s << std::fixed;
+                const char* separator = "";
+                for (int32_t n : value) {
+                    s << separator << n;
+                    separator = " ";
+                }
+                send_item(name, s.str());
+            }
+        }
+
         void item(const char* name, UartData& wordLength, UartParity& parity, UartStop& stopBits) override {
             send_item(name, encodeUartMode(wordLength, parity, stopBits));
         }

@@ -95,6 +95,7 @@ namespace Configuration {
 
     void JsonGenerator::item(const char* name, std::vector<speedEntry>& value) {}
     void JsonGenerator::item(const char* name, std::vector<float>& value) {}
+    void JsonGenerator::item(const char* name, std::vector<int32_t>& value) {}
 
     void JsonGenerator::item(const char* name, UartData& wordLength, UartParity& parity, UartStop& stopBits) {
         enter(name);

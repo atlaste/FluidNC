@@ -51,6 +51,7 @@ namespace Configuration {
         virtual void item(const char* name, float& value, const float minValue = -3e38, const float maxValue = 3e38) = 0;
         virtual void item(const char* name, std::vector<speedEntry>& value)                                          = 0;
         virtual void item(const char* name, std::vector<float>& value)                                               = 0;
+        virtual void item(const char* name, std::vector<int32_t>& value)                                               = 0;
         virtual void item(const char* name, UartData& wordLength, UartParity& parity, UartStop& stopBits)            = 0;
 
         virtual void item(const char* name, EventPin& value)  = 0;

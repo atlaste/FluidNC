@@ -2,24 +2,24 @@
 
 A flexible, timing-based LED strip driver supporting WS2812, WS2811, SK6812, WS2813, and WS2815.
 
-## 🎯 Supported LED Strips
+## Supported LED Strips
 
 ### Common Timing-Based Strips
-| IC Type | Voltage | Color Order | Common Use |
-|---------|---------|-------------|------------|
-| WS2812/B | 5V | GRB | Most popular, individual LEDs |
-| WS2811 | 5V/12V/24V | GRB/RGB | Groups of 3-6 LEDs, long runs |
-| SK6812 | 5V | GRB | Better color quality |
+| IC Type     | Voltage | Color Order | Common Use |
+|-------------|---------|-------------|------------|
+| WS2812/B    | 5V | GRB | Most popular, individual LEDs |
+| WS2811      | 5V/12V/24V | GRB/RGB | Groups of 3-6 LEDs, long runs |
+| SK6812      | 5V | GRB | Better color quality |
 | SK6812 RGBW | 5V | GRBW | With white channel |
-| WS2813 | 5V | GRB | With data backup line |
-| WS2815 | 12V | GRB | With data backup line |
+| WS2813      | 5V | GRB | With data backup line |
+| WS2815      | 12V | GRB | With data backup line |
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Basic Usage (WS2812)
 
-```c
-#include "led_strip_rmt.h"
+```c++
+#include "LedStripRMT.h"
 
 // Configure strip
 led_strip_config_t config = LED_STRIP_CONFIG_WS2812(60, 45);  // 60 LEDs, GPIO 45
@@ -45,7 +45,7 @@ led_strip_del(strip);
 
 ### 2. WS2811 (12V/24V strips)
 
-```c
+```c++
 // 12V strip with 240 addressable units (720 physical LEDs)
 led_strip_config_t config = LED_STRIP_CONFIG_WS2811_12V(240, 45);
 
@@ -60,7 +60,7 @@ ESP_ERROR_CHECK(led_strip_new(&config, &strip));
 
 ### 3. SK6812 RGBW (with white channel)
 
-```c
+```c++
 led_strip_config_t config = LED_STRIP_CONFIG_SK6812_RGBW(60, 45);
 
 led_strip_t *strip = NULL;
@@ -71,11 +71,11 @@ led_strip_set_pixel_rgbw(strip, 0, 255, 0, 0, 100);  // Red + White
 led_strip_refresh(strip);
 ```
 
-## 🔧 Custom Configuration
+## Custom Configuration
 
 If the presets don't work, create a custom config:
 
-```c
+```c++
 led_strip_config_t config = {
     .type = LED_TYPE_WS2811_SLOW,
     .color_order = COLOR_ORDER_RGB,      // Try RGB if GRB doesn't work
@@ -89,11 +89,11 @@ led_strip_t *strip = NULL;
 ESP_ERROR_CHECK(led_strip_new(&config, &strip));
 ```
 
-## 🎨 Color Order Issues?
+## Color Order Issues?
 
 If colors appear wrong, try different color orders:
 
-```c
+```c++
 config.color_order = COLOR_ORDER_GRB;  // Most common (WS2812, WS2811)
 config.color_order = COLOR_ORDER_RGB;  // Some WS2811
 config.color_order = COLOR_ORDER_BGR;  // Rare
@@ -104,11 +104,11 @@ config.color_order = COLOR_ORDER_BGR;  // Rare
 - If you see **blue** → use `COLOR_ORDER_BGR`
 - If you see **red** → use `COLOR_ORDER_RGB`
 
-## ⏱️ Timing Issues?
+## Timing Issues?
 
 If strip shows white or random colors, try different timing:
 
-```c
+```c++
 // Fast timing (WS2812-compatible) - try this first
 config.timing = LED_TIMING_WS2812;
 
@@ -119,11 +119,11 @@ config.timing = LED_TIMING_WS2811_SLOW;
 config.timing = LED_TIMING_SK6812;
 ```
 
-## 📖 API Reference
+## API Reference
 
 ### Strip Management
 
-```c
+```c++
 // Create strip
 esp_err_t led_strip_new(const led_strip_config_t *config, led_strip_t **ret_strip);
 
@@ -133,7 +133,7 @@ esp_err_t led_strip_del(led_strip_t *strip);
 
 ### Setting Colors
 
-```c
+```c++
 // Set RGB color for a pixel
 esp_err_t led_strip_set_pixel(led_strip_t *strip, uint16_t index, 
                                uint8_t r, uint8_t g, uint8_t b);
@@ -145,7 +145,7 @@ esp_err_t led_strip_set_pixel_rgbw(led_strip_t *strip, uint16_t index,
 
 ### Updating Display
 
-```c
+```c++
 // Refresh strip (send data to LEDs)
 esp_err_t led_strip_refresh(led_strip_t *strip);
 
@@ -153,7 +153,7 @@ esp_err_t led_strip_refresh(led_strip_t *strip);
 esp_err_t led_strip_clear(led_strip_t *strip);
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Strip shows white or random colors
 1. Try different timing: `LED_TIMING_WS2812` or `LED_TIMING_WS2811_SLOW`
@@ -178,9 +178,9 @@ esp_err_t led_strip_clear(led_strip_t *strip);
 3. Reduce refresh rate (increase delay between updates)
 4. Lower brightness
 
-## 🎨 Example: Moving Rainbow
+## Example: Moving Rainbow
 
-```c
+```c++
 void rainbow_effect(led_strip_t *strip, float offset, uint16_t led_count)
 {
     const float rainbow_length = 120.0f;
@@ -204,7 +204,7 @@ while (1) {
 }
 ```
 
-## 🔌 Hardware Setup
+## Hardware Setup
 
 ### Wiring
 ```
@@ -234,9 +234,9 @@ ESP32 GND  → LED Strip GND
 | WS2811 24V | Physical LEDs ÷ 6 | 720 LEDs = 120 |
 | SK6812 5V | Physical LED count | 60 LEDs = 60 |
 
-## 🎯 Common Configurations
+## Common Configurations
 
-```c
+```c++
 // Adafruit NeoPixel strip (WS2812B)
 led_strip_config_t config = LED_STRIP_CONFIG_WS2812(60, 45);
 
@@ -249,10 +249,4 @@ led_strip_config_t config = LED_STRIP_CONFIG_SK6812_RGBW(60, 45);
 // WS2815 12V with data backup
 led_strip_config_t config = led_strip_get_default_config(LED_TYPE_WS2815, 240, 45);
 ```
-
-## 📚 More Information
-
-- See `ledstrip_example.c` for complete working example
-- Check `led_strip_types.h` for all configuration options
-- Timing specifications in `led_strip_types.h`
 

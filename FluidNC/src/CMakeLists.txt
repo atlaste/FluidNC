@@ -167,6 +167,7 @@ idf_component_register(SRCS BTConfig.cpp
 
 							# extra
 							Extra/PinOn.cpp
+							Extra/LedStripRMT.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "../lib/SSD1306/src" "../lib/arduinoWebSockets/src"
                        REQUIRES driver fatfs vfs sdmmc spiffs lwip esp_netif esp32 
                        PRIV_REQUIRES nvs_flash esp_driver_gpio mbedtls arduino-esp32 lib app_update esp_driver_pcnt esp_timer esp32async__espasyncwebserver esp32async__asynctcp usb_stream 

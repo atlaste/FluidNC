@@ -161,6 +161,35 @@ namespace Configuration {
         return values;
     }
 
+    std::vector<int32_t> Parser::intArray() const {
+        auto               str = string_util::trim(_token._value);
+        std::vector<int32_t> values;
+        int32_t              int_value;
+
+        while (!str.empty()) {
+            str                = string_util::trim(str);
+            auto next_ws_delim = str.find(' ');
+            auto entry_str     = string_util::trim(str.substr(0, next_ws_delim));
+
+            str.remove_prefix(next_ws_delim + 1);
+
+            if (!string_util::from_decimal(entry_str, int_value)) {
+                log_error("Bad number " << entry_str);
+                values.clear();
+                break;
+            }
+            values.push_back(int_value);
+
+            if (str == entry_str)
+                break;
+        }
+
+        if (!values.size())
+            log_info("Using default value");
+
+        return values;
+    }
+
     // cppcheck-suppress unusedFunction
     Pin Parser::pinValue() const {
         return Pin::create(string_util::trim(_token._value));

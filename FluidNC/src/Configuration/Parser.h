@@ -27,6 +27,7 @@ namespace Configuration {
         uint32_t                uintValue() const;
         std::vector<speedEntry> speedEntryValue() const;
         std::vector<float>      floatArray() const;
+        std::vector<int32_t>    intArray() const;
         float                   floatValue() const;
         Pin                     pinValue() const;
         uint32_t                enumValue(const EnumItem* e) const;
