@@ -107,7 +107,7 @@ namespace Spindles {
 
         double       targetVelocity = double(rpm) / 60.0;
         const double tolerance      = 1.0;  // +/- 1 rev/s tolerance
-        const int    timeout        = 5;    // 5 seconds timeout
+        const int    timeout        = 15;   // 15 seconds timeout
         bool         speedReached   = false;
 
         ODrive::Set_Input_Vel_msg_t velCmd;
