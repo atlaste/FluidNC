@@ -96,7 +96,7 @@ void FM25VXX::Initialize() {
     // Try to read manufacturer - some FRAM modules don't provide this
     FM25VXXError err = ReadManufacturer(&m, &f, &v);
     if (err != FM25VXXError::Success) {
-        log_warn("FRAM manufacturer ID not available, assuming FM25CL64B (8KB, 2-byte addressing)");
+        log_info("FRAM manufacturer ID not available, assuming FM25CL64B (8KB, 2-byte addressing)");
         // FM25CL64B: 64Kbit = 8KB with 2-byte addressing
         // Max address is 0x1FFF (8192 bytes)
         _maxAddress = 0x1FFF;
