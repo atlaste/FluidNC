@@ -13,6 +13,7 @@ namespace Extra {
 
     // Configuration registration
     namespace {
-        ConfigurableModuleFactory::InstanceBuilder<Extra::LedStripStartupComplete> registration("led_startup_complete", true);
+        ConfigurableModuleFactory::InstanceBuilder<Extra::LedStripStartupComplete> __attribute__((init_priority(205))) registration(
+            "led_startup_complete", true);
     }
 }
