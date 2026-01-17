@@ -49,16 +49,20 @@ state_persistence:
   spi_freq_mhz: 20
   save_parameters: true
 
+# Note: pin 40/41 have 390 ohm resistors and no cap. This is important for spindles!
+# Also note that the max freq of a typical optical encoder is 50 kHz. In our case we get to 45 kHz max.
 spindle_encoder:
   pin_a: gpio.40
   pin_b: gpio.41
-  cpr: 28000
-  gear_ratio: -1
+  cpr: 2800
+  gear_ratio: 1
+  tolerance: 15
 
 odrive:
   can_tx: gpio.9
   can_rx: gpio.47
   odrive_node_id: 1
+  gear_factor: 0.777778
 
 kinematics:
   Cartesian:
