@@ -75,14 +75,14 @@ axes:
     soft_limits: false
     homing:
       cycle: 1
-      positive_direction: false
+      positive_direction: true
     motor0:
       limit_neg_pin: gpio.18
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
           disable_pin: i2so.11
-          direction_pin: i2so.10
+          direction_pin: i2so.10:low
           step_pin: i2so.9
 
   y:
@@ -93,7 +93,7 @@ axes:
     soft_limits: false
     homing:
       cycle: 2
-      positive_direction: false
+      positive_direction: true
     motor0:
       limit_neg_pin: gpio.48
       hard_limits: false
@@ -110,7 +110,7 @@ axes:
     soft_limits: false
     homing:
       cycle: 2
-      positive_direction: false
+      positive_direction: true
     motor0:
       limit_neg_pin: gpio.16
       hard_limits: false

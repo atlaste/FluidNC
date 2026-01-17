@@ -10,7 +10,7 @@ namespace Extra {
         LedStripStartupComplete(const char* name) : ConfigurableModule(name) {}
 
         void init() override;
-        int  init_priority() override { return 1'000'000; }  // Very high priority - runs last
+        int  init_priority() override { return 100'000'000; }  // Very high priority - runs last
         void deinit() override {}
 
         // No configuration needed
