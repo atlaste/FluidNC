@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <Driver/fluidnc_uart.h>
 
+#include <esp_attr.h>
 #include <driver/uart.h>
 #include "fnc_idf_uart.h"
 #include <esp_ipc.h>
@@ -11,7 +12,7 @@ const int PINNUM_MAX                        = 64;
 InputPin* objects[UART_NUM_MAX][PINNUM_MAX] = { nullptr };
 uint8_t   last[UART_NUM_MAX]                = { 0 };
 
-void uart_data_callback(uart_port_t uart_num, uint8_t* buf, int* len) {
+void IRAM_ATTR uart_data_callback(uart_port_t uart_num, uint8_t* buf, int* len) {
     size_t in_len = size_t(*len);
     size_t in, out;
     for (in = 0, out = 0; in < in_len; in++, out++) {

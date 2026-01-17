@@ -47,7 +47,7 @@ namespace Pins {
     // cppcheck-suppress unusedFunction
     int32_t PinOption::iValue() const {
         // Parse to integer
-        int32_t num;
+        int32_t num = 0;
         auto [ptr, ec] = std::from_chars(_value.data(), _value.data() + _value.length(), num);
         return num;
     }

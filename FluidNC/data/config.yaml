@@ -52,13 +52,14 @@ state_persistence:
 spindle_encoder:
   pin_a: gpio.40
   pin_b: gpio.41
-  cpr: 28000
+  cpr: 23333
   gear_ratio: -1
 
 odrive:
   can_tx: gpio.9
   can_rx: gpio.47
   odrive_node_id: 1
+  gear_factor: 0.77777
 
 kinematics:
   Cartesian:
