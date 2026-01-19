@@ -374,6 +374,13 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     auto minRPM = (rpm * (100 - tolerance)) / 100;
     auto maxRPM = (rpm * (100 + tolerance)) / 100;
 
+    if (minRPM > maxRPM)
+    {
+        auto tmp = maxRPM;
+        maxRPM   = minRPM;
+        minRPM   = tmp;
+    }
+
     // Spindle is running at speed [rpm]. The encoder has CPR ticks per rev. So
     // per minute we process [rpm] * CPR * ratio pulses per minute. What we have
     // is [delta] ticks in [usecs] microseconds. The speed that matches these ticks
