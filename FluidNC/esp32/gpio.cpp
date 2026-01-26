@@ -76,9 +76,9 @@ void gpio_route(pinnum_t pin, uint32_t signal) {
 
 typedef uint64_t gpio_mask_t;
 
-static gpio_mask_t gpios_inverted = 0;  // GPIOs that are active low
-static gpio_mask_t gpios_interest = 0;  // GPIOs with an action
-static gpio_mask_t gpios_current  = 0;  // The last GPIO action events that were sent
+static volatile gpio_mask_t gpios_inverted = 0;  // GPIOs that are active low
+static volatile gpio_mask_t gpios_interest = 0;  // GPIOs with an action
+static volatile gpio_mask_t gpios_current  = 0;  // The last GPIO action events that were sent
 
 static int32_t gpio_next_event_ticks[MAX_N_GPIO + 1] = { 0 };
 static int32_t gpio_deltat_ticks[MAX_N_GPIO + 1]     = { 0 };
@@ -97,7 +97,7 @@ static gpio_mask_t gpio_mask(int32_t gpio_num) {
 static inline bool gpio_is_active(int32_t gpio_num) {
     return get_gpios() & gpio_mask(gpio_num);
 }
-static void gpios_update(gpio_mask_t& gpios, int32_t gpio_num, bool active) {
+static void gpios_update(volatile gpio_mask_t& gpios, int32_t gpio_num, bool active) {
     if (active) {
         gpios |= gpio_mask(gpio_num);
     } else {
@@ -144,13 +144,15 @@ static void gpio_send_event(int32_t gpio_num, bool active) {
 void poll_gpios() {
     gpio_mask_t gpios_active  = get_gpios();
     gpio_mask_t gpios_changed = (gpios_active ^ gpios_current) & gpios_interest;
-    if (gpios_changed) {
-        int8_t zeros;
-        while ((zeros = __builtin_clzll(gpios_changed)) != 64) {
-            int32_t gpio_num = 63 - zeros;
-            gpio_send_event(gpio_num, gpios_active & gpio_mask(gpio_num));
-            // Remove bit from mask so clzll will find the next one
-            gpios_update(gpios_changed, gpio_num, false);
-        }
+    
+    // Process each changed GPIO. We check gpios_changed != 0 explicitly because
+    // __builtin_clzll(0) is undefined behavior - the optimizer can assume it never
+    // happens and turn this into an infinite loop in release builds.
+    while (gpios_changed) {
+        int zeros = __builtin_clzll(gpios_changed);  // Safe: gpios_changed is non-zero here
+        int32_t gpio_num = 63 - zeros;
+        gpio_send_event(gpio_num, gpios_active & gpio_mask(gpio_num));
+        // Clear the bit we just processed
+        gpios_changed &= ~gpio_mask(gpio_num);
     }
 }

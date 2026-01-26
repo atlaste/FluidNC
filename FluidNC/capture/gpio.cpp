@@ -92,6 +92,7 @@ static void gpio_send_event(int32_t gpio_num, bool active) {
 void poll_gpios() {
     gpio_mask_t gpios_active  = get_gpios();
     gpio_mask_t gpios_changed = (gpios_active ^ gpios_current) & gpios_interest;
+
     if (gpios_changed) {
         int zeros;
         while ((zeros = __builtin_clzll(gpios_changed)) != 64) {
