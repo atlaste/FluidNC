@@ -40,3 +40,5 @@ managed_components/
 /FluidNC/lib/*/
 /FluidNC/dependencies.lock
 .cache
+/FluidNC/idf_component_manager.yml
+/FluidNC/data/symbols.txt.gz
