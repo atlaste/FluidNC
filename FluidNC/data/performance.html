@@ -615,11 +615,166 @@
             }
             
             if (bestMatch && (address - bestAddr) < 4096) {  // Within 4KB
+                // Clean up the symbol name
+                bestMatch = cleanSymbolName(bestMatch);
+                
                 const offset = address - bestAddr;
                 return offset > 0 ? `${bestMatch}+0x${offset.toString(16)}` : bestMatch;
             }
             
             return null;
+        }
+        
+        function cleanSymbolName(name) {
+            // Demangle C++ names
+            if (name.startsWith('_Z')) {
+                name = demangleCpp(name);
+            }
+            
+            // Clean up common noise
+            name = name.replace(/std::__\d+::/g, 'std::');  // Remove versioned std namespaces
+            
+            // Truncate very long names intelligently
+            if (name.length > 120) {
+                const templateIdx = name.indexOf('<', 40);
+                const parenIdx = name.indexOf('(', 40);
+                
+                let truncIdx = Math.min(
+                    templateIdx > 0 ? templateIdx : 999,
+                    parenIdx > 0 ? parenIdx : 999
+                );
+                
+                if (truncIdx < 120) {
+                    name = name.substring(0, truncIdx) + '<...>';
+                } else {
+                    name = name.substring(0, 117) + '...';
+                }
+            }
+            
+            return name;
+        }
+        
+        function demangleCpp(mangled) {
+            // Basic C++ name demangling for Itanium ABI (GCC/Clang)
+            // This handles the most common patterns
+            
+            if (!mangled.startsWith('_Z')) {
+                return mangled;
+            }
+            
+            let result = '';
+            let pos = 2; // Skip '_Z'
+            
+            try {
+                // Parse namespace/class/function name
+                const parts = [];
+                let inNamespace = false;
+                
+                // Check for nested name (N...E)
+                if (mangled[pos] === 'N') {
+                    pos++;
+                    inNamespace = true;
+                    
+                    // Skip CV qualifiers (K = const, V = volatile, r = restrict)
+                    while (pos < mangled.length && 'KVr'.includes(mangled[pos])) {
+                        pos++;
+                    }
+                }
+                
+                // Parse name components
+                while (pos < mangled.length) {
+                    const ch = mangled[pos];
+                    
+                    // End of nested name
+                    if (ch === 'E' && inNamespace) {
+                        pos++;
+                        break;
+                    }
+                    
+                    // Digit indicates length-prefixed string
+                    if (ch >= '0' && ch <= '9') {
+                        let len = 0;
+                        while (pos < mangled.length && mangled[pos] >= '0' && mangled[pos] <= '9') {
+                            len = len * 10 + parseInt(mangled[pos]);
+                            pos++;
+                        }
+                        
+                        if (len > 0 && pos + len <= mangled.length) {
+                            const part = mangled.substring(pos, pos + len);
+                            parts.push(part);
+                            pos += len;
+                        } else {
+                            break;
+                        }
+                    }
+                    // Special substitutions
+                    else if (ch === 'S') {
+                        pos++;
+                        if (pos < mangled.length) {
+                            const next = mangled[pos];
+                            if (next === 't') {
+                                parts.push('std');
+                                pos++;
+                            } else if (next === 'a') {
+                                parts.push('std::allocator');
+                                pos++;
+                            } else if (next === 'b') {
+                                parts.push('std::basic_string');
+                                pos++;
+                            } else if (next === 's') {
+                                parts.push('std::string');
+                                pos++;
+                            } else if (next === 'i') {
+                                parts.push('std::istream');
+                                pos++;
+                            } else if (next === 'o') {
+                                parts.push('std::ostream');
+                                pos++;
+                            } else if (next === 'd') {
+                                parts.push('std::iostream');
+                                pos++;
+                            } else if (next === '_') {
+                                // Back-reference (ignore for simplicity)
+                                pos++;
+                            }
+                        }
+                    }
+                    else {
+                        // Unknown - stop parsing
+                        break;
+                    }
+                }
+                
+                // Build the result
+                if (parts.length > 0) {
+                    result = parts.join('::');
+                    
+                    // Add simplified parameter list indicator
+                    if (pos < mangled.length && !inNamespace) {
+                        result += '(...)';
+                    }
+                } else {
+                    // Couldn't parse - just clean up the mangled name
+                    result = mangled;
+                    
+                    // Try some basic replacements
+                    result = result.replace(/^_ZN/, '');
+                    result = result.replace(/E$/, '');
+                    result = result.replace(/\d+/g, '::');
+                    
+                    // If still ugly, truncate
+                    if (result.length > 60) {
+                        result = result.substring(0, 57) + '...';
+                    }
+                }
+                
+            } catch (e) {
+                // Parsing failed - return cleaned up version
+                result = mangled.substring(0, Math.min(60, mangled.length));
+                if (mangled.length > 60) result += '...';
+            }
+            
+            return result;
         }
 
         function connect() {

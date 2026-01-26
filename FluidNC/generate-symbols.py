@@ -26,7 +26,7 @@ def get_toolchain_prefix(elf_path):
     # Default to esp32
     return 'xtensa-esp32-elf-'
 
-def extract_symbols(elf_path, output_path=None, compress=True, filter_text_only=True, filter_project_only=True):
+def extract_symbols(elf_path, output_path=None, compress=True, filter_text_only=True, filter_project_only=False):
     """
     Extract symbols from ELF file
     
@@ -90,24 +90,15 @@ def extract_symbols(elf_path, output_path=None, compress=True, filter_text_only=
         
         # Filter by section type (text section = code)
         if filter_text_only:
-            # T = text section (code), t = local text
-            if symbol_type not in ['T', 't', 'W', 'w']:  # W/w = weak symbols
+            # Include all code symbols: T/t (text), W/w (weak), and lowercase (often local functions)
+            # Exclude only obvious data symbols: D/d (data), B/b (BSS), R/r (rodata)
+            if symbol_type in ['D', 'd', 'B', 'b', 'R', 'r', 'U', 'V', 'v']:
                 continue
         
-        # Filter out ESP-IDF and library symbols
+        # Filter out ESP-IDF and library symbols (disabled by default now)
         if filter_project_only:
-            # Skip common ESP-IDF prefixes
-            if any(name.startswith(prefix) for prefix in [
-                'esp_', 'rom_', 'ets_', 'spi_flash_', 'vTaskDelay',
-                'xQueue', 'xTask', 'vQueue', 'pvPortMalloc',
-                '__', '_Z',  # Compiler internals and mangled C++
-                'std::', 'Arduino::'  # Standard library
-            ]):
-                continue
-            
-            # Skip if it looks like a library symbol (all lowercase with underscores)
-            if re.match(r'^[a-z_]+$', name) and len(name) > 15:
-                continue
+            # Keep everything - user doesn't want filtering
+            pass
         
         symbols.append(f"{address} {size} {symbol_type} {name}")
         filtered_count += 1
