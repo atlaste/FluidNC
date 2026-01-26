@@ -37,22 +37,8 @@ namespace WebUI {
     }
 
     void PerformanceProfiler::validate() {
-        if (_enable_pc_sampling) {
-            if (_max_samples < 100 || _max_samples > 100000) {
-                log_error("PerformanceProfiler max_samples must be between 100 and 100000");
-                _error = true;
-            }
-            if (_default_rate < 10 || _default_rate > _max_rate) {
-                log_error("PerformanceProfiler default_rate must be between 10 and max_rate");
-                _error = true;
-            }
-            if (_max_rate < 100 || _max_rate > 50000) {
-                log_error("PerformanceProfiler max_rate must be between 100 and 50000");
-                _error = true;
-            }
-        }
         if (_update_rate < 100 || _update_rate > 10000) {
-            log_error("PerformanceProfiler update_rate must be between 100 and 10000");
+            log_error("PerformanceProfiler update_rate must be between 100 and 10000 ms");
             _error = true;
         }
     }
@@ -60,10 +46,7 @@ namespace WebUI {
     void PerformanceProfiler::group(Configuration::HandlerBase& handler) {
         handler.item("enable", _enable);
         handler.item("enable_pc_sampling", _enable_pc_sampling);
-        handler.item("max_samples", _max_samples, 100, 100000);
-        handler.item("default_rate", _default_rate, 10, 50000);
-        handler.item("max_rate", _max_rate, 100, 50000);
-        handler.item("update_rate", _update_rate, 100, 10000);
+        handler.item("update_rate", _update_rate, 100, 10000);  // How often to send results to browser (ms)
     }
 
     void PerformanceProfiler::init() {
@@ -98,29 +81,7 @@ namespace WebUI {
                 return;
             }
             memset(_hashTable, 0, sizeof(StackItem) * (HashSize + 1));
-
-            // Initialize Xtensa performance monitoring
-            esp_err_t err;
-            err = xtensa_perfmon_init(0, XTPERF_CNT_CYCLES, XTPERF_MASK_CYCLES, 0, -1);  // CPU cycles
-            if (err != ESP_OK) {
-                log_error("Failed to init perfmon counter 0");
-                delete[] _hashTable;
-                _hashTable = nullptr;
-                _error = true;
-                return;
-            }
-
-            err = xtensa_perfmon_init(1, XTPERF_CNT_INSN, XTPERF_MASK_INSN_ALL, 0, -1);  // Instructions
-            if (err != ESP_OK) {
-                log_error("Failed to init perfmon counter 1");
-                delete[] _hashTable;
-                _hashTable = nullptr;
-                _error = true;
-                return;
-            }
-
-            xtensa_perfmon_start();
-            log_info("  Perfmon counters started");
+            // Note: perfmon is initialized per-core in initializeProfilerTimer()
         }
 #endif
 
@@ -278,7 +239,7 @@ namespace WebUI {
     }
 
 
-    bool PerformanceProfiler::startProfiling(uint32_t sample_rate_hz) {
+    bool PerformanceProfiler::startProfiling() {
         if (_profiling) {
             log_warn("Profiling already in progress");
             return false;
@@ -289,10 +250,11 @@ namespace WebUI {
             return false;
         }
 
-        log_info("Starting stack profiling (manual mode)");
+        log_info("Starting stack profiling at 1 kHz (fixed rate)");
 
-        // Clear hash table
+        // Clear hash table and total cycles
         memset(_hashTable, 0, sizeof(StackItem) * (HashSize + 1));
+        _total_cycles = 0;
 
         // Unlock to start collecting (timers are already running)
         _locked = false;
@@ -346,8 +308,15 @@ namespace WebUI {
             return;
         }
 
+        // Capture total_cycles for this batch (for percentage calculation)
+        uint64_t batch_total_cycles = _total_cycles;
+        
         // Build complete JSON string with only non-empty entries
-        String json = "{\"type\":\"results\",\"items\":[";
+        // Include total_cycles so UI can calculate correct percentages
+        char header[64];
+        snprintf(header, sizeof(header), "{\"type\":\"results\",\"total_cycles\":%llu,\"items\":[", 
+            (unsigned long long)batch_total_cycles);
+        String json = header;
         
         bool first = true;
         size_t sent = 0;
@@ -377,7 +346,7 @@ namespace WebUI {
         json += "]}";
         
         if (sent > 0) {
-            log_debug("Broadcasting " << sent << " stack profiler results (" << json.length() << " bytes)");
+            log_debug("Broadcasting " << sent << " stack profiler results, " << batch_total_cycles << " total cycles (" << json.length() << " bytes)");
             _profiler_socket->textAll(json);
         }
     }
@@ -414,22 +383,12 @@ namespace WebUI {
 
     void PerformanceProfiler::handleCommand(AsyncWebSocketClient* client, const char* data, size_t len) {
         // Parse simple JSON commands
-        // Format: {"cmd":"start","rate":1000}
-        //         {"cmd":"stop"}
+        // Format: {"cmd":"start"} or {"cmd":"stop"}
         
         if (len < 10) return;
 
-        // Simple parser - look for command
         if (strstr(data, "\"cmd\":\"start\"")) {
-            // Extract rate (duration removed - manual start/stop only)
-            uint32_t rate = _default_rate;
-
-            const char* rate_ptr = strstr(data, "\"rate\":");
-            if (rate_ptr) {
-                rate = atoi(rate_ptr + 7);
-            }
-
-            startProfiling(rate);
+            startProfiling();
         }
         else if (strstr(data, "\"cmd\":\"stop\"")) {
             stopProfiling();
@@ -448,6 +407,10 @@ namespace WebUI {
         auto cycles       = xtensa_perfmon_value(0);
         auto instructions = xtensa_perfmon_value(1);
 
+        // Track total cycles ONCE per sample (not per frame!)
+        // This is the denominator for percentage calculations
+        _total_cycles += cycles;
+
         esp_backtrace_frame_t start;
         memset(&start, 0, sizeof(esp_backtrace_frame_t));
         esp_backtrace_get_start(&(start.pc), &(start.sp), &(start.next_pc));
@@ -459,7 +422,6 @@ namespace WebUI {
         const int calls           = 1;
 
         // Get rid of compiler warnings:
-        (void)cycles;
         (void)instructions;
         (void)calls;
 
@@ -538,9 +500,24 @@ namespace WebUI {
 
     void PerformanceProfiler::initializeProfilerTimer(void* parameters) {
         static const int TIMER_DIVIDER      = 8000;
-        static const int SAMPLES_PER_SECOND = 100;
+        // Note: This rate is fixed at compile time. UI rate selection is not yet implemented.
+        // Higher rates give better resolution but more overhead. 1000 Hz is a good balance.
+        static const int SAMPLES_PER_SECOND = 1000;
 
         auto current_core_id = static_cast<timer_idx_t>(xPortGetCoreID());
+        
+        // Initialize perfmon on THIS core (must be done per-core!)
+        esp_err_t perr;
+        perr = xtensa_perfmon_init(0, XTPERF_CNT_CYCLES, XTPERF_MASK_CYCLES, 0, -1);
+        if (perr != ESP_OK) {
+            printf("ERROR: Failed to init perfmon counter 0 on core %d: %d\n", current_core_id, perr);
+        }
+        perr = xtensa_perfmon_init(1, XTPERF_CNT_INSN, XTPERF_MASK_INSN_ALL, 0, -1);
+        if (perr != ESP_OK) {
+            printf("ERROR: Failed to init perfmon counter 1 on core %d: %d\n", current_core_id, perr);
+        }
+        xtensa_perfmon_start();
+        printf("Perfmon initialized on core %d\n", current_core_id);
 
         // Setup timer:
         timer_config_t config;
@@ -599,11 +576,12 @@ namespace WebUI {
                     if (_profiling && _enable_pc_sampling && _hashTable) {
                         broadcastHashTableResults();
                         
-                        // Clear hash table after broadcasting to:
+                        // Clear hash table and total_cycles after broadcasting to:
                         // 1. Prevent overflow on long profiling sessions
                         // 2. Show incremental data (not cumulative)
                         // Note: We don't lock here as the ISR uses atomic operations
                         memset(_hashTable, 0, sizeof(StackItem) * (HashSize + 1));
+                        _total_cycles = 0;
                     }
                 }
                 last_update = current_time;

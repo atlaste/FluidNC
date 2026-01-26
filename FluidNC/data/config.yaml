@@ -259,8 +259,5 @@ led_strip:
 performance_profiler:
   enable: true
   enable_pc_sampling: true
-  max_samples: 10000
-  default_rate: 1000
-  max_rate: 10000
   update_rate: 1000
 

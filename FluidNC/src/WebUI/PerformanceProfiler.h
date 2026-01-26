@@ -46,7 +46,7 @@ namespace WebUI {
         void group(Configuration::HandlerBase& handler) override;
 
         // Profiling control (called via WebSocket commands)
-        bool startProfiling(uint32_t sample_rate_hz);
+        bool startProfiling();
         void stopProfiling();
         bool isProfiling() const { return _profiling; }
 
@@ -54,10 +54,7 @@ namespace WebUI {
         // Configuration items
         bool    _enable             = false;
         bool    _enable_pc_sampling = false;  // Enable PC sampling (optional)
-        int32_t _max_samples        = 10000;  // Maximum PC samples to collect
-        int32_t _default_rate       = 1000;   // Default sample rate (Hz)
-        int32_t _max_rate           = 10000;  // Maximum sample rate (Hz)
-        int32_t _update_rate        = 1000;   // Performance counter update rate (ms)
+        int32_t _update_rate        = 1000;   // How often to send results to browser (ms)
         
         // Runtime state
         bool            _initialized = false;
@@ -80,6 +77,8 @@ namespace WebUI {
         
         StackItem*          _hashTable = nullptr;
         std::atomic<bool>   _locked = true;
+        volatile uint64_t   _total_cycles = 0;  // Total cycles across all samples (for debugging)
+        volatile uint32_t   _sample_count = 0;  // Number of stack samples taken (for percentage calc)
         
         // Performance counters broadcast task
         TaskHandle_t    _monitor_task = nullptr;

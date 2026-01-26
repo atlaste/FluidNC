@@ -406,15 +406,8 @@
         
         <div class="controls">
             <div class="control-group">
-                <label>Sample Rate (Hz)</label>
-                <select id="sampleRate">
-                    <option value="100">100 Hz</option>
-                    <option value="500">500 Hz</option>
-                    <option value="1000" selected>1 kHz</option>
-                    <option value="2000">2 kHz</option>
-                    <option value="5000">5 kHz</option>
-                    <option value="10000">10 kHz</option>
-                </select>
+                <label>Sample Rate</label>
+                <span style="font-weight: bold; color: #4fc3f7;">1 kHz</span>
             </div>
             
             <button id="loadSymbolsBtn" onclick="loadSymbols()">Load Symbols</button>
@@ -528,6 +521,7 @@
         let sortAscending = false;
         let isProfiling = false;
         let totalSamples = 0;
+        let totalCycles = 0;  // Cumulative total cycles (denominator for %)
         let lastTaskRuntimes = new Map(); // Track previous task runtimes for CPU% calculation
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -600,7 +594,10 @@
         function resolveAddress(address) {
             // Try exact match first
             if (symbolMap.has(address)) {
-                return symbolMap.get(address);
+                return {
+                    name: cleanSymbolName(symbolMap.get(address)),
+                    baseAddr: address
+                };
             }
             
             // Find closest symbol (address is likely within a function)
@@ -615,11 +612,11 @@
             }
             
             if (bestMatch && (address - bestAddr) < 4096) {  // Within 4KB
-                // Clean up the symbol name
-                bestMatch = cleanSymbolName(bestMatch);
-                
-                const offset = address - bestAddr;
-                return offset > 0 ? `${bestMatch}+0x${offset.toString(16)}` : bestMatch;
+                // Return function name AND base address for proper aggregation
+                return {
+                    name: cleanSymbolName(bestMatch),
+                    baseAddr: bestAddr
+                };
             }
             
             return null;
@@ -833,8 +830,9 @@
             else if (data.type === 'results') {
                 console.log('Received results:', data);
                 document.getElementById('samplingStats').style.display = 'grid';
-                // Backend sends caller/callee pairs in 'items', not simple samples
-                processResults(data.items || data.samples || []);
+                // Backend sends caller/callee pairs in 'items', plus total_cycles
+                const batchTotalCycles = data.total_cycles || 0;
+                processResults(data.items || data.samples || [], batchTotalCycles);
             }
             else if (data.type === 'perf_counters') {
                 updatePerfCounters(data);
@@ -916,12 +914,25 @@
             }).join('');
         }
 
-        function processResults(items) {
-            console.log(`Processing ${items.length} profiling items (incremental update)`);
+        function processResults(items, batchTotalCycles) {
+            console.log(`Processing ${items.length} profiling items (batch total_cycles: ${batchTotalCycles})`);
             
             if (items.length === 0) {
                 console.warn('No profiling data received');
                 return;
+            }
+            
+            // Accumulate total_cycles from backend (denominator for percentage calculation)
+            // Each function's percentage = (function_cycles / totalCycles) * 100
+            totalCycles += batchTotalCycles;
+            
+            // Debug: log first few items to see what we're getting
+            if (items.length > 0) {
+                console.log('Sample items:', JSON.stringify(items.slice(0, 5)));
+                const cyclesInItems = items.reduce((sum, i) => sum + (i.cycles || 0), 0);
+                const callsInItems = items.reduce((sum, i) => sum + (i.calls || 0), 0);
+                const itemsWithZeroCycles = items.filter(i => (i.cycles || 0) === 0).length;
+                console.log(`Items sum: ${callsInItems} calls, ${cyclesInItems} cycles (batch total_cycles: ${batchTotalCycles}), items with 0 cycles: ${itemsWithZeroCycles}/${items.length}`);
             }
             
             // Append to raw items for tree view
@@ -937,41 +948,88 @@
             }
             
             if (isStackProfiling) {
-                // Process caller/callee pairs and merge with existing data
+                // Process caller/callee pairs for INCLUSIVE time
+                // Use CYCLES (actual CPU time) for accumulation
+                // Aggregate by FUNCTION (base address), not individual PC samples
+                
+                let processed = 0, skipped = 0;
+                let debugPolling = { found: 0, cycles: 0, samples: 0 };
+                
                 for (const item of items) {
                     const callerAddr = parseInt(item.caller);
-                    const calls = item.calls || 1;
+                    const cycles = item.cycles || 0;  // CPU cycles for this entry
+                    const calls = item.calls || 1;    // Sample count
                     
-                    if (resultsMap.has(callerAddr)) {
-                        // Update existing entry
-                        resultsMap.get(callerAddr).count += calls;
+                    // Resolve to function base address for proper aggregation
+                    const resolved = resolveAddress(callerAddr);
+                    if (!resolved) {
+                        skipped++;
+                        continue;
+                    }
+                    processed++;
+                    
+                    const funcAddr = resolved.baseAddr;
+                    const funcName = resolved.name;
+                    
+                    // Debug: track polling_loop specifically
+                    if (funcName.includes('polling') || funcName.includes('poll')) {
+                        debugPolling.found++;
+                        debugPolling.cycles += cycles;
+                        debugPolling.samples += calls;
+                        console.log(`Found poll function: ${funcName} @ 0x${callerAddr.toString(16)} -> base 0x${funcAddr.toString(16)}, cycles=${cycles}, calls=${calls}`);
+                    }
+                    
+                    // Accumulate cycles by function
+                    if (resultsMap.has(funcAddr)) {
+                        resultsMap.get(funcAddr).cycles += cycles;
+                        resultsMap.get(funcAddr).samples += calls;
                     } else {
-                        // Create new entry
-                        const name = resolveAddress(callerAddr) || '(unknown)';
-                        resultsMap.set(callerAddr, {
-                            address: callerAddr,
-                            addressStr: '0x' + callerAddr.toString(16).padStart(8, '0'),
-                            count: calls,
-                            percent: 0, // Will recalculate below
-                            name: name
+                        resultsMap.set(funcAddr, {
+                            address: funcAddr,
+                            addressStr: '0x' + funcAddr.toString(16).padStart(8, '0'),
+                            cycles: cycles,
+                            samples: calls,
+                            percent: 0,
+                            name: funcName
                         });
+                    }
+                }
+                
+                console.log(`Processed ${processed} items, skipped ${skipped} (no symbol)`);
+                if (debugPolling.found > 0) {
+                    console.log(`Polling functions in this batch: ${debugPolling.found} items, ${debugPolling.cycles} cycles, ${debugPolling.samples} samples`);
+                }
+                
+                // Debug: show first few resolutions to verify they're working
+                if (processed > 0 && items.length > 0) {
+                    const testItems = items.slice(0, 3);
+                    for (const item of testItems) {
+                        const addr = parseInt(item.caller);
+                        const resolved = resolveAddress(addr);
+                        console.log(`Resolution: 0x${addr.toString(16)} -> ${resolved ? resolved.name + ' @ 0x' + resolved.baseAddr.toString(16) : 'NOT FOUND'}, cycles=${item.cycles}`);
                     }
                 }
             } else {
                 // Legacy: simple PC samples (array of addresses)
                 for (const addrStr of items) {
                     const addr = parseInt(addrStr);
+                    const resolved = resolveAddress(addr);
+                    if (!resolved) continue;
                     
-                    if (resultsMap.has(addr)) {
-                        resultsMap.get(addr).count += 1;
+                    const funcAddr = resolved.baseAddr;
+                    const funcName = resolved.name;
+                    
+                    if (resultsMap.has(funcAddr)) {
+                        resultsMap.get(funcAddr).cycles += 1;
+                        resultsMap.get(funcAddr).samples += 1;
                     } else {
-                        const name = resolveAddress(addr) || '(unknown)';
-                        resultsMap.set(addr, {
-                            address: addr,
-                            addressStr: '0x' + addr.toString(16).padStart(8, '0'),
-                            count: 1,
+                        resultsMap.set(funcAddr, {
+                            address: funcAddr,
+                            addressStr: '0x' + funcAddr.toString(16).padStart(8, '0'),
+                            cycles: 1,
+                            samples: 1,
                             percent: 0,
-                            name: name
+                            name: funcName
                         });
                     }
                 }
@@ -980,18 +1038,32 @@
             // Convert map back to array
             resultsData = Array.from(resultsMap.values());
             
-            // Recalculate percentages and total
-            totalSamples = resultsData.reduce((sum, item) => sum + item.count, 0);
-            for (const item of resultsData) {
-                item.percent = (item.count / totalSamples) * 100;
+            // Calculate percentages: function_cycles / total_cycles * 100
+            // total_cycles is the TRUE denominator (cycles counted once per sample)
+            if (totalCycles > 0) {
+                for (const item of resultsData) {
+                    item.percent = (item.cycles / totalCycles) * 100;
+                }
+            }
+            
+            totalSamples = resultsData.reduce((sum, item) => sum + item.samples, 0);
+            const totalItemCycles = resultsData.reduce((sum, item) => sum + item.cycles, 0);
+            console.log(`Totals - cycles: ${totalCycles}, item_cycles: ${totalItemCycles}, samples: ${totalSamples}, functions: ${resultsData.length}`);
+            
+            // Debug: find and log polling_loop specifically
+            const pollingItems = resultsData.filter(r => r.name.includes('polling') || r.name.includes('poll'));
+            if (pollingItems.length > 0) {
+                console.log('Polling functions in resultsData:', pollingItems.map(p => 
+                    `${p.name}: cycles=${p.cycles}, samples=${p.samples}, percent=${p.percent.toFixed(2)}%`
+                ));
             }
             
             // Update UI stats
             document.getElementById('totalSamples').textContent = totalSamples;
             document.getElementById('uniqueAddresses').textContent = resultsData.length;
             
-            // Sort by count descending (more stable than percent for incremental updates)
-            resultsData.sort((a, b) => b.count - a.count);
+            // Sort by CPU time (cycles) descending
+            resultsData.sort((a, b) => b.cycles - a.cycles);
             
             if (resultsData.length > 0) {
                 document.getElementById('topFunction').textContent = 
@@ -1044,7 +1116,7 @@
                             <div class="percent-value">${item.percent.toFixed(2)}%</div>
                         </div>
                     </td>
-                    <td>${item.count}</td>
+                    <td>${item.samples}</td>
                     <td><span class="function-name">${escapeHtml(item.name)}</span></td>
                     <td><span class="address">${item.addressStr}</span></td>
                 </tr>
@@ -1085,6 +1157,7 @@
             resultsData = [];
             rawItems = [];
             totalSamples = 0;
+            totalCycles = 0;  // Reset cycle counter
             lastTaskRuntimes.clear(); // Reset task runtime tracking for accurate CPU%
             document.getElementById('totalSamples').textContent = '0';
             document.getElementById('uniqueAddresses').textContent = '0';
@@ -1092,14 +1165,11 @@
             document.getElementById('resultsBody').innerHTML = '<tr><td colspan="4" class="no-data">Collecting data...</td></tr>';
             document.getElementById('treeContainer').innerHTML = '<div class="no-data">Collecting data...</div>';
             
-            const rate = parseInt(document.getElementById('sampleRate').value);
-            
             ws.send(JSON.stringify({
-                cmd: 'start',
-                rate: rate
+                cmd: 'start'
             }));
             
-            console.log('Started profiling at ' + rate + ' Hz - click Stop when done');
+            console.log('Started profiling at 1 kHz (fixed rate) - click Stop when done');
         }
 
         function stopProfiling() {
@@ -1114,9 +1184,9 @@
                 return;
             }
             
-            let csv = 'Percent,Samples,Function,Address\n';
+            let csv = 'Percent,Samples,Cycles,Function,Address\n';
             for (const item of resultsData) {
-                csv += `${item.percent.toFixed(2)},${item.count},"${item.name}",${item.addressStr}\n`;
+                csv += `${item.percent.toFixed(2)},${item.samples},${item.cycles},"${item.name}",${item.addressStr}\n`;
             }
             
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -1154,54 +1224,70 @@
         
         function buildAndRenderTree() {
             // Build tree structure from caller/callee pairs
-            const nodes = new Map();
+            // IMPORTANT: Aggregate by function base address, not raw PC!
+            // Use CYCLES for CPU time and global totalCycles as denominator
+            const nodes = new Map();  // keyed by function base address
             const roots = new Set();
-            let totalCalls = 0;
             
-            // First pass: create all nodes
+            // First pass: create all nodes aggregated by function
             for (const item of rawItems) {
                 const callerAddr = parseInt(item.caller);
                 const calleeAddr = parseInt(item.callee);
-                const calls = item.calls || 1;
-                totalCalls += calls;
+                const cycles = item.cycles || 0;
+                const samples = item.calls || 1;
                 
-                // Create/update caller node
-                if (!nodes.has(callerAddr)) {
-                    nodes.set(callerAddr, {
-                        address: callerAddr,
-                        name: resolveAddress(callerAddr) || '(unknown)',
-                        totalCalls: 0,
+                // Resolve to function base addresses
+                const callerResolved = resolveAddress(callerAddr);
+                const calleeResolved = calleeAddr !== 0 ? resolveAddress(calleeAddr) : null;
+                
+                if (!callerResolved) continue;
+                
+                const callerBase = callerResolved.baseAddr;
+                const callerName = callerResolved.name;
+                const calleeBase = calleeResolved ? calleeResolved.baseAddr : 0;
+                const calleeName = calleeResolved ? calleeResolved.name : null;
+                
+                // Create/update caller node (by function base address)
+                if (!nodes.has(callerBase)) {
+                    nodes.set(callerBase, {
+                        address: callerBase,
+                        name: callerName,
+                        totalCycles: 0,
+                        totalSamples: 0,
                         children: new Map(),
                         callers: new Set()
                     });
                 }
                 
-                const caller = nodes.get(callerAddr);
-                caller.totalCalls += calls;
+                const caller = nodes.get(callerBase);
+                caller.totalCycles += cycles;
+                caller.totalSamples += samples;
                 
                 // If there's a callee (not 0), create relationship
-                if (calleeAddr !== 0) {
-                    if (!nodes.has(calleeAddr)) {
-                        nodes.set(calleeAddr, {
-                            address: calleeAddr,
-                            name: resolveAddress(calleeAddr) || '(unknown)',
-                            totalCalls: 0,
+                if (calleeBase !== 0 && calleeName) {
+                    if (!nodes.has(calleeBase)) {
+                        nodes.set(calleeBase, {
+                            address: calleeBase,
+                            name: calleeName,
+                            totalCycles: 0,
+                            totalSamples: 0,
                             children: new Map(),
                             callers: new Set()
                         });
                     }
                     
-                    const callee = nodes.get(calleeAddr);
-                    callee.callers.add(callerAddr);
+                    const callee = nodes.get(calleeBase);
+                    callee.callers.add(callerBase);
                     
-                    // Add callee as child of caller
-                    if (!caller.children.has(calleeAddr)) {
-                        caller.children.set(calleeAddr, { calls: 0 });
+                    // Add callee as child of caller (aggregated)
+                    if (!caller.children.has(calleeBase)) {
+                        caller.children.set(calleeBase, { cycles: 0, samples: 0 });
                     }
-                    caller.children.get(calleeAddr).calls += calls;
+                    caller.children.get(calleeBase).cycles += cycles;
+                    caller.children.get(calleeBase).samples += samples;
                 } else {
                     // Caller with callee=0 is a root (entry point)
-                    roots.add(callerAddr);
+                    roots.add(callerBase);
                 }
             }
             
@@ -1214,29 +1300,30 @@
             
             // Render tree
             const container = document.getElementById('treeContainer');
-            if (roots.size === 0) {
-                container.innerHTML = '<div class="no-data">No call tree data available</div>';
+            if (roots.size === 0 || totalCycles === 0) {
+                container.innerHTML = '<div class="no-data">No call tree data available (totalCycles=' + totalCycles + ')</div>';
                 return;
             }
             
             container.innerHTML = '';
+            console.log(`Tree: ${nodes.size} functions, ${roots.size} roots, totalCycles=${totalCycles}`);
             
-            // Sort roots by total calls (descending)
+            // Sort roots by total cycles (CPU time, descending)
             const sortedRoots = Array.from(roots)
-                .filter(addr => nodes.has(addr) && nodes.get(addr).totalCalls > 0)
-                .sort((a, b) => nodes.get(b).totalCalls - nodes.get(a).totalCalls)
+                .filter(addr => nodes.has(addr) && nodes.get(addr).totalCycles > 0)
+                .sort((a, b) => nodes.get(b).totalCycles - nodes.get(a).totalCycles)
                 .slice(0, 50); // Top 50 roots
             
-            // Render each root
+            // Render each root using global totalCycles as denominator
             for (const rootAddr of sortedRoots) {
                 const node = nodes.get(rootAddr);
-                const percent = (node.totalCalls / totalCalls) * 100;
-                const element = renderTreeNode(node, percent, nodes, totalCalls, 0);
+                const percent = (node.totalCycles / totalCycles) * 100;
+                const element = renderTreeNode(node, percent, nodes, 0);
                 container.appendChild(element);
             }
         }
         
-        function renderTreeNode(node, percent, allNodes, totalCalls, depth) {
+        function renderTreeNode(node, percent, allNodes, depth) {
             if (depth > 10) return document.createElement('div'); // Prevent infinite recursion
             
             const div = document.createElement('div');
@@ -1249,7 +1336,7 @@
                 <div class="tree-node-content" onclick="toggleTreeNode(this)">
                     <span class="tree-expand">${expandIcon}</span>
                     <span class="tree-percent">${percent.toFixed(2)}%</span>
-                    <span class="tree-calls">${node.totalCalls} calls</span>
+                    <span class="tree-calls">${node.totalSamples} samples</span>
                     <span class="tree-function">${escapeHtml(node.name)}</span>
                     <span class="tree-address">0x${node.address.toString(16).padStart(8, '0')}</span>
                 </div>
@@ -1260,16 +1347,17 @@
                 const childrenDiv = document.createElement('div');
                 childrenDiv.className = 'tree-children collapsed';
                 
-                // Sort children by calls (descending), take top 20
+                // Sort children by cycles (CPU time, descending), take top 20
                 const sortedChildren = Array.from(node.children.entries())
-                    .sort((a, b) => b[1].calls - a[1].calls)
+                    .sort((a, b) => b[1].cycles - a[1].cycles)
                     .slice(0, 20);
                 
                 for (const [childAddr, childInfo] of sortedChildren) {
                     const childNode = allNodes.get(childAddr);
                     if (childNode) {
-                        const childPercent = (childInfo.calls / totalCalls) * 100;
-                        const childElement = renderTreeNode(childNode, childPercent, allNodes, totalCalls, depth + 1);
+                        // Use global totalCycles for percentage
+                        const childPercent = (childInfo.cycles / totalCycles) * 100;
+                        const childElement = renderTreeNode(childNode, childPercent, allNodes, depth + 1);
                         childrenDiv.appendChild(childElement);
                     }
                 }
