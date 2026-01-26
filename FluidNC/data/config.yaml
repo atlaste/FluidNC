@@ -81,7 +81,7 @@ axes:
       cycle: 1
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.18
+      limit_neg_pin: gpio.18:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -99,7 +99,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.48
+      limit_neg_pin: gpio.48:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -116,7 +116,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.16
+      limit_neg_pin: gpio.16:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -255,4 +255,12 @@ led_strip:
       idle_breathe_period: 30000
       running_boost: 10
       position_boost: 25
+
+performance_profiler:
+  enable: true
+  enable_pc_sampling: true
+  max_samples: 10000
+  default_rate: 1000
+  max_rate: 10000
+  update_rate: 1000
 

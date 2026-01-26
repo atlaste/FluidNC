@@ -1,0 +1,30 @@
+# Performance Profiler Configuration Example
+# Add this section to your config.yaml to enable performance profiling
+
+performance_profiler:
+  enable: true
+  enable_pc_sampling: false  # Enable PC sampling (requires symbols, optional)
+  max_samples: 10000        # Maximum PC samples to collect (100-100000)
+  default_rate: 1000        # Default PC sample rate in Hz (10-50000)
+  max_rate: 10000           # Maximum allowed PC sample rate in Hz (100-50000)
+  update_rate: 1000         # Performance counter update rate in ms (100-10000)
+
+# Notes:
+# - Uses ESP-IDF perfmon API for hardware performance counters
+# - Real-time CPU usage, memory stats, task counts
+# - Optional PC sampling for function-level hotspot identification
+# - Access the profiler UI at: http://fluidnc.local/performance.html
+#
+# Two modes:
+# 1. Performance Counters (always on):
+#    - CPU usage, cycles, instructions
+#    - Memory/heap statistics
+#    - Task counts
+#    - Streams continuously via WebSocket
+#
+# 2. PC Sampling (optional, enable_pc_sampling: true):
+#    - Identifies which functions consume CPU time
+#    - Requires symbol map for function names
+#    - Generate: python FluidNC/generate-symbols.py build/FluidNC.elf
+#    - Upload symbols.txt.gz to /localfs/ via WebUI
+

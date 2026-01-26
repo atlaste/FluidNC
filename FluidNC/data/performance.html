@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FluidNC Performance Profiler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #2d2d30;
+            border-radius: 6px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        
+        .status-indicator.connected {
+            background: #4caf50;
+            box-shadow: 0 0 8px #4caf50;
+        }
+        
+        .status-indicator.profiling {
+            background: #ff9800;
+            box-shadow: 0 0 8px #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-text {
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 20px;
+            background: #2d2d30;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+        }
+        
+        .controls input, .controls select {
+            padding: 8px 12px;
+            background: #1e1e1e;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .controls button {
+            padding: 10px 20px;
+            background: #007acc;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .controls button:hover:not(:disabled) {
+            background: #005a9e;
+        }
+        
+        .controls button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        
+        .controls button.danger {
+            background: #f44336;
+        }
+        
+        .controls button.danger:hover:not(:disabled) {
+            background: #d32f2f;
+        }
+        
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-card {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007acc;
+        }
+        
+        .info-card h3 {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        
+        .info-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .results-section {
+            background: #2d2d30;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .results-header {
+            padding: 15px 20px;
+            background: #3e3e42;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .results-header h2 {
+            font-size: 18px;
+        }
+        
+        .filter-box {
+            padding: 10px 20px;
+            background: #353535;
+            border-bottom: 1px solid #555;
+        }
+        
+        .filter-box input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #2d2d30;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .results-table th {
+            background: #3e3e42;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .results-table th:hover {
+            background: #4a4a4f;
+        }
+        
+        .results-table th.sorted {
+            color: #007acc;
+        }
+        
+        .results-table td {
+            padding: 12px;
+            border-top: 1px solid #3e3e42;
+            font-size: 13px;
+        }
+        
+        .results-table tbody tr:hover {
+            background: #353535;
+        }
+        
+        .function-name {
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #4ec9b0;
+        }
+        
+        .address {
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .percent-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .percent-bar-fill {
+            flex: 1;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .percent-bar-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336, #ff9800);
+            transition: width 0.3s ease;
+        }
+        
+        .percent-value {
+            min-width: 60px;
+            text-align: right;
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .no-data {
+            padding: 40px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .symbol-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .symbol-status.loaded {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .symbol-status.not-loaded {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background: #007acc;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Performance Profiler</h1>
+        
+        <div class="status-bar">
+            <div id="statusIndicator" class="status-indicator"></div>
+            <div class="status-text" id="statusText">Disconnected</div>
+            <span id="symbolStatus" class="symbol-status not-loaded">No symbols</span>
+        </div>
+        
+        <div id="progressBar" class="progress-bar" style="display: none;">
+            <div id="progressBarFill" class="progress-bar-fill"></div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Duration (seconds)</label>
+                <input type="number" id="duration" value="10" min="1" max="300">
+            </div>
+            
+            <div class="control-group">
+                <label>Sample Rate (Hz)</label>
+                <select id="sampleRate">
+                    <option value="100">100 Hz</option>
+                    <option value="500">500 Hz</option>
+                    <option value="1000" selected>1 kHz</option>
+                    <option value="2000">2 kHz</option>
+                    <option value="5000">5 kHz</option>
+                    <option value="10000">10 kHz</option>
+                </select>
+            </div>
+            
+            <button id="loadSymbolsBtn" onclick="loadSymbols()">Load Symbols</button>
+            <button id="startBtn" onclick="startProfiling()" disabled>Start Profiling</button>
+            <button id="stopBtn" onclick="stopProfiling()" class="danger" disabled>Stop</button>
+        </div>
+        
+        <div class="info-cards">
+            <div class="info-card">
+                <h3>CPU Usage</h3>
+                <div class="value" id="cpuUsage">-</div>
+            </div>
+            <div class="info-card">
+                <h3>Active Tasks</h3>
+                <div class="value" id="activeTasks">-</div>
+            </div>
+            <div class="info-card">
+                <h3>Free Heap</h3>
+                <div class="value" id="freeHeap">-</div>
+            </div>
+            <div class="info-card">
+                <h3>Min Free Heap</h3>
+                <div class="value" id="minFreeHeap">-</div>
+            </div>
+        </div>
+
+        <div class="info-cards" id="samplingStats" style="display: none;">
+            <div class="info-card">
+                <h3>Total Samples</h3>
+                <div class="value" id="totalSamples">0</div>
+            </div>
+            <div class="info-card">
+                <h3>Unique Addresses</h3>
+                <div class="value" id="uniqueAddresses">0</div>
+            </div>
+            <div class="info-card">
+                <h3>Symbols Loaded</h3>
+                <div class="value" id="symbolsLoaded">0</div>
+            </div>
+            <div class="info-card">
+                <h3>Top Function</h3>
+                <div class="value" id="topFunction" style="font-size: 14px;">-</div>
+            </div>
+        </div>
+        
+        <div class="results-section">
+            <div class="results-header">
+                <h2>Hotspots</h2>
+                <button onclick="exportResults()" style="padding: 6px 12px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;">Export</button>
+            </div>
+            <div class="filter-box">
+                <input type="text" id="filterInput" placeholder="Filter by function name or address..." oninput="filterResults()">
+            </div>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortResults('percent')">% Time <span id="sort-percent">▼</span></th>
+                        <th onclick="sortResults('count')">Samples <span id="sort-count"></span></th>
+                        <th onclick="sortResults('name')">Function <span id="sort-name"></span></th>
+                        <th onclick="sortResults('address')">Address <span id="sort-address"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <tr><td colspan="4" class="no-data">No profiling data yet. Click "Start Profiling" to begin.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let symbolMap = new Map();
+        let resultsData = [];
+        let sortColumn = 'percent';
+        let sortAscending = false;
+        let isProfiling = false;
+        let totalSamples = 0;
+
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.hostname || 'fluidnc.local';
+        const wsUrl = `${wsProtocol}//${wsHost}/profiler`;
+
+        console.log('WebSocket URL:', wsUrl);
+
+        function updateStatus(message, state) {
+            document.getElementById('statusText').textContent = message;
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = 'status-indicator ' + state;
+            
+            if (state === 'connected') {
+                document.getElementById('startBtn').disabled = !symbolMap.size;
+            } else if (state === 'profiling') {
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('progressBar').style.display = 'block';
+            }
+        }
+
+        async function loadSymbols() {
+            updateStatus('Loading symbols...', '');
+            document.getElementById('loadSymbolsBtn').disabled = true;
+            
+            try {
+                // Fetch symbols.txt - server sends it with Content-Encoding: gzip
+                // so browser automatically decompresses it
+                const response = await fetch('/symbols.txt');
+                if (!response.ok) {
+                    throw new Error('Symbols file not found');
+                }
+                
+                const text = await response.text();
+                
+                symbolMap.clear();
+                const lines = text.split('\n');
+                let count = 0;
+                
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    
+                    const parts = line.split(/\s+/);
+                    if (parts.length >= 4) {
+                        const address = parseInt(parts[0], 16);
+                        const name = parts.slice(3).join(' ');
+                        symbolMap.set(address, name);
+                        count++;
+                    }
+                }
+                
+                console.log(`Loaded ${count} symbols`);
+                document.getElementById('symbolsLoaded').textContent = count;
+                document.getElementById('symbolStatus').textContent = `${count} symbols`;
+                document.getElementById('symbolStatus').className = 'symbol-status loaded';
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    document.getElementById('startBtn').disabled = false;
+                }
+                
+                updateStatus('Symbols loaded', 'connected');
+            } catch (error) {
+                console.error('Failed to load symbols:', error);
+                alert('Failed to load symbols: ' + error.message + '\n\nMake sure symbols.txt.gz is uploaded to /localfs/ directory via the Files page.');
+                document.getElementById('loadSymbolsBtn').disabled = false;
+            }
+        }
+
+        function resolveAddress(address) {
+            // Try exact match first
+            if (symbolMap.has(address)) {
+                return symbolMap.get(address);
+            }
+            
+            // Find closest symbol (address is likely within a function)
+            let bestMatch = null;
+            let bestAddr = 0;
+            
+            for (const [addr, name] of symbolMap.entries()) {
+                if (addr <= address && addr > bestAddr) {
+                    bestAddr = addr;
+                    bestMatch = name;
+                }
+            }
+            
+            if (bestMatch && (address - bestAddr) < 4096) {  // Within 4KB
+                const offset = address - bestAddr;
+                return offset > 0 ? `${bestMatch}+0x${offset.toString(16)}` : bestMatch;
+            }
+            
+            return null;
+        }
+
+        function connect() {
+            if (ws) return;
+
+            updateStatus('Connecting...', '');
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus('Connected', 'connected');
+                    ws.send(JSON.stringify({cmd: 'status'}));
+                };
+
+                ws.onmessage = (event) => {
+                    handleMessage(JSON.parse(event.data));
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Connection error', '');
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed');
+                    updateStatus('Disconnected', '');
+                    ws = null;
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = true;
+                };
+
+            } catch (error) {
+                console.error('Failed to create WebSocket:', error);
+                updateStatus('Error: ' + error.message, '');
+            }
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'status') {
+                isProfiling = data.profiling;
+                totalSamples = data.samples || 0;
+                
+                if (isProfiling) {
+                    updateStatus(`Profiling... ${totalSamples} samples`, 'profiling');
+                    const progress = (totalSamples / data.max_samples) * 100;
+                    document.getElementById('progressBarFill').style.width = progress + '%';
+                } else {
+                    updateStatus('Connected', 'connected');
+                    document.getElementById('progressBar').style.display = 'none';
+                    document.getElementById('startBtn').disabled = !symbolMap.size;
+                    document.getElementById('stopBtn').disabled = true;
+                }
+            }
+            else if (data.type === 'results') {
+                console.log('Received results:', data);
+                document.getElementById('samplingStats').style.display = 'grid';
+                // Backend sends caller/callee pairs in 'items', not simple samples
+                processResults(data.items || data.samples || []);
+            }
+            else if (data.type === 'perf_counters') {
+                updatePerfCounters(data);
+            }
+        }
+
+        function updatePerfCounters(data) {
+            // Update CPU usage
+            if (data.cpu_usage !== undefined) {
+                document.getElementById('cpuUsage').textContent = data.cpu_usage.toFixed(1) + '%';
+            }
+            
+            // Update task count
+            if (data.tasks !== undefined) {
+                document.getElementById('activeTasks').textContent = data.tasks;
+            }
+            
+            // Update heap stats
+            if (data.heap_free !== undefined) {
+                const freeKB = (data.heap_free / 1024).toFixed(1);
+                document.getElementById('freeHeap').textContent = freeKB + ' KB';
+            }
+            
+            if (data.heap_min_free !== undefined) {
+                const minKB = (data.heap_min_free / 1024).toFixed(1);
+                document.getElementById('minFreeHeap').textContent = minKB + ' KB';
+            }
+        }
+
+        function processResults(items) {
+            console.log(`Processing ${items.length} profiling items`);
+            
+            if (items.length === 0) {
+                console.warn('No profiling data received');
+                return;
+            }
+            
+            // Check if this is stack profiling data (caller/callee) or simple PC samples
+            const isStackProfiling = items[0] && typeof items[0] === 'object' && 'caller' in items[0];
+            
+            if (isStackProfiling) {
+                // Process caller/callee pairs
+                const callerCounts = new Map();
+                let totalCalls = 0;
+                
+                for (const item of items) {
+                    const callerAddr = parseInt(item.caller);
+                    const calls = item.calls || 1;
+                    
+                    callerCounts.set(callerAddr, (callerCounts.get(callerAddr) || 0) + calls);
+                    totalCalls += calls;
+                }
+                
+                totalSamples = totalCalls;
+                document.getElementById('totalSamples').textContent = totalSamples;
+                document.getElementById('uniqueAddresses').textContent = callerCounts.size;
+                
+                // Build results array
+                resultsData = [];
+                for (const [address, count] of callerCounts.entries()) {
+                    const percent = (count / totalSamples) * 100;
+                    const name = resolveAddress(address) || '(unknown)';
+                    
+                    resultsData.push({
+                        address: address,
+                        addressStr: '0x' + address.toString(16).padStart(8, '0'),
+                        count: count,
+                        percent: percent,
+                        name: name
+                    });
+                }
+            } else {
+                // Legacy: simple PC samples (array of addresses)
+                const counts = new Map();
+                for (const addrStr of items) {
+                    const addr = parseInt(addrStr);
+                    counts.set(addr, (counts.get(addr) || 0) + 1);
+                }
+                
+                totalSamples = items.length;
+                document.getElementById('totalSamples').textContent = totalSamples;
+                document.getElementById('uniqueAddresses').textContent = counts.size;
+                
+                resultsData = [];
+                for (const [address, count] of counts.entries()) {
+                    const percent = (count / totalSamples) * 100;
+                    const name = resolveAddress(address) || '(unknown)';
+                    
+                    resultsData.push({
+                        address: address,
+                        addressStr: '0x' + address.toString(16).padStart(8, '0'),
+                        count: count,
+                        percent: percent,
+                        name: name
+                    });
+                }
+            }
+            
+            // Sort by percent descending
+            resultsData.sort((a, b) => b.percent - a.percent);
+            
+            if (resultsData.length > 0) {
+                document.getElementById('topFunction').textContent = 
+                    resultsData[0].name.substring(0, 30) + 
+                    (resultsData[0].name.length > 30 ? '...' : '');
+            }
+            
+            console.log(`Processed ${resultsData.length} unique functions`);
+            renderResults();
+        }
+
+        function renderResults() {
+            const filter = document.getElementById('filterInput').value.toLowerCase();
+            const tbody = document.getElementById('resultsBody');
+            
+            let filtered = resultsData.filter(item => 
+                item.name.toLowerCase().includes(filter) ||
+                item.addressStr.toLowerCase().includes(filter)
+            );
+            
+            // Apply sorting
+            filtered.sort((a, b) => {
+                let valA = a[sortColumn];
+                let valB = b[sortColumn];
+                
+                if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+                
+                if (sortAscending) {
+                    return valA > valB ? 1 : -1;
+                } else {
+                    return valA < valB ? 1 : -1;
+                }
+            });
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="no-data">No results match filter</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map(item => `
+                <tr>
+                    <td>
+                        <div class="percent-bar">
+                            <div class="percent-bar-fill">
+                                <div class="percent-bar-progress" style="width: ${Math.min(item.percent, 100)}%"></div>
+                            </div>
+                            <div class="percent-value">${item.percent.toFixed(2)}%</div>
+                        </div>
+                    </td>
+                    <td>${item.count}</td>
+                    <td><span class="function-name">${escapeHtml(item.name)}</span></td>
+                    <td><span class="address">${item.addressStr}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function sortResults(column) {
+            if (sortColumn === column) {
+                sortAscending = !sortAscending;
+            } else {
+                sortColumn = column;
+                sortAscending = false;
+            }
+            
+            document.querySelectorAll('.results-table th').forEach(th => {
+                th.classList.remove('sorted');
+                th.querySelector('span').textContent = '';
+            });
+            
+            const header = document.getElementById('sort-' + column).parentElement;
+            header.classList.add('sorted');
+            document.getElementById('sort-' + column).textContent = sortAscending ? '▲' : '▼';
+            
+            renderResults();
+        }
+
+        function filterResults() {
+            renderResults();
+        }
+
+        function startProfiling() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Not connected to profiler');
+                return;
+            }
+            
+            const duration = parseInt(document.getElementById('duration').value) * 1000;
+            const rate = parseInt(document.getElementById('sampleRate').value);
+            
+            ws.send(JSON.stringify({
+                cmd: 'start',
+                duration: duration,
+                rate: rate
+            }));
+            
+            // Auto-stop after duration
+            setTimeout(() => {
+                if (isProfiling) {
+                    stopProfiling();
+                }
+            }, duration + 1000);
+        }
+
+        function stopProfiling() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({cmd: 'stop'}));
+        }
+
+        function exportResults() {
+            if (resultsData.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            let csv = 'Percent,Samples,Function,Address\n';
+            for (const item of resultsData) {
+                csv += `${item.percent.toFixed(2)},${item.count},"${item.name}",${item.addressStr}\n`;
+            }
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'profile_results.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.addEventListener('load', connect);
+        window.addEventListener('beforeunload', () => {
+            if (ws) ws.close();
+        });
+    </script>
+</body>
+</html>
+

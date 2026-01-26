@@ -189,6 +189,57 @@ namespace WebUI {
         _webserver->on("/upload", HTTP_ANY, handle_direct_SDFileList, SDFileUpload);
         //_webserver->on("/SD", HTTP_ANY, handle_SDCARD);
 
+        // Performance profiler - serve symbols.txt with gzip encoding
+        _webserver->on("/symbols.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+            // Serve symbols.txt.gz with Content-Encoding: gzip
+            // Browser will automatically decompress it
+            std::error_code ec;
+            FluidPath fpath { "/localfs/symbols.txt.gz", localfsName, ec };
+            if (ec) {
+                request->send(404, "text/plain", "Symbol map not found. Upload symbols.txt.gz to /localfs/");
+                return;
+            }
+
+            try {
+                FileStream* file = new FileStream(fpath, "r", "");
+                
+                // Use shared_ptr to safely manage file lifetime across callbacks
+                auto filePtr = std::shared_ptr<FileStream>(file);
+                
+                AsyncWebServerResponse* response = request->beginResponse(
+                    "text/plain",
+                    filePtr->size(),
+                    [filePtr](uint8_t* buffer, size_t maxLen, size_t total) mutable -> size_t {
+                        if (!filePtr || total >= filePtr->size()) {
+                            filePtr.reset();
+                            return 0;
+                        }
+                        int bytes = filePtr->read(buffer, min((int)maxLen, (int)filePtr->size() - (int)total));
+                        if (bytes == 0 || (bytes + total) >= filePtr->size()) {
+                            filePtr.reset();  // Release file when done
+                        }
+                        return bytes;
+                    });
+
+                // No disconnect handler needed - shared_ptr will auto-cleanup when last reference goes away
+                
+                // Key: serve with Content-Encoding: gzip so browser decompresses
+                response->addHeader("Content-Encoding", "gzip");
+                response->addHeader("Cache-Control", "no-cache");
+                request->send(response);
+                
+            } catch (const Error err) {
+                request->send(404, "text/plain", "Symbol map not found. Upload symbols.txt.gz to /localfs/");
+            }
+        });
+
+        // Performance profiler dashboard
+        _webserver->on("/performance.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+            if (!myStreamFile(request, "/localfs/performance.html", false, false)) {
+                request->send(404, "text/html", "<h1>Performance Profiler</h1><p>Upload performance.html to /localfs/</p>");
+            }
+        });
+
         if (WiFi.getMode() == WIFI_AP) {
             // if DNSServer is started with "*" for domain name, it will reply with
             // provided IP to all DNS request

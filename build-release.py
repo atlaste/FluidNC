@@ -187,6 +187,23 @@ for version in versions:
         #    sys.exit(1)
         buildDir = os.path.join('.pio', 'build', envName)
         shutil.copy(os.path.join(buildDir, 'firmware.elf'), os.path.join(relPath, mcu + '-' + buildName + '-' + 'firmware.elf'))
+        
+        # Generate symbol map for profiling (optional)
+        elf_file = os.path.join(buildDir, 'firmware.elf')
+        symbols_file = os.path.join(buildDir, 'symbols.txt.gz')
+        if os.path.exists(elf_file):
+            print(f"Generating symbol map for {envName}...")
+            result = subprocess.run(
+                ['python', os.path.join('FluidNC', 'generate-symbols.py'), elf_file, '-o', symbols_file],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0 and os.path.exists(symbols_file):
+                # Copy to release directory
+                shutil.copy(symbols_file, os.path.join(relPath, mcu + '-' + buildName + '-' + 'symbols.txt.gz'))
+                print(f"  Symbol map generated: {os.path.getsize(symbols_file)} bytes")
+            else:
+                print(f"  Warning: Symbol map generation failed or skipped")
 
         addImage(mcu + '-' + buildName + '-firmware', '0x10000', 'firmware.bin', buildDir, mcu + '/' + buildName)
 
