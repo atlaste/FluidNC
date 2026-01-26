@@ -46,7 +46,7 @@ namespace WebUI {
         void group(Configuration::HandlerBase& handler) override;
 
         // Profiling control (called via WebSocket commands)
-        bool startProfiling(uint32_t duration_ms, uint32_t sample_rate_hz);
+        bool startProfiling(uint32_t sample_rate_hz);
         void stopProfiling();
         bool isProfiling() const { return _profiling; }
 

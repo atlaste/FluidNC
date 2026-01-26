@@ -278,7 +278,7 @@ namespace WebUI {
     }
 
 
-    bool PerformanceProfiler::startProfiling(uint32_t duration_ms, uint32_t sample_rate_hz) {
+    bool PerformanceProfiler::startProfiling(uint32_t sample_rate_hz) {
         if (_profiling) {
             log_warn("Profiling already in progress");
             return false;
@@ -289,7 +289,7 @@ namespace WebUI {
             return false;
         }
 
-        log_info("Starting stack profiling for " << duration_ms << "ms");
+        log_info("Starting stack profiling (manual mode)");
 
         // Clear hash table
         memset(_hashTable, 0, sizeof(StackItem) * (HashSize + 1));
@@ -318,16 +318,11 @@ namespace WebUI {
         // Wait a bit to ensure no active collection
         vTaskDelay(pdMS_TO_TICKS(50));
 
-        // Debug: Check if hash table has any entries before broadcast
+        // Send final results if any remain in hash table
         if (_enable_pc_sampling && _hashTable) {
-            size_t entries = 0;
-            for (int i = 0; i < HashSize; i++) {
-                if (_hashTable[i].caller != 0) entries++;
-            }
-            log_info("Hash table has " << entries << " entries before broadcast");
-            
             broadcastHashTableResults();
         }
+        
         broadcastStatus();
     }
 
@@ -351,28 +346,18 @@ namespace WebUI {
             return;
         }
 
-        // Count valid items
-        size_t total_items = 0;
-        for (int i = 0; i < HashSize; i++) {
-            if (_hashTable[i].caller != 0) total_items++;
-        }
-
-        log_info("Broadcasting " << total_items << " stack profiler results");
-
-        // Build complete JSON (each WebSocket message must be complete, valid JSON)
-        // Estimate: ~100 bytes per item, so reserve appropriate space
-        String json;
-        json.reserve(total_items * 120 + 256);  // Pre-allocate to avoid reallocations
+        // Build complete JSON string with only non-empty entries
+        String json = "{\"type\":\"results\",\"items\":[";
         
-        char header[128];
-        snprintf(header, sizeof(header), "{\"type\":\"results\",\"count\":%u,\"items\":[", 
-                static_cast<unsigned int>(total_items));
-        json = header;
-        
+        bool first = true;
         size_t sent = 0;
-        for (int i = 0; i < HashSize && sent < total_items; i++) {
-            if (_hashTable[i].caller != 0) {
-                if (sent > 0) json += ",";
+        
+        for (int i = 0; i < HashSize; i++) {
+            if (_hashTable[i].caller != 0 && _hashTable[i].calls > 0) {
+                if (!first) {
+                    json += ",";
+                }
+                first = false;
 
                 char item[128];
                 snprintf(item, sizeof(item), 
@@ -383,15 +368,18 @@ namespace WebUI {
                     static_cast<unsigned int>(_hashTable[i].cycles));
                 json += item;
                 sent++;
+                
+                // Limit to avoid huge JSON payloads
+                if (sent >= 1000) break;
             }
         }
 
-        // Close JSON array
         json += "]}";
         
-        // Send complete JSON as single WebSocket message
-        log_info("Sending JSON payload: " << json.length() << " bytes");
-        _profiler_socket->textAll(json);
+        if (sent > 0) {
+            log_debug("Broadcasting " << sent << " stack profiler results (" << json.length() << " bytes)");
+            _profiler_socket->textAll(json);
+        }
     }
 
     void PerformanceProfiler::onWebSocketEvent(
@@ -426,28 +414,22 @@ namespace WebUI {
 
     void PerformanceProfiler::handleCommand(AsyncWebSocketClient* client, const char* data, size_t len) {
         // Parse simple JSON commands
-        // Format: {"cmd":"start","duration":10000,"rate":1000}
+        // Format: {"cmd":"start","rate":1000}
         //         {"cmd":"stop"}
         
         if (len < 10) return;
 
         // Simple parser - look for command
         if (strstr(data, "\"cmd\":\"start\"")) {
-            // Extract duration and rate
-            uint32_t duration = 10000;  // Default 10s
+            // Extract rate (duration removed - manual start/stop only)
             uint32_t rate = _default_rate;
-
-            const char* dur_ptr = strstr(data, "\"duration\":");
-            if (dur_ptr) {
-                duration = atoi(dur_ptr + 11);
-            }
 
             const char* rate_ptr = strstr(data, "\"rate\":");
             if (rate_ptr) {
                 rate = atoi(rate_ptr + 7);
             }
 
-            startProfiling(duration, rate);
+            startProfiling(rate);
         }
         else if (strstr(data, "\"cmd\":\"stop\"")) {
             stopProfiling();
@@ -610,7 +592,19 @@ namespace WebUI {
             TickType_t current_time = xTaskGetTickCount();
             if (current_time - last_update >= update_delay) {
                 if (hasActiveClients()) {
+                    // Always broadcast performance counters
                     broadcastPerfCounters();
+                    
+                    // If profiling, also broadcast incremental results and clear hash table
+                    if (_profiling && _enable_pc_sampling && _hashTable) {
+                        broadcastHashTableResults();
+                        
+                        // Clear hash table after broadcasting to:
+                        // 1. Prevent overflow on long profiling sessions
+                        // 2. Show incremental data (not cumulative)
+                        // Note: We don't lock here as the ISR uses atomic operations
+                        memset(_hashTable, 0, sizeof(StackItem) * (HashSize + 1));
+                    }
                 }
                 last_update = current_time;
             }
@@ -634,37 +628,41 @@ namespace WebUI {
         uint32_t total_runtime;
         task_count = uxTaskGetSystemState(task_array, task_count, &total_runtime);
 
-        // Calculate CPU usage properly
-        // uxTaskGetSystemState returns total_runtime in ticks (not cycles!)
-        // On ESP32, tick rate is configHZ (typically 100 or 1000 Hz)
+        // Calculate overall CPU usage (excluding IDLE tasks)
         uint32_t current_timestamp = xTaskGetTickCount();
         
         float cpu_usage = 0.0f;
-        if (_last_timestamp > 0) {
-            // Delta time in ticks
+        if (_last_timestamp > 0 && current_timestamp > _last_timestamp) {
             uint32_t delta_ticks = current_timestamp - _last_timestamp;
             
-            if (delta_ticks > 0) {
-                // Delta runtime in ticks (sum of all task runtimes)
-                uint32_t delta_runtime = total_runtime - _last_cycles;
-                
-                // CPU usage = (task runtime / total time) * 100
-                // On dual-core ESP32, max is 200% (both cores at 100%)
-                // Divide by number of cores to get average per-core usage
-                #ifdef CONFIG_FREERTOS_UNICORE
-                    cpu_usage = (delta_runtime * 100.0f) / delta_ticks;
-                #else
-                    // Dual core: total runtime can be up to 2x wall clock time
-                    cpu_usage = (delta_runtime * 100.0f) / (delta_ticks * 2);
-                #endif
-                
-                // Clamp to 0-100%
-                if (cpu_usage < 0.0f) cpu_usage = 0.0f;
-                if (cpu_usage > 100.0f) cpu_usage = 100.0f;
+            // Calculate total runtime excluding IDLE tasks
+            uint32_t total_runtime_no_idle = 0;
+            for (UBaseType_t i = 0; i < task_count; i++) {
+                // Skip IDLE tasks (they run when CPU is idle)
+                if (strncmp(task_array[i].pcTaskName, "IDLE", 4) != 0) {
+                    total_runtime_no_idle += task_array[i].ulRunTimeCounter;
+                }
             }
+            
+            uint32_t delta_runtime = total_runtime_no_idle - _last_cycles;
+            
+            // CPU usage = (active runtime / available time / num_cores) * 100
+            #ifdef CONFIG_FREERTOS_UNICORE
+                cpu_usage = (delta_runtime * 100.0f) / delta_ticks;
+            #else
+                // Dual core: available time = delta_ticks * 2
+                cpu_usage = (delta_runtime * 100.0f) / (delta_ticks * 2.0f);
+            #endif
         }
 
-        _last_cycles = total_runtime;
+        // Store total runtime (excluding IDLE) for next delta calculation
+        uint32_t total_runtime_no_idle = 0;
+        for (UBaseType_t i = 0; i < task_count; i++) {
+            if (strncmp(task_array[i].pcTaskName, "IDLE", 4) != 0) {
+                total_runtime_no_idle += task_array[i].ulRunTimeCounter;
+            }
+        }
+        _last_cycles = total_runtime_no_idle;
         _last_timestamp = current_timestamp;
 
         // Get heap info
@@ -672,22 +670,43 @@ namespace WebUI {
         size_t total_heap = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
         size_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
 
-        // Build JSON
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer),
-            "{\"type\":\"perf_counters\","
-            "\"cpu_usage\":%.1f,"
-            "\"tasks\":%u,"
-            "\"heap_free\":%u,"
-            "\"heap_total\":%u,"
-            "\"heap_min_free\":%u}",
-            cpu_usage,
-            static_cast<unsigned int>(task_count),
-            static_cast<unsigned int>(free_heap),
-            static_cast<unsigned int>(total_heap),
-            static_cast<unsigned int>(min_free_heap));
-
-        _profiler_socket->textAll(buffer);
+        // Build JSON with per-task info
+        String json = "{\"type\":\"perf_counters\",";
+        json += "\"cpu_usage\":";
+        json += String(cpu_usage, 1);
+        json += ",\"task_count\":";
+        json += String(task_count);
+        json += ",\"heap_free\":";
+        json += String(free_heap);
+        json += ",\"heap_total\":";
+        json += String(total_heap);
+        json += ",\"heap_min_free\":";
+        json += String(min_free_heap);
+        json += ",\"tasks\":[";
+        
+        // Add per-task statistics
+        for (UBaseType_t i = 0; i < task_count; i++) {
+            if (i > 0) json += ",";
+            
+            // Calculate per-task CPU usage if we have previous data
+            float task_cpu = 0.0f;
+            // Note: ulRunTimeCounter is cumulative, so we'd need to track previous values per task
+            // For now, just send the runtime counter and let the frontend calculate deltas
+            
+            json += "{\"name\":\"";
+            json += task_array[i].pcTaskName;
+            json += "\",\"priority\":";
+            json += String(task_array[i].uxCurrentPriority);
+            json += ",\"runtime\":";
+            json += String(task_array[i].ulRunTimeCounter);
+            json += ",\"stack_hwm\":";
+            json += String(task_array[i].usStackHighWaterMark);
+            json += "}";
+        }
+        
+        json += "]}";
+        
+        _profiler_socket->textAll(json);
         
         free(task_array);
     }

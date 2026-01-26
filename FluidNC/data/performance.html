@@ -191,6 +191,7 @@
         .results-table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
         
         .results-table th {
@@ -203,6 +204,30 @@
             text-transform: uppercase;
             cursor: pointer;
             user-select: none;
+        }
+        
+        /* Fixed column widths */
+        .results-table th:nth-child(1),
+        .results-table td:nth-child(1) {
+            width: 120px;
+        }
+        
+        .results-table th:nth-child(2),
+        .results-table td:nth-child(2) {
+            width: 100px;
+        }
+        
+        .results-table th:nth-child(3),
+        .results-table td:nth-child(3) {
+            width: auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .results-table th:nth-child(4),
+        .results-table td:nth-child(4) {
+            width: 120px;
         }
         
         .results-table th:hover {
@@ -300,6 +325,69 @@
             width: 0%;
             transition: width 0.3s ease;
         }
+        
+        /* Tree View Styles */
+        .tree-node {
+            padding: 4px 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .tree-node-content {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+        
+        .tree-node-content:hover {
+            background: #353535;
+        }
+        
+        .tree-expand {
+            width: 20px;
+            color: #888;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        
+        .tree-percent {
+            width: 80px;
+            color: #ff9800;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .tree-calls {
+            width: 80px;
+            color: #888;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        
+        .tree-function {
+            flex: 1;
+            color: #4ec9b0;
+        }
+        
+        .tree-address {
+            width: 100px;
+            color: #666;
+            font-size: 11px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        
+        .tree-children {
+            margin-left: 20px;
+            border-left: 1px solid #444;
+            padding-left: 10px;
+        }
+        
+        .tree-children.collapsed {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -318,11 +406,6 @@
         
         <div class="controls">
             <div class="control-group">
-                <label>Duration (seconds)</label>
-                <input type="number" id="duration" value="10" min="1" max="300">
-            </div>
-            
-            <div class="control-group">
                 <label>Sample Rate (Hz)</label>
                 <select id="sampleRate">
                     <option value="100">100 Hz</option>
@@ -336,7 +419,7 @@
             
             <button id="loadSymbolsBtn" onclick="loadSymbols()">Load Symbols</button>
             <button id="startBtn" onclick="startProfiling()" disabled>Start Profiling</button>
-            <button id="stopBtn" onclick="stopProfiling()" class="danger" disabled>Stop</button>
+            <button id="stopBtn" onclick="stopProfiling()" class="danger" disabled>Stop Profiling</button>
         </div>
         
         <div class="info-cards">
@@ -356,6 +439,27 @@
                 <h3>Min Free Heap</h3>
                 <div class="value" id="minFreeHeap">-</div>
             </div>
+        </div>
+        
+        <!-- Task Statistics -->
+        <div class="results-section" style="margin-bottom: 20px;">
+            <div class="results-header">
+                <h2>Tasks</h2>
+            </div>
+            <table class="results-table" style="table-layout: auto;">
+                <thead>
+                    <tr>
+                        <th style="width: 200px;">Task Name</th>
+                        <th style="width: 100px;">CPU %</th>
+                        <th style="width: 100px;">Priority</th>
+                        <th style="width: 120px;">Stack HWM</th>
+                        <th style="width: auto;">Runtime</th>
+                    </tr>
+                </thead>
+                <tbody id="taskStatsBody">
+                    <tr><td colspan="5" class="no-data">No task data yet</td></tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="info-cards" id="samplingStats" style="display: none;">
@@ -380,24 +484,39 @@
         <div class="results-section">
             <div class="results-header">
                 <h2>Hotspots</h2>
-                <button onclick="exportResults()" style="padding: 6px 12px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;">Export</button>
+                <div style="display: flex; gap: 10px;">
+                    <button id="viewFlatBtn" class="view-btn" onclick="switchView('flat')" style="padding: 6px 16px; background: #007acc; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">📋 Flat</button>
+                    <button id="viewTreeBtn" class="view-btn" onclick="switchView('tree')" style="padding: 6px 16px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;">🌳 Tree</button>
+                    <button onclick="exportResults()" style="padding: 6px 12px; background: #555; border: none; color: white; border-radius: 4px; cursor: pointer;">Export</button>
+                </div>
             </div>
             <div class="filter-box">
                 <input type="text" id="filterInput" placeholder="Filter by function name or address..." oninput="filterResults()">
             </div>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th onclick="sortResults('percent')">% Time <span id="sort-percent">▼</span></th>
-                        <th onclick="sortResults('count')">Samples <span id="sort-count"></span></th>
-                        <th onclick="sortResults('name')">Function <span id="sort-name"></span></th>
-                        <th onclick="sortResults('address')">Address <span id="sort-address"></span></th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                    <tr><td colspan="4" class="no-data">No profiling data yet. Click "Start Profiling" to begin.</td></tr>
-                </tbody>
-            </table>
+            
+            <!-- Flat View -->
+            <div id="flatView">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortResults('percent')">% Time <span id="sort-percent">▼</span></th>
+                            <th onclick="sortResults('count')">Samples <span id="sort-count"></span></th>
+                            <th onclick="sortResults('name')">Function <span id="sort-name"></span></th>
+                            <th onclick="sortResults('address')">Address <span id="sort-address"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <tr><td colspan="4" class="no-data">No profiling data yet. Click "Start Profiling" to begin.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Tree View -->
+            <div id="treeView" style="display: none;">
+                <div id="treeContainer" style="font-family: 'Consolas', 'Monaco', monospace; font-size: 13px;">
+                    <div class="no-data">No profiling data yet. Click "Start Profiling" to begin.</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -409,6 +528,7 @@
         let sortAscending = false;
         let isProfiling = false;
         let totalSamples = 0;
+        let lastTaskRuntimes = new Map(); // Track previous task runtimes for CPU% calculation
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsHost = window.location.hostname || 'fluidnc.local';
@@ -569,12 +689,12 @@
         function updatePerfCounters(data) {
             // Update CPU usage
             if (data.cpu_usage !== undefined) {
-                document.getElementById('cpuUsage').textContent = data.cpu_usage.toFixed(1) + '%';
+                document.getElementById('cpuUsage').textContent = (data.cpu_usage.toFixed(1) / 1000.0) + '%';
             }
             
             // Update task count
-            if (data.tasks !== undefined) {
-                document.getElementById('activeTasks').textContent = data.tasks;
+            if (data.task_count !== undefined) {
+                document.getElementById('activeTasks').textContent = data.task_count;
             }
             
             // Update heap stats
@@ -587,79 +707,136 @@
                 const minKB = (data.heap_min_free / 1024).toFixed(1);
                 document.getElementById('minFreeHeap').textContent = minKB + ' KB';
             }
+            
+            // Update per-task statistics
+            if (data.tasks && Array.isArray(data.tasks)) {
+                updateTaskStats(data.tasks);
+            }
+        }
+        
+        function updateTaskStats(tasks) {
+            // Calculate per-task CPU usage
+            const tasksWithCpu = tasks.map(task => {
+                const taskRuntime = task.runtime;
+                const lastRuntime = lastTaskRuntimes.get(task.name) || 0;
+                const deltaRuntime = taskRuntime - lastRuntime;
+                
+                // Store current runtime for next calculation
+                lastTaskRuntimes.set(task.name, taskRuntime);
+                
+                // CPU% = (delta_runtime / total_delta_runtime) * overall_cpu
+                // We'll calculate it as percentage of total delta
+                return {
+                    ...task,
+                    deltaRuntime: deltaRuntime > 0 ? deltaRuntime : 0
+                };
+            });
+            
+            // Calculate total delta for percentage
+            const totalDelta = tasksWithCpu.reduce((sum, t) => sum + t.deltaRuntime, 0);
+            
+            // Sort by CPU usage (delta runtime) descending
+            tasksWithCpu.sort((a, b) => b.deltaRuntime - a.deltaRuntime);
+            
+            // Render task table
+            const tbody = document.getElementById('taskStatsBody');
+            if (tasksWithCpu.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-data">No task data</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = tasksWithCpu.map(task => {
+                const cpuPercent = totalDelta > 0 ? (task.deltaRuntime / totalDelta * 100).toFixed(1) : '0.0';
+                const stackBytes = task.stack_hwm * 4; // Stack HWM is in words (4 bytes)
+                
+                return `
+                    <tr>
+                        <td><span class="function-name">${escapeHtml(task.name)}</span></td>
+                        <td>${cpuPercent}%</td>
+                        <td>${task.priority}</td>
+                        <td>${stackBytes} B</td>
+                        <td style="font-family: monospace; font-size: 11px;">${task.runtime}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function processResults(items) {
-            console.log(`Processing ${items.length} profiling items`);
+            console.log(`Processing ${items.length} profiling items (incremental update)`);
             
             if (items.length === 0) {
                 console.warn('No profiling data received');
                 return;
             }
             
+            // Append to raw items for tree view
+            rawItems = rawItems.concat(items);
+            
             // Check if this is stack profiling data (caller/callee) or simple PC samples
             const isStackProfiling = items[0] && typeof items[0] === 'object' && 'caller' in items[0];
             
+            // Build a map of existing results for quick lookup
+            const resultsMap = new Map();
+            for (const result of resultsData) {
+                resultsMap.set(result.address, result);
+            }
+            
             if (isStackProfiling) {
-                // Process caller/callee pairs
-                const callerCounts = new Map();
-                let totalCalls = 0;
-                
+                // Process caller/callee pairs and merge with existing data
                 for (const item of items) {
                     const callerAddr = parseInt(item.caller);
                     const calls = item.calls || 1;
                     
-                    callerCounts.set(callerAddr, (callerCounts.get(callerAddr) || 0) + calls);
-                    totalCalls += calls;
-                }
-                
-                totalSamples = totalCalls;
-                document.getElementById('totalSamples').textContent = totalSamples;
-                document.getElementById('uniqueAddresses').textContent = callerCounts.size;
-                
-                // Build results array
-                resultsData = [];
-                for (const [address, count] of callerCounts.entries()) {
-                    const percent = (count / totalSamples) * 100;
-                    const name = resolveAddress(address) || '(unknown)';
-                    
-                    resultsData.push({
-                        address: address,
-                        addressStr: '0x' + address.toString(16).padStart(8, '0'),
-                        count: count,
-                        percent: percent,
-                        name: name
-                    });
+                    if (resultsMap.has(callerAddr)) {
+                        // Update existing entry
+                        resultsMap.get(callerAddr).count += calls;
+                    } else {
+                        // Create new entry
+                        const name = resolveAddress(callerAddr) || '(unknown)';
+                        resultsMap.set(callerAddr, {
+                            address: callerAddr,
+                            addressStr: '0x' + callerAddr.toString(16).padStart(8, '0'),
+                            count: calls,
+                            percent: 0, // Will recalculate below
+                            name: name
+                        });
+                    }
                 }
             } else {
                 // Legacy: simple PC samples (array of addresses)
-                const counts = new Map();
                 for (const addrStr of items) {
                     const addr = parseInt(addrStr);
-                    counts.set(addr, (counts.get(addr) || 0) + 1);
-                }
-                
-                totalSamples = items.length;
-                document.getElementById('totalSamples').textContent = totalSamples;
-                document.getElementById('uniqueAddresses').textContent = counts.size;
-                
-                resultsData = [];
-                for (const [address, count] of counts.entries()) {
-                    const percent = (count / totalSamples) * 100;
-                    const name = resolveAddress(address) || '(unknown)';
                     
-                    resultsData.push({
-                        address: address,
-                        addressStr: '0x' + address.toString(16).padStart(8, '0'),
-                        count: count,
-                        percent: percent,
-                        name: name
-                    });
+                    if (resultsMap.has(addr)) {
+                        resultsMap.get(addr).count += 1;
+                    } else {
+                        const name = resolveAddress(addr) || '(unknown)';
+                        resultsMap.set(addr, {
+                            address: addr,
+                            addressStr: '0x' + addr.toString(16).padStart(8, '0'),
+                            count: 1,
+                            percent: 0,
+                            name: name
+                        });
+                    }
                 }
             }
             
-            // Sort by percent descending
-            resultsData.sort((a, b) => b.percent - a.percent);
+            // Convert map back to array
+            resultsData = Array.from(resultsMap.values());
+            
+            // Recalculate percentages and total
+            totalSamples = resultsData.reduce((sum, item) => sum + item.count, 0);
+            for (const item of resultsData) {
+                item.percent = (item.count / totalSamples) * 100;
+            }
+            
+            // Update UI stats
+            document.getElementById('totalSamples').textContent = totalSamples;
+            document.getElementById('uniqueAddresses').textContent = resultsData.length;
+            
+            // Sort by count descending (more stable than percent for incremental updates)
+            resultsData.sort((a, b) => b.count - a.count);
             
             if (resultsData.length > 0) {
                 document.getElementById('topFunction').textContent = 
@@ -667,7 +844,7 @@
                     (resultsData[0].name.length > 30 ? '...' : '');
             }
             
-            console.log(`Processed ${resultsData.length} unique functions`);
+            console.log(`Now have ${resultsData.length} unique functions, ${totalSamples} total samples`);
             renderResults();
         }
 
@@ -749,26 +926,31 @@
                 return;
             }
             
-            const duration = parseInt(document.getElementById('duration').value) * 1000;
+            // Clear existing data when starting
+            resultsData = [];
+            rawItems = [];
+            totalSamples = 0;
+            lastTaskRuntimes.clear(); // Reset task runtime tracking for accurate CPU%
+            document.getElementById('totalSamples').textContent = '0';
+            document.getElementById('uniqueAddresses').textContent = '0';
+            document.getElementById('topFunction').textContent = '-';
+            document.getElementById('resultsBody').innerHTML = '<tr><td colspan="4" class="no-data">Collecting data...</td></tr>';
+            document.getElementById('treeContainer').innerHTML = '<div class="no-data">Collecting data...</div>';
+            
             const rate = parseInt(document.getElementById('sampleRate').value);
             
             ws.send(JSON.stringify({
                 cmd: 'start',
-                duration: duration,
                 rate: rate
             }));
             
-            // Auto-stop after duration
-            setTimeout(() => {
-                if (isProfiling) {
-                    stopProfiling();
-                }
-            }, duration + 1000);
+            console.log('Started profiling at ' + rate + ' Hz - click Stop when done');
         }
 
         function stopProfiling() {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             ws.send(JSON.stringify({cmd: 'stop'}));
+            console.log('Stopped profiling');
         }
 
         function exportResults() {
@@ -795,6 +977,162 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+        
+        // Tree view functionality
+        let currentView = 'flat';
+        let rawItems = [];
+        
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('flatView').style.display = view === 'flat' ? 'block' : 'none';
+            document.getElementById('treeView').style.display = view === 'tree' ? 'block' : 'none';
+            
+            // Update button styles
+            document.getElementById('viewFlatBtn').style.background = view === 'flat' ? '#007acc' : '#555';
+            document.getElementById('viewTreeBtn').style.background = view === 'tree' ? '#007acc' : '#555';
+            
+            if (view === 'tree' && rawItems.length > 0) {
+                buildAndRenderTree();
+            }
+        }
+        
+        function buildAndRenderTree() {
+            // Build tree structure from caller/callee pairs
+            const nodes = new Map();
+            const roots = new Set();
+            let totalCalls = 0;
+            
+            // First pass: create all nodes
+            for (const item of rawItems) {
+                const callerAddr = parseInt(item.caller);
+                const calleeAddr = parseInt(item.callee);
+                const calls = item.calls || 1;
+                totalCalls += calls;
+                
+                // Create/update caller node
+                if (!nodes.has(callerAddr)) {
+                    nodes.set(callerAddr, {
+                        address: callerAddr,
+                        name: resolveAddress(callerAddr) || '(unknown)',
+                        totalCalls: 0,
+                        children: new Map(),
+                        callers: new Set()
+                    });
+                }
+                
+                const caller = nodes.get(callerAddr);
+                caller.totalCalls += calls;
+                
+                // If there's a callee (not 0), create relationship
+                if (calleeAddr !== 0) {
+                    if (!nodes.has(calleeAddr)) {
+                        nodes.set(calleeAddr, {
+                            address: calleeAddr,
+                            name: resolveAddress(calleeAddr) || '(unknown)',
+                            totalCalls: 0,
+                            children: new Map(),
+                            callers: new Set()
+                        });
+                    }
+                    
+                    const callee = nodes.get(calleeAddr);
+                    callee.callers.add(callerAddr);
+                    
+                    // Add callee as child of caller
+                    if (!caller.children.has(calleeAddr)) {
+                        caller.children.set(calleeAddr, { calls: 0 });
+                    }
+                    caller.children.get(calleeAddr).calls += calls;
+                } else {
+                    // Caller with callee=0 is a root (entry point)
+                    roots.add(callerAddr);
+                }
+            }
+            
+            // Find root nodes (functions with no callers or explicitly marked)
+            for (const [addr, node] of nodes) {
+                if (node.callers.size === 0 || roots.has(addr)) {
+                    roots.add(addr);
+                }
+            }
+            
+            // Render tree
+            const container = document.getElementById('treeContainer');
+            if (roots.size === 0) {
+                container.innerHTML = '<div class="no-data">No call tree data available</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            // Sort roots by total calls (descending)
+            const sortedRoots = Array.from(roots)
+                .filter(addr => nodes.has(addr) && nodes.get(addr).totalCalls > 0)
+                .sort((a, b) => nodes.get(b).totalCalls - nodes.get(a).totalCalls)
+                .slice(0, 50); // Top 50 roots
+            
+            // Render each root
+            for (const rootAddr of sortedRoots) {
+                const node = nodes.get(rootAddr);
+                const percent = (node.totalCalls / totalCalls) * 100;
+                const element = renderTreeNode(node, percent, nodes, totalCalls, 0);
+                container.appendChild(element);
+            }
+        }
+        
+        function renderTreeNode(node, percent, allNodes, totalCalls, depth) {
+            if (depth > 10) return document.createElement('div'); // Prevent infinite recursion
+            
+            const div = document.createElement('div');
+            div.className = 'tree-node';
+            
+            const hasChildren = node.children.size > 0;
+            const expandIcon = hasChildren ? '▶' : ' ';
+            
+            div.innerHTML = `
+                <div class="tree-node-content" onclick="toggleTreeNode(this)">
+                    <span class="tree-expand">${expandIcon}</span>
+                    <span class="tree-percent">${percent.toFixed(2)}%</span>
+                    <span class="tree-calls">${node.totalCalls} calls</span>
+                    <span class="tree-function">${escapeHtml(node.name)}</span>
+                    <span class="tree-address">0x${node.address.toString(16).padStart(8, '0')}</span>
+                </div>
+            `;
+            
+            // Add children
+            if (hasChildren && depth < 10) {
+                const childrenDiv = document.createElement('div');
+                childrenDiv.className = 'tree-children collapsed';
+                
+                // Sort children by calls (descending), take top 20
+                const sortedChildren = Array.from(node.children.entries())
+                    .sort((a, b) => b[1].calls - a[1].calls)
+                    .slice(0, 20);
+                
+                for (const [childAddr, childInfo] of sortedChildren) {
+                    const childNode = allNodes.get(childAddr);
+                    if (childNode) {
+                        const childPercent = (childInfo.calls / totalCalls) * 100;
+                        const childElement = renderTreeNode(childNode, childPercent, allNodes, totalCalls, depth + 1);
+                        childrenDiv.appendChild(childElement);
+                    }
+                }
+                
+                div.appendChild(childrenDiv);
+            }
+            
+            return div;
+        }
+        
+        function toggleTreeNode(element) {
+            const parent = element.parentElement;
+            const children = parent.querySelector('.tree-children');
+            if (children) {
+                children.classList.toggle('collapsed');
+                const expand = element.querySelector('.tree-expand');
+                expand.textContent = children.classList.contains('collapsed') ? '▶' : '▼';
+            }
         }
 
         window.addEventListener('load', connect);
