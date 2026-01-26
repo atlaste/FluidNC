@@ -517,12 +517,14 @@
         let ws = null;
         let symbolMap = new Map();
         let resultsData = [];
+        let rawItems = [];  // Raw caller/callee items for tree view
         let sortColumn = 'percent';
         let sortAscending = false;
         let isProfiling = false;
         let totalSamples = 0;
         let totalCycles = 0;  // Cumulative total cycles (denominator for %)
         let lastTaskRuntimes = new Map(); // Track previous task runtimes for CPU% calculation
+        let currentView = 'flat';  // 'flat' or 'tree'
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsHost = window.location.hostname || 'fluidnc.local';
@@ -1205,9 +1207,6 @@
         }
         
         // Tree view functionality
-        let currentView = 'flat';
-        let rawItems = [];
-        
         function switchView(view) {
             currentView = view;
             document.getElementById('flatView').style.display = view === 'flat' ? 'block' : 'none';

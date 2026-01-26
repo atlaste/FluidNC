@@ -99,10 +99,12 @@ namespace WebUI {
 #ifdef HAS_PERFMON
         if (_enable_pc_sampling) {
             // Create timer tasks on each core (hardware timer initialization)
-            xTaskCreatePinnedToCore(initializeProfilerTimer, "prof0", 2048, this, configMAX_PRIORITIES - 1, NULL, 0);
+            xTaskCreatePinnedToCore(initializeProfilerTimer, "prof0", 4096, this, configMAX_PRIORITIES - 1, NULL, 0);
 
 #ifndef CONFIG_FREERTOS_UNICORE
-            xTaskCreatePinnedToCore(initializeProfilerTimer, "prof1", 2048, this, configMAX_PRIORITIES - 1, NULL, 1);
+            // Small delay to avoid race condition in perfmon initialization
+            vTaskDelay(pdMS_TO_TICKS(100));
+            xTaskCreatePinnedToCore(initializeProfilerTimer, "prof1", 4096, this, configMAX_PRIORITIES - 1, NULL, 1);
 #endif
             // Wait for timer tasks to start
             vTaskDelay(pdMS_TO_TICKS(100));
@@ -417,7 +419,7 @@ namespace WebUI {
 
         // BaseType_t current_core_id = xPortGetCoreID(); -- not useful.
 
-        const int STACK_MAX_DEPTH = 10;
+        const int STACK_MAX_DEPTH = 30;
         const int STACK_SKIP      = 2;
         const int calls           = 1;
 

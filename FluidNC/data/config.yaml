@@ -216,13 +216,13 @@ user_inputs:
   digital6_pin: NO_PIN
   digital7_pin: NO_PIN
 
-# uvc_camera:
-#   enable: true
-#   frame_rate_limit: 5
-#   preferred_width: 640
-#   preferred_height: 480
-#   buffer_count: 3
-#
+uvc_camera:
+  enable: true
+  frame_rate_limit: 5
+  preferred_width: 640
+  preferred_height: 480
+  buffer_count: 3
+
 pneumatic_tool_turret:
   offsetsPerRevolution: 80
   toolOffsets: 0 10 20 30 40 50 60 70
