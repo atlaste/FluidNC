@@ -33,20 +33,22 @@ namespace Spindles {
     }
 
     void IRAM_ATTR Spindle::startRamp(uint32_t millis) {
-        log_info("Start ramp");
+        log_info("Start ramp, this is" << ((uint32_t)(void*)this));
         _speedIsValidAfter = usToEndTicks(millis * 1000);
     }
 
     void IRAM_ATTR Spindle::endRamp() {
-        log_info("End ramp");
+        log_info("End ramp, this is" << ((uint32_t)(void*)this));
         _speedIsValidAfter = 0;
     }
 
     bool IRAM_ATTR Spindle::speedIsValid() {
         if (_speedIsValidAfter == 0) {
+            log_info("Valid 0, this is" << ((uint32_t)(void*)this));
             return true;
         }
         if ((getCpuTicks() - _speedIsValidAfter) >= 0) {
+            log_info("Valid after, this is" << ((uint32_t)(void*)this));
             _speedIsValidAfter = 0;
             return true;
         } else {
