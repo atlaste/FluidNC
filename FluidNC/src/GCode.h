@@ -29,26 +29,27 @@ enum class Override : uint8_t {
 // http://linuxcnc.org/docs/html/gcode/overview.html#gcode:modal-groups
 enum class ModalGroup : uint8_t {
     // Table 5. G-code Modal Groups
-    MG0  = 0,   // [G4,G10,G28,G28.1,G30,G30.1,G53,G92,G92.1] Non-modal
-    MG1  = 1,   // [G0,G1,G2,G3,G38.2,G38.3,G38.4,G38.5,G80] Motion
+    MG0  = 0,   // [G4,G10,G28,G28.1,G30,G30.1,G53,G92,G92.1,G50] Non-modal
+    MG1  = 1,   // [G0,G1,G2,G3,G33,G38.2,G38.3,G38.4,G38.5,G76,G80] Motion
     MG2  = 2,   // [G17,G18,G19] Plane selection
     MG3  = 3,   // [G90,G91] Distance mode
     MG4  = 4,   // [G91.1] Arc IJK distance mode
-    MG5  = 5,   // [G93,G94] Feed rate mode
+    MG5  = 5,   // [G93,G94,G95] Feed rate mode
     MG6  = 6,   // [G20,G21] Units
     MG7  = 7,   // [G40] Cutter radius compensation mode. G41/42 NOT SUPPORTED.
     MG8  = 8,   // [G43.1,G49] Tool length offset
     MG12 = 9,   // [G54,G55,G56,G57,G58,G59] Coordinate system selection
     MG13 = 10,  // [G61] Control mode
     MG14 = 11,  // [G96,G97] Spindle speed mode (CSS)
+    MG15 = 12,  // [G7,G8] Lathe diameter/radius mode
     // Table 6. M-code Modal Groups
-    MM4  = 12,  // [M0,M1,M2,M30] Stopping
-    MM5  = 13,  // [M62,M63,M64,M65,M66,M67,M68] Digital/analog output/input
-    MM6  = 14,  // [M6] [M61] Tool change
-    MM7  = 15,  // [M3,M4,M5] Spindle turning
-    MM8  = 16,  // [M7,M8,M9] Coolant control
-    MM9  = 17,  // [M56] Override control
-    MM10 = 18,  // [M100-M199] User Defined
+    MM4  = 13,  // [M0,M1,M2,M30] Stopping
+    MM5  = 14,  // [M62,M63,M64,M65,M66,M67,M68] Digital/analog output/input
+    MM6  = 15,  // [M6] [M61] Tool change
+    MM7  = 16,  // [M3,M4,M5] Spindle turning
+    MM8  = 17,  // [M7,M8,M9] Coolant control
+    MM9  = 18,  // [M56] Override control
+    MM10 = 19,  // [M100-M199] User Defined
 };
 
 // Command actions for within execution-type modal groups (motion, stopping, non-modal). Used
@@ -68,6 +69,7 @@ enum class NonModal : gcodenum_t {
     SetHome0              = 281,  // G28.1
     GoHome1               = 300,  // G30
     SetHome1              = 301,  // G30.1
+    SetMaxSpindleSpeed    = 500,  // G50 Sxxx - Set maximum spindle speed for CSS
     AbsoluteOverride      = 530,  // G53
     SetCoordinateOffset   = 920,  // G92
     ResetCoordinateOffset = 921,  // G92.1
@@ -79,10 +81,12 @@ enum class Motion : gcodenum_t {
     Linear             = 10,   // G1
     CwArc              = 20,   // G2
     CcwArc             = 30,   // G3
+    Threading          = 330,  // G33 - Spindle synchronized motion (threading)
     ProbeToward        = 382,  // G38.2
     ProbeTowardNoError = 383,  // G38.3
     ProbeAway          = 384,  // G38.4
     ProbeAwayNoError   = 385,  // G38.5
+    ThreadingCycle     = 760,  // G76 - Multi-pass threading canned cycle
     None               = 800,  // G80
 };
 
@@ -116,14 +120,21 @@ enum class ProgramFlow : uint8_t {
 
 // Modal Group G5: Feed rate mode
 enum class FeedRate : gcodenum_t {
-    UnitsPerMin = 940,  // G94 Default
-    InverseTime = 930,  // G93
+    UnitsPerMin   = 940,  // G94 Default
+    InverseTime   = 930,  // G93
+    UnitsPerRev   = 950,  // G95 - Feed per revolution (lathe threading)
 };
 
 // Modal Group G14 (LinuxCNC): Spindle speed mode (for lathe CSS)
 enum class SpindleSpeedMode : gcodenum_t {
     ConstantRPM = 970,           // G97 Default - constant RPM
     ConstantSurfaceSpeed = 960,  // G96 - constant surface speed (CSS)
+};
+
+// Modal Group G15 (LinuxCNC): Lathe diameter/radius mode
+enum class LatheDiameterMode : gcodenum_t {
+    Radius   = 80,  // G8 Default - X values are radius (standard)
+    Diameter = 70,  // G7 - X values are diameter (doubled internally)
 };
 
 // Modal Group G6: Units mode
@@ -268,11 +279,12 @@ CoordIndex& operator++(CoordIndex& i);
 
 // NOTE: When this struct is zeroed, the 0 values in the above types set the system defaults.
 struct gc_modal_t {
-    Motion          motion;            // {G0,G1,G2,G3,G38.2,G80}
-    FeedRate        feed_rate;         // {G93,G94}
-    Units           units;             // {G20,G21}
-    Distance        distance;          // {G90,G91}
-    SpindleSpeedMode spindle_speed_mode;  // {G96,G97} CSS or constant RPM
+    Motion            motion;              // {G0,G1,G2,G3,G33,G38.2,G76,G80}
+    FeedRate          feed_rate;           // {G93,G94,G95}
+    Units             units;               // {G20,G21}
+    Distance          distance;            // {G90,G91}
+    SpindleSpeedMode  spindle_speed_mode;  // {G96,G97} CSS or constant RPM
+    LatheDiameterMode lathe_diameter_mode; // {G7,G8} Diameter or radius mode
     // ArcDistance distance_arc; // {G91.1} NOTE: Don't track. Only default supported.
     Plane plane_select;  // {G17,G18,G19}
     // CutterCompensation cutter_comp;  // {G40} NOTE: Don't track. Only default supported.

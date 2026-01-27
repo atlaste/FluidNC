@@ -252,6 +252,12 @@ void report_gcode_modes(Channel& channel) {
         case Motion::ProbeAwayNoError:
             msg << "G38.5";
             break;
+        case Motion::Threading:
+            msg << "G33";
+            break;
+        case Motion::ThreadingCycle:
+            msg << "G76";
+            break;
     }
 
     msg << " G" << (gc_state.modal.coord_select + 54);
@@ -299,6 +305,9 @@ void report_gcode_modes(Channel& channel) {
             break;
         case FeedRate::InverseTime:
             msg << " G93";
+            break;
+        case FeedRate::UnitsPerRev:
+            msg << " G95";
             break;
     }
 

@@ -8,6 +8,7 @@
 #include "Planner.h"
 #include "Config.h"
 #include "Probe.h"
+#include "GCode.h"  // For gc_values_t
 
 #include <cstdint>
 
@@ -41,6 +42,11 @@ bool mc_dwell(int32_t milliseconds);
 
 // Perform tool length probe cycle. Requires probe switch.
 GCUpdatePos mc_probe_cycle(float* target, plan_line_data_t* pl_data, bool away, bool no_error, AxisMask offsetAxis, float offset);
+
+// Perform G76 multi-pass threading canned cycle.
+// Requires spindle encoder. Uses Z axis for threading direction, X for depth.
+// gc_values contains: P=pitch, I=first depth, J=final depth, K=taper, R=spring passes, Q=compound angle
+void mc_threading_cycle(float* target, plan_line_data_t* pl_data, float* position, struct gc_values_t* values);
 
 // Handles updating the override control state.
 void mc_override_ctrl_update(Override override_state);

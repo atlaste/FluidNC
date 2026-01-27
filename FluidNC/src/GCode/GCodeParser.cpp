@@ -1367,6 +1367,34 @@ namespace GCode {
                             return Error::GcodeInvalidTarget;  // [Invalid target]
                         }
                         break;
+                    case Motion::Threading:
+                        // G33 - Spindle synchronized threading
+                        // Requires K word (thread pitch) and axis words
+                        if (!axis_words) {
+                            return Error::GcodeNoAxisWords;  // [No axis words]
+                        }
+                        if (bitnum_is_false(value_words, GCodeWord::K)) {
+                            return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
+                        }
+                        if (gc_block.values.ijk[2] <= 0.0f) {
+                            return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
+                        }
+                        clear_bitnum(value_words, GCodeWord::K);
+                        break;
+                    case Motion::ThreadingCycle:
+                        // G76 - Multi-pass threading canned cycle
+                        // Requires P (pitch), axis words for end position
+                        if (!axis_words) {
+                            return Error::GcodeNoAxisWords;  // [No axis words]
+                        }
+                        if (gc_block.values.p <= 0.0f) {
+                            return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
+                        }
+                        // I, J, K, R, Q are optional with defaults
+                        clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
+                                                bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
+                                                bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+                        break;
                 }
             }
         }

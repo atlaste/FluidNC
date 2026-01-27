@@ -14,6 +14,8 @@
 #include "Platform.h"        // WEAK_LINK
 #include "Settings.h"        // coords
 #include "State.h"           // State
+#include "Stepper.h"         // Stepper::reset
+#include "GCode.h"           // gc_state
 
 #include <cmath>
 
@@ -393,4 +395,179 @@ void mc_critical(ExecAlarm alarm) {
         //        Stepper::stop_stepping();  // Stop stepping immediately, possibly losing position
     }
     send_alarm(alarm);
+}
+
+// G76 Multi-pass threading canned cycle
+// Parameters from gc_values:
+//   Z target = thread end position (absolute or incremental based on G90/G91)
+//   X target = final thread depth (minor diameter for external, major for internal)
+//   P (stored in p) = thread pitch in mm
+//   I (stored in ijk[0]) = first pass cutting depth
+//   J (stored in ijk[1]) = minimum cutting depth per pass
+//   K (stored in ijk[2]) = thread taper (optional, 0 = no taper)
+//   R (stored in r) = number of spring passes (passes at full depth)
+//   Q (stored in q) = compound slide angle in degrees (typically 29 or 29.5)
+//
+// The cycle performs multiple threading passes, reducing depth each pass using
+// a constant chip load (degression) method until reaching the final depth.
+void mc_threading_cycle(float* target, plan_line_data_t* pl_data, float* position, gc_values_t* values) {
+    // Extract parameters
+    float pitch       = values->p;                        // Thread pitch (mm)
+    float first_depth = fabsf(values->ijk[0]);            // First pass depth (I word)
+    float min_depth   = fabsf(values->ijk[1]);            // Minimum depth per pass (J word)
+    float taper       = values->ijk[2];                   // Taper amount (K word, optional)
+    int   spring_passes = int(values->r);                 // Number of spring passes (R word)
+    float compound_angle = values->q;                     // Compound angle in degrees (Q word)
+
+    // Determine which axis is threading direction (typically Z) and depth axis (typically X)
+    axis_t thread_axis = Z_AXIS;  // Threading along Z
+    axis_t depth_axis  = config->_css_axis;  // Depth is CSS axis (typically X)
+    if (depth_axis == INVALID_AXIS) {
+        depth_axis = X_AXIS;  // Default to X if no CSS axis configured
+    }
+
+    // Starting position
+    float start_pos[MAX_N_AXIS];
+    copyAxes(start_pos, position);
+
+    // Calculate total depth to cut
+    float start_depth = position[depth_axis];
+    float final_depth = target[depth_axis];
+    float total_depth = fabsf(final_depth - start_depth);
+    float depth_direction = (final_depth < start_depth) ? -1.0f : 1.0f;
+
+    // Thread start and end positions along thread axis
+    float thread_start = position[thread_axis];
+    float thread_end   = target[thread_axis];
+
+    // Calculate compound angle infeed offset (for chip breaking)
+    float compound_rad = compound_angle * (M_PI / 180.0f);
+    float compound_ratio = tanf(compound_rad);
+
+    // Setup pl_data for threading passes
+    pl_data->motion.noFeedOverride = 1;
+    pl_data->sync_mode             = SpindleSyncMode::Rigid;
+    pl_data->feed_per_revolution   = pitch;
+
+    // Current cutting depth accumulator
+    float current_depth = 0.0f;
+    int   pass_number   = 0;
+
+    // Use constant chip load (degression) method for depth calculation
+    // Each pass removes: depth_n = first_depth * sqrt(n) - first_depth * sqrt(n-1)
+    // This gives constant chip load as depth decreases
+
+    // Cutting passes
+    while (current_depth < total_depth) {
+        pass_number++;
+
+        // Calculate this pass's depth using degression
+        float next_depth;
+        if (pass_number == 1) {
+            next_depth = first_depth;
+        } else {
+            // Constant chip load: depth = first_depth * (sqrt(pass) - sqrt(pass-1))
+            float pass_depth = first_depth * (sqrtf(float(pass_number)) - sqrtf(float(pass_number - 1)));
+            if (pass_depth < min_depth) {
+                pass_depth = min_depth;
+            }
+            next_depth = current_depth + pass_depth;
+        }
+
+        // Clamp to final depth
+        if (next_depth > total_depth) {
+            next_depth = total_depth;
+        }
+
+        // Calculate compound infeed offset (perpendicular to depth)
+        float compound_offset = next_depth * compound_ratio;
+
+        // Setup target for this pass
+        float pass_target[MAX_N_AXIS];
+        copyAxes(pass_target, start_pos);
+
+        // Apply depth with compound angle
+        pass_target[depth_axis] = start_depth + (next_depth * depth_direction);
+        pass_target[thread_axis] = thread_start + compound_offset;
+
+        // Rapid to pass start position (clear of work, at depth)
+        pl_data->sync_mode = SpindleSyncMode::None;
+        pl_data->motion.rapidMotion = 1;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Threading pass (G33 equivalent)
+        pl_data->motion.rapidMotion = 0;
+        pl_data->sync_mode = SpindleSyncMode::Rigid;
+        pass_target[thread_axis] = thread_end;
+
+        // Apply taper if specified
+        if (fabsf(taper) > 0.0001f) {
+            float thread_length = fabsf(thread_end - thread_start);
+            pass_target[depth_axis] += taper * (thread_length / pitch);
+        }
+
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Retract from thread (rapid out in X)
+        pl_data->sync_mode = SpindleSyncMode::None;
+        pl_data->motion.rapidMotion = 1;
+        pass_target[depth_axis] = start_depth;  // Retract to starting depth
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Rapid back to thread start
+        pass_target[thread_axis] = thread_start;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        current_depth = next_depth;
+
+        // Check for abort
+        if (sys.abort()) {
+            return;
+        }
+    }
+
+    // Spring passes (full depth, no cutting, for cleanup)
+    for (int i = 0; i < spring_passes; i++) {
+        float pass_target[MAX_N_AXIS];
+        copyAxes(pass_target, start_pos);
+
+        // Move to full depth
+        pass_target[depth_axis] = final_depth;
+        pl_data->sync_mode = SpindleSyncMode::None;
+        pl_data->motion.rapidMotion = 1;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Threading pass
+        pl_data->motion.rapidMotion = 0;
+        pl_data->sync_mode = SpindleSyncMode::Rigid;
+        pass_target[thread_axis] = thread_end;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Retract
+        pl_data->sync_mode = SpindleSyncMode::None;
+        pl_data->motion.rapidMotion = 1;
+        pass_target[depth_axis] = start_depth;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        // Return to start
+        pass_target[thread_axis] = thread_start;
+        mc_linear(pass_target, pl_data, position);
+        copyAxes(position, pass_target);
+
+        if (sys.abort()) {
+            return;
+        }
+    }
+
+    // Move to final target position
+    pl_data->sync_mode = SpindleSyncMode::None;
+    pl_data->motion.rapidMotion = 1;
+    mc_linear(target, pl_data, position);
 }

@@ -20,6 +20,7 @@
 #include "Machine/MachineConfig.h"
 #include "Parameters.h"
 #include "Flowcontrol.h"
+#include "SpindleEncoder.h"  // spindle_encoder
 
 #include <string.h>  // memset
 #include <math.h>    // sqrt etc.
@@ -53,6 +54,7 @@ gc_modal_t modal_defaults = {
     Units::Mm,
     Distance::Absolute,  // G90
     SpindleSpeedMode::ConstantRPM,  // G97 (default)
+    LatheDiameterMode::Radius,  // G8 (default)
     // ArcDistance::Incremental
     Plane::XY,
     // CutterCompensation::Disable,
@@ -492,6 +494,31 @@ Error gc_execute_line(const char* input_line) {
                         mg_word_bit = ModalGroup::MG1;
                         break;
 
+                    case 33:  // G33 - Spindle synchronized motion (threading)
+                        if (!spindle_encoder) {
+                            log_info("G33 requires spindle encoder");
+                            return Error::GcodeUnsupportedCommand;
+                        }
+                        axis_command          = AxisCommand::MotionMode;
+                        gc_block.modal.motion = Motion::Threading;
+                        mg_word_bit           = ModalGroup::MG1;
+                        break;
+
+                    case 50:  // G50 Sxxx - Set maximum spindle speed for CSS
+                        gc_block.non_modal_command = NonModal::SetMaxSpindleSpeed;
+                        mg_word_bit                = ModalGroup::MG0;
+                        break;
+
+                    case 76:  // G76 - Multi-pass threading canned cycle
+                        if (!spindle_encoder) {
+                            log_info("G76 requires spindle encoder");
+                            return Error::GcodeUnsupportedCommand;
+                        }
+                        axis_command          = AxisCommand::MotionMode;
+                        gc_block.modal.motion = Motion::ThreadingCycle;
+                        mg_word_bit           = ModalGroup::MG1;
+                        break;
+
                     case 80:  // G80 - cancel canned cycle
                         gc_block.modal.motion = Motion::None;
                         mg_word_bit           = ModalGroup::MG1;
@@ -547,6 +574,11 @@ Error gc_execute_line(const char* input_line) {
                         gc_block.modal.feed_rate = FeedRate::UnitsPerMin;
                         mg_word_bit              = ModalGroup::MG5;
                         break;
+                    case 95:
+                        // G95 - Feed per revolution mode (lathe)
+                        gc_block.modal.feed_rate = FeedRate::UnitsPerRev;
+                        mg_word_bit              = ModalGroup::MG5;
+                        break;
                     case 96:
                         // G96 - Constant Surface Speed mode (CSS) for lathe
                         gc_block.modal.spindle_speed_mode = SpindleSpeedMode::ConstantSurfaceSpeed;
@@ -556,6 +588,16 @@ Error gc_execute_line(const char* input_line) {
                         // G97 - Constant RPM mode (default)
                         gc_block.modal.spindle_speed_mode = SpindleSpeedMode::ConstantRPM;
                         mg_word_bit                       = ModalGroup::MG14;
+                        break;
+                    case 7:
+                        // G7 - Lathe diameter mode (X values are diameter)
+                        gc_block.modal.lathe_diameter_mode = LatheDiameterMode::Diameter;
+                        mg_word_bit                        = ModalGroup::MG15;
+                        break;
+                    case 8:
+                        // G8 - Lathe radius mode (X values are radius - default)
+                        gc_block.modal.lathe_diameter_mode = LatheDiameterMode::Radius;
+                        mg_word_bit                        = ModalGroup::MG15;
                         break;
                     case 20:
                         gc_block.modal.units = Units::Inches;
@@ -908,11 +950,17 @@ Error gc_execute_line(const char* input_line) {
                         }
                         break;
                     case 'X':
+                    // TODO FIXME SdB: This is only for X, we should also do this for Y and 
                         if (n_axis > X_AXIS) {
-                            axis_word_bit               = GCodeWord::X;
-                            gc_block.values.xyz[X_AXIS] = value;
+                            axis_word_bit = GCodeWord::X;
+                            // In G7 diameter mode, X values are halved to convert to radius
+                            if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter &&
+                                config->_css_axis == X_AXIS) {
+                                gc_block.values.xyz[X_AXIS] = value * 0.5f;
+                            } else {
+                                gc_block.values.xyz[X_AXIS] = value;
+                            }
                             set_bitnum(axis_words, X_AXIS);
-
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -1033,6 +1081,19 @@ Error gc_execute_line(const char* input_line) {
             // value in the block. If no F word is passed with a motion command that requires a feed rate, this will error
             // out in the motion modes error-checking. However, if no F word is passed with NO motion command that requires
             // a feed rate, we simply move on and the state feed rate value gets updated to zero and remains undefined.
+        } else if (gc_block.modal.feed_rate == FeedRate::UnitsPerRev) {  // = G95 (feed per revolution)
+            // G95 mode: F value is mm/rev (or inches/rev), requires spindle encoder
+            if (!spindle_encoder) {
+                return Error::GcodeUnsupportedCommand;  // G95 requires spindle encoder
+            }
+            if (bitnum_is_true(value_words, GCodeWord::F)) {
+                if (gc_block.modal.units == Units::Inches) {
+                    gc_block.values.f *= MM_PER_INCH;  // Convert to mm/rev
+                }
+            } else if (gc_state.modal.feed_rate == FeedRate::UnitsPerRev) {
+                gc_block.values.f = gc_state.feed_rate;  // Push last state feed rate
+            }
+            // F value in G95 mode is stored as mm/rev, will be converted to sync_mode in planner
         } else {  // = G94
             // - In units per mm mode: If F word passed, ensure value is in mm/min, otherwise push last state value.
             if (gc_state.modal.feed_rate == FeedRate::UnitsPerMin) {  // Last state is also G94
@@ -1562,6 +1623,34 @@ Error gc_execute_line(const char* input_line) {
                         return Error::GcodeInvalidTarget;  // [Invalid target]
                     }
                     break;
+                case Motion::Threading:
+                    // G33 - Spindle synchronized threading
+                    // Requires K word (thread pitch) and axis words
+                    if (!axis_words) {
+                        return Error::GcodeNoAxisWords;  // [No axis words]
+                    }
+                    if (bitnum_is_false(value_words, GCodeWord::K)) {
+                        return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
+                    }
+                    if (gc_block.values.ijk[2] <= 0.0f) {
+                        return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
+                    }
+                    clear_bitnum(value_words, GCodeWord::K);
+                    break;
+                case Motion::ThreadingCycle:
+                    // G76 - Multi-pass threading canned cycle
+                    // Requires P (pitch), axis words for end position
+                    if (!axis_words) {
+                        return Error::GcodeNoAxisWords;  // [No axis words]
+                    }
+                    if (gc_block.values.p <= 0.0f) {
+                        return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
+                    }
+                    // I, J, K, R, Q are optional with defaults
+                    clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
+                                            bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
+                                            bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+                    break;
             }
         }
     }
@@ -1663,6 +1752,10 @@ Error gc_execute_line(const char* input_line) {
     gc_state.modal.feed_rate = gc_block.modal.feed_rate;
     if (gc_state.modal.feed_rate == FeedRate::InverseTime) {
         pl_data->motion.inverseTime = 1;  // Set condition flag for planner use.
+    } else if (gc_state.modal.feed_rate == FeedRate::UnitsPerRev) {
+        // G95 - Feed per revolution mode
+        pl_data->sync_mode           = SpindleSyncMode::PerRev;
+        pl_data->feed_per_revolution = gc_block.values.f;  // mm/rev
     }
     // [3. Set feed rate ]:
     gc_state.feed_rate = gc_block.values.f;   // Always copy this value. See feed rate error-checking.
@@ -1670,6 +1763,9 @@ Error gc_execute_line(const char* input_line) {
 
     // [3.5 Update spindle speed mode ]:
     gc_state.modal.spindle_speed_mode = gc_block.modal.spindle_speed_mode;
+
+    // [3.6 Update lathe diameter mode ]:
+    gc_state.modal.lathe_diameter_mode = gc_block.modal.lathe_diameter_mode;
 
     // [4. Set spindle speed ]:
     // In CSS mode (G96), S value is surface speed in m/min
@@ -1953,6 +2049,14 @@ Error gc_execute_line(const char* input_line) {
             gc_ngc_changed(CoordIndex::G92);
             gc_wco_changed();
             break;
+        case NonModal::SetMaxSpindleSpeed:
+            // G50 Sxxx - Set maximum spindle speed for CSS mode
+            if (bitnum_is_true(value_words, GCodeWord::S)) {
+                gc_state.css_max_rpm = gc_block.values.s;
+                log_info("CSS max RPM set to " << gc_state.css_max_rpm);
+                clear_bitnum(value_words, GCodeWord::S);
+            }
+            break;
         default:
             break;
     }
@@ -1979,7 +2083,20 @@ Error gc_execute_line(const char* input_line) {
                        axis_linear,
                        clockwiseArc,
                        int(gc_block.values.p));
-            } else {
+            } else if (gc_state.modal.motion == Motion::Threading) {
+                // G33 - Spindle synchronized motion (single-pass threading)
+                // K word specifies thread pitch (distance per revolution)
+                pl_data->motion.noFeedOverride = 1;  // No feed override during threading
+                pl_data->sync_mode             = SpindleSyncMode::Rigid;
+                pl_data->feed_per_revolution   = gc_block.values.ijk[2];  // K = thread pitch
+                mc_linear(gc_block.values.xyz, pl_data, gc_state.position);
+            } else if (gc_state.modal.motion == Motion::ThreadingCycle) {
+                // G76 - Multi-pass threading canned cycle
+                // This is handled by mc_threading_cycle which generates multiple G33 moves
+                pl_data->motion.noFeedOverride = 1;
+                mc_threading_cycle(gc_block.values.xyz, pl_data, gc_state.position, &gc_block.values);
+            } else if (gc_state.modal.motion == Motion::ProbeToward || gc_state.modal.motion == Motion::ProbeTowardNoError ||
+                       gc_state.modal.motion == Motion::ProbeAway || gc_state.modal.motion == Motion::ProbeAwayNoError) {
                 // NOTE: gc_block.values.xyz is returned from mc_probe_cycle with the updated position value. So
                 // upon a successful probing cycle, the machine position and the returned value should be the same.
                 if (!ALLOW_FEED_OVERRIDE_DURING_PROBE_CYCLES) {
