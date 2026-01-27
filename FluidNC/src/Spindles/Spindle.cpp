@@ -33,10 +33,12 @@ namespace Spindles {
     }
 
     void IRAM_ATTR Spindle::startRamp(uint32_t millis) {
+        log_info("Start ramp");
         _speedIsValidAfter = usToEndTicks(millis * 1000);
     }
 
     void IRAM_ATTR Spindle::endRamp() {
+        log_info("End ramp");
         _speedIsValidAfter = 0;
     }
 

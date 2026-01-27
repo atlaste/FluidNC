@@ -268,10 +268,10 @@ namespace Spindles {
                     }
                 }
 
-                if (speed_queue) {
-                    // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
-                    xQueueSend(speed_queue, &rpm, 0);
-                }
+                // if (speed_queue) {
+                //     // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
+                //     xQueueSend(speed_queue, &rpm, 0); -- This seems wrong. We don't want to queue RPM
+                // }
                 break;
             }
             default:
@@ -423,9 +423,10 @@ namespace Spindles {
 
         _syncing = true;  // poll for speed
 
+        const int32_t allowedSlop = 250; // +/- 250 RPM
 
-        auto minSpeedAllowed = dev_speed > _slop ? (dev_speed - _slop) : 0;
-        auto maxSpeedAllowed = dev_speed + _slop;
+        auto minSpeedAllowed = dev_speed > allowedSlop ? (dev_speed - allowedSlop) : 0;
+        auto maxSpeedAllowed = dev_speed + allowedSlop;
 
         int unchanged = 0;
         //            const int limit     = 150;  // 15 sec / 100 ms
@@ -435,6 +436,14 @@ namespace Spindles {
             log_info("Syncing to " << int(dev_speed));
         }
 
+        // Reset speed queue first
+        xQueueReset(speed_queue);
+
+        // Update speed override:
+        _last_override_value = sys.spindle_speed_ovr();
+        auto lastSpeed       = _sync_dev_speed;
+
+        // Wait while it's changing.
         while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
                ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
             if (!xQueueReceive(speed_queue, &_sync_dev_speed, 3000)) {
@@ -447,7 +456,19 @@ namespace Spindles {
                 _speedIsValidAfter = 0;
                 return;
             }
+         
+            // Check if the speed changed significantly enough.
+            auto diff = int32_t(lastSpeed) - int32_t(_sync_dev_speed);
+            if (diff < 0) {
+                diff = -diff;
+            }
+            if (diff < int32_t(allowedSlop)) {
+                ++unchanged;
+            } else {
+                unchanged = 0;
+            }
         }
+
         _last_override_value = sys.spindle_speed_ovr();
         _current_speed       = speed;
         if (_debug > 1) {
