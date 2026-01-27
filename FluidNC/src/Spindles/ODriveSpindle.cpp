@@ -136,6 +136,9 @@ namespace Spindles {
                 }
 
                 log_info("Current speed: " << lastVelocity << " rev/s (target: " << targetVelocity << " rev/s)");
+                startRamp(_default_ramp_delay);  // re-arm it. We can't put a high number is startRamp; 5 secs is about the max.
+
+                vTaskDelay(1);
             }
 
             if (!speedReached) {

@@ -47,7 +47,10 @@ namespace Spindles {
             log_info("Valid 0, this is" << ((uint32_t)(void*)this));
             return true;
         }
-        if ((getCpuTicks() - _speedIsValidAfter) >= 0) {
+        // Fix: Compare as signed difference to handle wraparound correctly
+        // When current time < valid time, (current - valid) is negative
+        int32_t diff = getCpuTicks() - _speedIsValidAfter;
+        if (diff >= 0) {
             log_info("Valid after, this is" << ((uint32_t)(void*)this));
             _speedIsValidAfter = 0;
             return true;

@@ -27,7 +27,7 @@ namespace Spindles {
         uint32_t _last_speed          = 0;
         Percent  _last_override_value = 100;  // no override is 100 percent
 
-        static const int32_t _default_ramp_delay = 10'000;
+        static const int32_t _default_ramp_delay = 1'000;  // 1 second - safe for int32_t tick overflow
 
         void set_mode(SpindleState mode, bool critical);
 
