@@ -44,14 +44,13 @@ namespace Spindles {
 
     bool IRAM_ATTR Spindle::speedIsValid() {
         if (_speedIsValidAfter == 0) {
-            log_info("Valid 0, this is" << ((uint32_t)(void*)this));
             return true;
         }
         // Fix: Compare as signed difference to handle wraparound correctly
         // When current time < valid time, (current - valid) is negative
         int32_t diff = getCpuTicks() - _speedIsValidAfter;
         if (diff >= 0) {
-            log_info("Valid after, this is" << ((uint32_t)(void*)this));
+		log_info("Ramp has expired.");
             _speedIsValidAfter = 0;
             return true;
         } else {

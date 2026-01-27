@@ -439,15 +439,18 @@ namespace Spindles {
 
         const int32_t allowedSlop = 100; // +/- 100 RPM
 
-        auto minSpeedAllowed = dev_speed > allowedSlop ? (dev_speed - allowedSlop) : 0;
-        auto maxSpeedAllowed = dev_speed + allowedSlop;
+        // Apply gear factor to expected speed for comparison with ODrive's reported velocity.
+        // The cmd_task reports lastVelocity * 60 which is the ODrive's actual speed (with gear factor).
+        int32_t expected_odrive_speed = int32_t(dev_speed * gearFactor);
+        auto minSpeedAllowed = expected_odrive_speed > allowedSlop ? (expected_odrive_speed - allowedSlop) : 0;
+        auto maxSpeedAllowed = expected_odrive_speed + allowedSlop;
 
         int unchanged = 0;
         //            const int limit     = 150;  // 15 sec / 100 ms
         const int limit = 100;
 
         if (_debug > 1 && _sync_dev_speed != UINT32_MAX) {
-            log_info("Syncing to " << int(dev_speed));
+		log_info("Syncing to ODrive speed " << expected_odrive_speed << " (user speed " << int(dev_speed) << ")");
         }
 
         // Reset speed queue first
@@ -460,7 +463,14 @@ namespace Spindles {
         // Wait while it's changing.
         while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
                ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
-            if (!xQueueReceive(speed_queue, &_sync_dev_speed, 3000)) {
+
+	    // Keep re-arming startRamp() to prevent SpindleEncoder from validating
+	    // while we're waiting for the ODrive cmd_task to process and reach target.
+	    startRamp(_default_ramp_delay);
+	                                         
+            if (!xQueueReceive(speed_queue, &_sync_dev_speed, 500)) {
+		    if (unchanged >= limit)
+		    {
                 mc_critical(ExecAlarm::SpindleControl);
                 log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
                 _syncing = false;
@@ -468,6 +478,7 @@ namespace Spindles {
                 // Let's just say it's valid again; otherwise we get issues later.
                 endRamp();
                 return;
+		    }
             }
          
             // Check if the speed changed significantly enough.

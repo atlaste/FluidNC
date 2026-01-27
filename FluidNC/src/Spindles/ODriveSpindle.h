@@ -101,7 +101,7 @@ namespace Spindles {
         volatile bool _syncing;
 
     public:
-        uint8_t _debug = 0;
+        uint8_t _debug = 1;
 
         ODriveSpindle(const char* name) : Spindle(name) {}
         ODriveSpindle(const ODriveSpindle&)            = delete;
