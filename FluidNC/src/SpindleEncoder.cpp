@@ -306,6 +306,37 @@ void IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t value) {
     alarmValue = value;
 }
 
+void IRAM_ATTR SpindleEncoder::setIndexAlarm() {
+    // Wait for index pulse (Z channel)
+    // If no index pin configured, fall back to waiting for one revolution worth of counts
+    waiting_for_index = true;
+    target_absolute_count = getCount() + countPerRevolution;
+    
+    // Set up alarm for the target
+    int64_t current       = getCount();
+    int32_t counts_to_go  = int32_t(target_absolute_count - current);
+    encoder_counts_remaining = counts_to_go;
+
+    // Will be handled by the existing threshold mechanism in pcnt_on_reach
+}
+
+void IRAM_ATTR SpindleEncoder::setCountAlarm(int32_t target_count) {
+    // Wait until encoder reaches a specific absolute count
+    waiting_for_index     = false;
+    target_absolute_count = target_count;
+
+    int64_t current      = getCount();
+    int32_t counts_to_go = int32_t(target_count - current);
+
+    if (counts_to_go <= 0) {
+        // Already past target - trigger immediately
+        counts_to_go = 1;
+    }
+
+    encoder_counts_remaining = counts_to_go;
+    // Will be handled by the existing threshold mechanism in pcnt_on_reach
+}
+
 void SpindleEncoder::deinit() {
     // Unschedule the monitoring task
     if (monitorTask_ && Scheduler::slowScheduler) {

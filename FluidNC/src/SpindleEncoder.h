@@ -10,7 +10,7 @@
 class SpindleEncoder : public ConfigurableModule {
     Pin     pin_a;
     Pin     pin_b;
-    int32_t ratio;  // in 1/10000
+    int32_t ratio;      // in 1/10000
     int32_t allowedErrors = 5;
     int32_t errorCount    = 0;
 
@@ -38,6 +38,10 @@ class SpindleEncoder : public ConfigurableModule {
     volatile int64_t                 encoder_last_alm_count   = 0;  // Last total count when ALM fired
     volatile int32_t                 encoder_counts_remaining = 0;  // Remaining counts to next step (for >16-bit threshold handling)
 
+    // Threading sync state
+    volatile int64_t target_absolute_count = 0;   // Target count for setCountAlarm()
+    volatile bool    waiting_for_index     = false;  // True when waiting for index pulse
+
     Scheduler::Event* monitorTask_ = nullptr;  // Track the scheduled monitoring task
 
 public:
@@ -64,6 +68,12 @@ public:
     void startStepCallback();
     void stopStepCallback();
     void setStepAlarmValue(int32_t value);
+
+    // Threading sync methods (for G33/G76)
+    // setIndexAlarm: wait for index pulse (once per revolution)
+    // setCountAlarm: wait until encoder reaches a specific absolute count
+    void setIndexAlarm();
+    void setCountAlarm(int32_t target_count);
 
     inline int32_t countsPerStep(int64_t total_steps) {
         // Calculate encoder counts per step using integer arithmetic

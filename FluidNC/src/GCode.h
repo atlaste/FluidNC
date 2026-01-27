@@ -40,14 +40,15 @@ enum class ModalGroup : uint8_t {
     MG8  = 8,   // [G43.1,G49] Tool length offset
     MG12 = 9,   // [G54,G55,G56,G57,G58,G59] Coordinate system selection
     MG13 = 10,  // [G61] Control mode
+    MG14 = 11,  // [G96,G97] Spindle speed mode (CSS)
     // Table 6. M-code Modal Groups
-    MM4  = 11,  // [M0,M1,M2,M30] Stopping
-    MM5  = 12,  // [M62,M63,M64,M65,M66,M67,M68] Digital/analog output/input
-    MM6  = 13,  // [M6] [M61] Tool change
-    MM7  = 14,  // [M3,M4,M5] Spindle turning
-    MM8  = 15,  // [M7,M8,M9] Coolant control
-    MM9  = 16,  // [M56] Override control
-    MM10 = 17,  // [M100-M199] User Defined
+    MM4  = 12,  // [M0,M1,M2,M30] Stopping
+    MM5  = 13,  // [M62,M63,M64,M65,M66,M67,M68] Digital/analog output/input
+    MM6  = 14,  // [M6] [M61] Tool change
+    MM7  = 15,  // [M3,M4,M5] Spindle turning
+    MM8  = 16,  // [M7,M8,M9] Coolant control
+    MM9  = 17,  // [M56] Override control
+    MM10 = 18,  // [M100-M199] User Defined
 };
 
 // Command actions for within execution-type modal groups (motion, stopping, non-modal). Used
@@ -117,6 +118,12 @@ enum class ProgramFlow : uint8_t {
 enum class FeedRate : gcodenum_t {
     UnitsPerMin = 940,  // G94 Default
     InverseTime = 930,  // G93
+};
+
+// Modal Group G14 (LinuxCNC): Spindle speed mode (for lathe CSS)
+enum class SpindleSpeedMode : gcodenum_t {
+    ConstantRPM = 970,           // G97 Default - constant RPM
+    ConstantSurfaceSpeed = 960,  // G96 - constant surface speed (CSS)
 };
 
 // Modal Group G6: Units mode
@@ -261,10 +268,11 @@ CoordIndex& operator++(CoordIndex& i);
 
 // NOTE: When this struct is zeroed, the 0 values in the above types set the system defaults.
 struct gc_modal_t {
-    Motion   motion;     // {G0,G1,G2,G3,G38.2,G80}
-    FeedRate feed_rate;  // {G93,G94}
-    Units    units;      // {G20,G21}
-    Distance distance;   // {G90,G91}
+    Motion          motion;            // {G0,G1,G2,G3,G38.2,G80}
+    FeedRate        feed_rate;         // {G93,G94}
+    Units           units;             // {G20,G21}
+    Distance        distance;          // {G90,G91}
+    SpindleSpeedMode spindle_speed_mode;  // {G96,G97} CSS or constant RPM
     // ArcDistance distance_arc; // {G91.1} NOTE: Don't track. Only default supported.
     Plane plane_select;  // {G17,G18,G19}
     // CutterCompensation cutter_comp;  // {G40} NOTE: Don't track. Only default supported.
@@ -298,11 +306,15 @@ struct gc_values_t {
 struct parser_state_t {
     gc_modal_t modal;
 
-    float    spindle_speed;  // RPM
+    float    spindle_speed;  // RPM (or surface speed in m/min when in CSS mode)
     float    feed_rate;      // Millimeters/min
     uint32_t selected_tool;  // tool from T value
     int32_t  current_tool;   // the tool in use. default is -1
     int32_t  line_number;    // Last line number sent
+
+    // CSS (Constant Surface Speed) parameters for lathe operations
+    float css_surface_speed;  // Surface speed in m/min (from G96 Sxxx)
+    float css_max_rpm;        // Maximum RPM limit (from G50 Sxxx or spindle max)
 
     float position[MAX_N_AXIS];  // Where the interpreter considers the tool to be at this point in the code
 

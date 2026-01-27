@@ -67,6 +67,12 @@ struct plan_block_t {
     SpindleSyncMode sync_mode;           // Synchronization mode
     float           feed_per_revolution; // Feed rate in mm/rev (for G95/G33)
 
+    // CSS (Constant Surface Speed) data
+    bool  css_mode;           // True when in G96 CSS mode
+    float css_surface_speed;  // Surface speed in m/min (G96 S value)
+    float css_max_rpm;        // Maximum RPM limit
+    float css_start_position; // CSS axis position at block start (mm)
+
     bool is_jog;
 };
 
@@ -84,6 +90,11 @@ struct plan_line_data_t {
     // Spindle synchronization data
     SpindleSyncMode sync_mode;           // Synchronization mode (None/PerRev/Rigid)
     float           feed_per_revolution; // Feed rate in mm/rev (for G95/G33)
+
+    // CSS (Constant Surface Speed) data
+    bool  css_mode;           // True when in G96 CSS mode
+    float css_surface_speed;  // Surface speed in m/min (G96 S value)
+    float css_max_rpm;        // Maximum RPM limit
 };
 
 void plan_init();

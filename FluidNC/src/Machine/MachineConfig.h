@@ -103,6 +103,12 @@ namespace Machine {
         // executed in sync with GCode commands. It is not a real-time command.
         bool _enableParkingOverrideControl = false;
 
+        // Constant Surface Speed (CSS) axis for lathe operations (G96/G97).
+        // This axis determines the cutting diameter for CSS calculations.
+        // The diameter is calculated as 2 * |axis_position| (radius mode).
+        // Default is INVALID_AXIS (none) - CSS is disabled for mills.
+        axis_t _css_axis = INVALID_AXIS;
+
         // Tracks and reports gcode line numbers. Disabled by default.
         bool _useLineNumbers = false;
 

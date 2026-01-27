@@ -24,6 +24,13 @@
 #include <string.h>  // memset
 #include <math.h>    // sqrt etc.
 
+// M_PI is not defined in standard C/C++ but some compilers
+// support it anyway. The following suppresses Intellisense
+// problem reports.
+#ifndef M_PI
+#    define M_PI 3.14159265358979323846
+#endif
+
 // Allow iteration over CoordIndex values
 CoordIndex& operator++(CoordIndex& i) {
     i = static_cast<CoordIndex>(static_cast<size_t>(i) + 1);
@@ -45,6 +52,7 @@ gc_modal_t modal_defaults = {
     FeedRate::UnitsPerMin,
     Units::Mm,
     Distance::Absolute,  // G90
+    SpindleSpeedMode::ConstantRPM,  // G97 (default)
     // ArcDistance::Incremental
     Plane::XY,
     // CutterCompensation::Disable,
@@ -538,6 +546,16 @@ Error gc_execute_line(const char* input_line) {
                     case 94:
                         gc_block.modal.feed_rate = FeedRate::UnitsPerMin;
                         mg_word_bit              = ModalGroup::MG5;
+                        break;
+                    case 96:
+                        // G96 - Constant Surface Speed mode (CSS) for lathe
+                        gc_block.modal.spindle_speed_mode = SpindleSpeedMode::ConstantSurfaceSpeed;
+                        mg_word_bit                       = ModalGroup::MG14;
+                        break;
+                    case 97:
+                        // G97 - Constant RPM mode (default)
+                        gc_block.modal.spindle_speed_mode = SpindleSpeedMode::ConstantRPM;
+                        mg_word_bit                       = ModalGroup::MG14;
                         break;
                     case 20:
                         gc_block.modal.units = Units::Inches;
@@ -1649,19 +1667,63 @@ Error gc_execute_line(const char* input_line) {
     // [3. Set feed rate ]:
     gc_state.feed_rate = gc_block.values.f;   // Always copy this value. See feed rate error-checking.
     pl_data->feed_rate = gc_state.feed_rate;  // Record data for planner use.
+
+    // [3.5 Update spindle speed mode ]:
+    gc_state.modal.spindle_speed_mode = gc_block.modal.spindle_speed_mode;
+
     // [4. Set spindle speed ]:
+    // In CSS mode (G96), S value is surface speed in m/min
+    // In constant RPM mode (G97), S value is RPM
     if ((gc_state.spindle_speed != gc_block.values.s) || syncLaser) {
-        if (gc_state.modal.spindle != SpindleState::Disable && !laserIsMotion && !state_is(State::CheckMode)) {
-            protocol_buffer_synchronize();
-            spindle->setState(gc_state.modal.spindle, disableLaser ? 0 : (uint32_t)gc_block.values.s);
-            gc_ovr_changed();
+        if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
+            // CSS mode - store surface speed, calculate RPM for immediate spindle command
+            gc_state.css_surface_speed = gc_block.values.s;
+            gc_state.spindle_speed     = gc_block.values.s;  // Store for state tracking
+
+            // Calculate initial RPM based on current CSS axis position
+            axis_t css_axis = config->_css_axis;
+            if (css_axis != INVALID_AXIS) {
+                float radius = fabsf(gc_state.position[css_axis]);
+                if (radius < 0.001f) {
+                    radius = 0.001f;  // Minimum radius to avoid division by zero
+                }
+                float diameter     = 2.0f * radius;
+                float rpm          = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                float max_rpm      = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+                if (rpm > max_rpm) {
+                    rpm = max_rpm;
+                }
+
+                if (gc_state.modal.spindle != SpindleState::Disable && !laserIsMotion && !state_is(State::CheckMode)) {
+                    protocol_buffer_synchronize();
+                    spindle->setState(gc_state.modal.spindle, disableLaser ? 0 : (uint32_t)rpm);
+                    gc_ovr_changed();
+                }
+            }
+        } else {
+            // Constant RPM mode (G97)
+            if (gc_state.modal.spindle != SpindleState::Disable && !laserIsMotion && !state_is(State::CheckMode)) {
+                protocol_buffer_synchronize();
+                spindle->setState(gc_state.modal.spindle, disableLaser ? 0 : (uint32_t)gc_block.values.s);
+                gc_ovr_changed();
+            }
+            gc_state.spindle_speed = gc_block.values.s;  // Update spindle speed state.
         }
-        gc_state.spindle_speed = gc_block.values.s;  // Update spindle speed state.
     }
     // NOTE: Pass zero spindle speed for all restricted laser motions.
     if (!disableLaser) {
         pl_data->spindle_speed = gc_state.spindle_speed;  // Record data for planner use.
     }  // else { pl_data->spindle_speed = 0.0; } // Initialized as zero already.
+
+    // [4.5 Set CSS mode data ]:
+    if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
+        pl_data->css_mode          = true;
+        pl_data->css_surface_speed = gc_state.css_surface_speed;
+        pl_data->css_max_rpm       = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+    } else {
+        pl_data->css_mode = false;
+    }
+
     // [5. Select tool ]: NOT SUPPORTED. Only tracks tool value.
     // [M6. Change tool ]:
     if (gc_block.modal.tool_change == ToolChange::Enable) {

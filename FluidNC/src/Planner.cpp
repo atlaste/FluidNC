@@ -308,8 +308,14 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
     block->spindle_speed      = pl_data->spindle_speed;
     block->line_number        = pl_data->line_number;
     block->is_jog             = pl_data->is_jog;
-    block->sync_mode          = pl_data->sync_mode;
+    block->sync_mode           = pl_data->sync_mode;
     block->feed_per_revolution = pl_data->feed_per_revolution;
+
+    // CSS (Constant Surface Speed) data
+    block->css_mode          = pl_data->css_mode;
+    block->css_surface_speed = pl_data->css_surface_speed;
+    block->css_max_rpm       = pl_data->css_max_rpm;
+    block->css_start_position = 0.0f;  // Will be set below if CSS is active
 
     // Compute and store initial move distance data.
     // Copy position data based on type of motion being planned.
@@ -324,6 +330,15 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
         }
         copyAxes(position_steps, pl.position);
     }
+
+    // Set CSS start position for lathe CSS mode
+    if (block->css_mode) {
+        axis_t css_axis = config->_css_axis;
+        if (css_axis != INVALID_AXIS && css_axis < MAX_N_AXIS) {
+            block->css_start_position = steps_to_motor_pos(position_steps[css_axis], css_axis);
+        }
+    }
+    
     steps_t target_steps[MAX_N_AXIS];
     float   unit_vec[MAX_N_AXIS];
     auto    n_axis = Axes::_numberAxis;
