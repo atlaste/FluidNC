@@ -9,6 +9,7 @@
 #include "System.h"  //sys.spindle_speed_ovr
 #include "Driver/delay_usecs.h"
 #include <esp_attr.h>
+#include <esp_timer.h>
 
 Spindles::Spindle* spindle = nullptr;
 
@@ -33,12 +34,11 @@ namespace Spindles {
     }
 
     void IRAM_ATTR Spindle::startRamp(uint32_t millis) {
-        log_info("Start ramp, this is" << ((uint32_t)(void*)this));
-        _speedIsValidAfter = usToEndTicks(millis * 1000);
+        // Use esp_timer_get_time() for cross-core consistency (returns microseconds)
+        _speedIsValidAfter = esp_timer_get_time() + (int64_t(millis) * 1000);
     }
 
     void IRAM_ATTR Spindle::endRamp() {
-        log_info("End ramp, this is" << ((uint32_t)(void*)this));
         _speedIsValidAfter = 0;
     }
 
@@ -46,11 +46,11 @@ namespace Spindles {
         if (_speedIsValidAfter == 0) {
             return true;
         }
-        // Fix: Compare as signed difference to handle wraparound correctly
-        // When current time < valid time, (current - valid) is negative
-        int32_t diff = getCpuTicks() - _speedIsValidAfter;
-        if (diff >= 0) {
-		log_info("Ramp has expired.");
+        // Use esp_timer_get_time() for cross-core consistency
+        int64_t now = esp_timer_get_time();
+        if (now >= _speedIsValidAfter) {
+            log_debug("Ramp has expired. now: " << now << " _speedIsValidAfter: " << _speedIsValidAfter);
+            // Ramp time has expired
             _speedIsValidAfter = 0;
             return true;
         } else {

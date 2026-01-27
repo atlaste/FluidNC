@@ -39,7 +39,9 @@ namespace Spindles {
     public:
         // _disable_with_zero_speed forces a disable when speed is 0
         bool             _disable_with_zero_speed = false;
-        volatile int32_t _speedIsValidAfter       = 0;
+        // Time (in microseconds from esp_timer_get_time) after which speed is considered valid.
+        // 0 means speed is currently valid. Uses esp_timer for cross-core consistency.
+        volatile int64_t _speedIsValidAfter       = 0;
         bool             speedIsValid();
 
         Spindle(const char* name) : _name(name) {}
