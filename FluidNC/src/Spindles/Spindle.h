@@ -38,9 +38,9 @@ namespace Spindles {
 
     public:
         // _disable_with_zero_speed forces a disable when speed is 0
-        bool _disable_with_zero_speed = false;
-        int32_t _speedIsValidAfter     = 0;
-        bool    speedIsValid();
+        bool             _disable_with_zero_speed = false;
+        volatile int32_t _speedIsValidAfter       = 0;
+        bool             speedIsValid();
 
         Spindle(const char* name) : _name(name) {}
 
@@ -69,8 +69,7 @@ namespace Spindles {
                 _atc->save_atc_data(buffer);
             }
         }
-        void restore_atc_data(const std::vector<uint8_t>& buffer, size_t& index)
-        {
+        void restore_atc_data(const std::vector<uint8_t>& buffer, size_t& index) {
             if (_atc) {
                 _atc->restore_atc_data(buffer, index);
             }

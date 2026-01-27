@@ -110,14 +110,14 @@ namespace Spindles {
         const int    timeout        = 15;   // 15 seconds timeout
         bool         speedReached   = false;
 
+        // Mark speed as invalid during ramp (for encoder validation)
+        startRamp(_default_ramp_delay);  // timeout converted to milliseconds
+
         ODrive::Set_Input_Vel_msg_t velCmd;
         velCmd.Input_Vel       = targetVelocity;  // 1000 RPM = 16.67 rev/s
         velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
         
-        // Mark speed as invalid during ramp (for encoder validation)
-        startRamp(timeout * 1000);  // timeout converted to milliseconds
-
         if (sync) {
             // Wait till speed reaches target RPM
             auto deadline = esp_timer_get_time() + (timeout * 1000000);
@@ -139,7 +139,7 @@ namespace Spindles {
             }
 
             if (!speedReached) {
-                log_warn("Warning: Target speed not reached within timeout");
+                log_warn("Warning: Target speed not reached within timeout window");
             }
 
             return speedReached;
@@ -407,7 +407,7 @@ namespace Spindles {
 
         if (_current_dev_speed != dev_speed || change_direction) {
             // Invalidate the speed; we're ramping:
-            startRamp(100000);
+            // startRamp(100000);
 
             // It's okay to set the speed again.
             log_debug("Set speed " << int(dev_speed));
@@ -470,34 +470,42 @@ namespace Spindles {
 
         _last_speed = dev_speed;
 
-        // Let's just set some large number to invalidate the speed for 5 seconds; it
-        // will be enabled later in the queue:
-        startRamp(_default_ramp_delay);
-
         if (cmd_queue) {
+            // Let's just set some large number to invalidate the speed for 5 seconds; it
+            // will be enabled later in the queue:
+            // startRamp(_default_ramp_delay);
+
             ODriveAction action;
             action.action   = ODriveAction::SetSpeed;
             action.arg      = dev_speed;
             action.critical = (dev_speed == 0);
             // Ignore errors because reporting is not safe from an ISR.
             // Perhaps set a flag instead?
-            xQueueSendFromISR(cmd_queue, &action, 0);
+            if (xQueueSendFromISR(cmd_queue, &action, 0) != pdTRUE)
+            {
+                endRamp();
+            }
         }
     }
 
     void ODriveSpindle::setSpeed(int32_t dev_speed, bool sync) {
+        if (_current_dev_speed == dev_speed || _last_speed == dev_speed) {
+            return;
+        }
+
+        _last_speed = dev_speed;
+
         if (cmd_queue) {
+            // startRamp(_default_ramp_delay);
+
             ODriveAction action;
             action.action   = sync ? ODriveAction::SetSpeed : ODriveAction::SetSpeedNoSync;
             action.arg      = dev_speed;
             action.critical = dev_speed == 0;
             if (xQueueSend(cmd_queue, &action, 0) != pdTRUE) {
                 log_info("ODrive Queue Full");
-            } else {
-                // Let's just set some large number to invalidate the speed (for 10 seconds); it
-                // will be enabled later in the queue:
-                startRamp(10'000);
-            }
+                endRamp();
+            } 
         }
     }
 
