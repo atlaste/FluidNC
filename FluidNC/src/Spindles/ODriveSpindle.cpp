@@ -106,7 +106,7 @@ namespace Spindles {
         log_info("Ramping to " << rpm << " RPM (" << (double(rpm) / 60.0) << " rev/s)...");
 
         double       targetVelocity = double(rpm) / 60.0;
-        const double tolerance      = 1.0;  // +/- 1 rev/s tolerance
+        const double tolerance      = 100 /* slop */ / 60.0;  // +/- 250 RPM tolerance
         const int    timeout        = 15;   // 15 seconds timeout
         bool         speedReached   = false;
 
@@ -145,8 +145,12 @@ namespace Spindles {
                 log_warn("Warning: Target speed not reached within timeout window");
             }
 
+            endRamp();
+
             return speedReached;
         } else {
+
+            // Can't do endRamp because we're not synchronized. We'll just default.
             return true;
         }
     }
@@ -407,9 +411,6 @@ namespace Spindles {
         }
 
         if (_current_dev_speed != dev_speed || change_direction) {
-            // Invalidate the speed; we're ramping:
-            // startRamp(100000);
-
             // It's okay to set the speed again.
             log_debug("Set speed " << int(dev_speed));
             setSpeed(dev_speed);
@@ -426,7 +427,7 @@ namespace Spindles {
 
         _syncing = true;  // poll for speed
 
-        const int32_t allowedSlop = 250; // +/- 250 RPM
+        const int32_t allowedSlop = 100; // +/- 100 RPM
 
         auto minSpeedAllowed = dev_speed > allowedSlop ? (dev_speed - allowedSlop) : 0;
         auto maxSpeedAllowed = dev_speed + allowedSlop;
@@ -456,7 +457,6 @@ namespace Spindles {
 
                 // Let's just say it's valid again; otherwise we get issues later.
                 endRamp();
-                _speedIsValidAfter = 0;
                 return;
             }
          
@@ -480,7 +480,6 @@ namespace Spindles {
 
         // Make the speed valid again:
         endRamp();
-        _speedIsValidAfter = 0;
 
         _syncing = false;
     }
@@ -493,20 +492,13 @@ namespace Spindles {
         _last_speed = dev_speed;
 
         if (cmd_queue) {
-            // Let's just set some large number to invalidate the speed for 5 seconds; it
-            // will be enabled later in the queue:
-            // startRamp(_default_ramp_delay);
-
             ODriveAction action;
             action.action   = ODriveAction::SetSpeed;
             action.arg      = dev_speed;
             action.critical = (dev_speed == 0);
             // Ignore errors because reporting is not safe from an ISR.
             // Perhaps set a flag instead?
-            if (xQueueSendFromISR(cmd_queue, &action, 0) != pdTRUE)
-            {
-                endRamp();
-            }
+            xQueueSendFromISR(cmd_queue, &action, 0);
         }
     }
 
@@ -518,15 +510,12 @@ namespace Spindles {
         _last_speed = dev_speed;
 
         if (cmd_queue) {
-            // startRamp(_default_ramp_delay);
-
             ODriveAction action;
             action.action   = sync ? ODriveAction::SetSpeed : ODriveAction::SetSpeedNoSync;
             action.arg      = dev_speed;
             action.critical = dev_speed == 0;
             if (xQueueSend(cmd_queue, &action, 0) != pdTRUE) {
                 log_info("ODrive Queue Full");
-                endRamp();
             } 
         }
     }

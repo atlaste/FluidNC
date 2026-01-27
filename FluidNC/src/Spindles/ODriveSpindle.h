@@ -88,8 +88,8 @@ namespace Spindles {
         int32_t           ODriveNodeId  = 1;
         ODrive::CanESP32* can           = nullptr;
         int64_t           lastHeartbeat = 0;
-        float             lastPosition  = 0.0f;
-        float             lastVelocity  = 0.0f;
+        volatile double   lastPosition  = 0.0;
+        volatile double   lastVelocity  = 0.0;
         uint8_t           lastAxisState = 0;
         uint32_t          lastAxisError = 0;
         int32_t           maxSpeed      = 4000;
