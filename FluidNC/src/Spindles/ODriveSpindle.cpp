@@ -392,6 +392,16 @@ namespace Spindles {
         log_debug(name() << ": setState:" << uint8_t(state) << " SpindleSpeed:" << speed
                          << ". Current dev speed: " << int(_current_dev_speed) << "; dev speed: " << int(dev_speed));
 
+        // Update _current_speed BEFORE setting speed, so that when endRamp() is called
+        // (by the ODrive cmd_task), the SpindleEncoder validation will have the correct
+        // target speed to compare against.
+        _current_speed = speed;
+
+        // Mark speed as invalid immediately to prevent SpindleEncoder from validating
+        // while we're queuing commands and waiting for the ODrive task to process them.
+        // This will be re-armed by setSpeedCommand() and cleared by endRamp() when target is reached.
+        startRamp(_default_ramp_delay);
+
         bool change_direction = false;
         if (_current_state != state) {
             // Check if we're going from 'disable' (M5) to 'enable' (M3/M4).
@@ -473,7 +483,8 @@ namespace Spindles {
         }
 
         _last_override_value = sys.spindle_speed_ovr();
-        _current_speed       = speed;
+        // Note: _current_speed was already set at the beginning of setState()
+        // so that SpindleEncoder validation has the correct target during ramping.
         if (_debug > 1) {
             log_info("Synced speed to " << int(dev_speed));
         }
