@@ -8,6 +8,7 @@
 
 #include "System.h"  //sys.spindle_speed_ovr
 #include "Driver/delay_usecs.h"
+#include "Stepper.h"  // for updateSpindleCallback()
 #include <esp_attr.h>
 #include <esp_timer.h>
 
@@ -76,6 +77,8 @@ namespace Spindles {
                 spindle                = candidate;
                 new_spindle            = true;
                 log_info("Changed to spindle:" << spindle->name());
+                // Update the ISR-safe callback for the new spindle
+                Stepper::updateSpindleCallback();
             }
         } else {
             if (spindle == nullptr) {
@@ -84,6 +87,8 @@ namespace Spindles {
                     return;
                 }
                 spindle = spindles[0];
+                // Update the ISR-safe callback for the initial spindle
+                Stepper::updateSpindleCallback();
             }
         }
     }

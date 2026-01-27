@@ -4,6 +4,7 @@
 #include "HBridgeSpindle.h"
 #include "GCode.h"   // gc_state.modal
 #include "System.h"  // sys
+#include <esp_attr.h>
 
 namespace Spindles {
     void HBridge::init() {
@@ -60,6 +61,16 @@ namespace Spindles {
         auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
         startRamp(delay);
         _current_speed = dev_speed;
+    }
+
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR HBridge::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        HBridge* instance = static_cast<HBridge*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo HBridge::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
     }
 
     void HBridge::setState(SpindleState state, SpindleSpeed speed) {

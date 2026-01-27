@@ -207,6 +207,16 @@ namespace Spindles {
         }
     }
 
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR VFDSpindle::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        VFDSpindle* instance = static_cast<VFDSpindle*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo VFDSpindle::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
+    }
+
     void VFDSpindle::setSpeed(uint32_t dev_speed) {
         if (VFD::VFDProtocol::vfd_cmd_queue) {
             VFD::VFDProtocol::VFDaction action;

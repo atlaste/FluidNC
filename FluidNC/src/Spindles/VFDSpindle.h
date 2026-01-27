@@ -58,6 +58,10 @@ namespace Spindles {
         void setState(SpindleState state, SpindleSpeed speed);
         void setSpeedfromISR(uint32_t dev_speed) override;
 
+        // ISR-safe callback for constant surface speed support
+        SpeedCallbackInfo getISRSpeedCallback() override;
+        static void isrSpeedCallback(uint32_t dev_speed, void* userData);
+
         // volatile uint32_t _sync_dev_speed;
         uint32_t     _sync_dev_speed;
         SpindleSpeed _slop;

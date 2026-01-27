@@ -54,6 +54,16 @@ namespace Spindles {
         _current_speed = dev_speed;
     }
 
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR PWM::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        PWM* instance = static_cast<PWM*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo PWM::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
+    }
+
     // XXX this is the same as OnOff::setState so it might be possible to combine them
     void PWM::setState(SpindleState state, SpindleSpeed speed) {
         if (sys.abort()) {

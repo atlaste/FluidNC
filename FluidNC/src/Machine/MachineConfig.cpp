@@ -23,6 +23,7 @@
 #include "Config.h"  // ENABLE_*
 
 #include "Driver/restart.h"
+#include "Stepper.h"  // for updateSpindleCallback()
 
 #include <cstdio>
 #include <cstring>
@@ -154,6 +155,9 @@ namespace Machine {
         // Precaution in case the full spindle initialization does not happen
         // due to a configuration error
         spindle = spindles[0];
+        
+        // Initialize the ISR-safe callback for the initial spindle
+        Stepper::updateSpindleCallback();
 
         uint32_t next_tool = 100;
         for (auto s : Spindles::SpindleFactory::objects()) {

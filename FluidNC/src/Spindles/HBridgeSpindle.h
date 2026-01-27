@@ -48,6 +48,10 @@ namespace Spindles {
         // Configuration handlers:
         void validate() override { Spindle::validate(); }
 
+        // ISR-safe callback for constant surface speed support
+        SpeedCallbackInfo     getISRSpeedCallback() override;
+        static void isrSpeedCallback(uint32_t dev_speed, void* userData);
+        
         void group(Configuration::HandlerBase& handler) override {
             // The APB clock frequency is 80MHz and the maximum divisor
             // is 2^10.  The maximum precision is 2^20. 80MHz/2^(20+10)

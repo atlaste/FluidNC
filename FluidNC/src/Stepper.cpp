@@ -16,12 +16,17 @@
 #include "Planner.h"
 #include "Protocol.h"
 #include "SpindleEncoder.h"
+#include "Spindles/Spindle.h"
 
 #include <cmath>
 
 using namespace Stepper;
 
 static bool awake = false;
+
+// Cached ISR-safe spindle speed callback to avoid vtable lookups in IRAM
+// The callback is updated when the spindle changes via updateSpindleCallback()
+static Spindles::SpeedCallbackInfo spindle_isr_callback = { Spindles::Spindle::defaultSpeedCallback, nullptr };
 
 // Stores the planner block Bresenham algorithm execution data for the segments in the segment
 // buffer. Normally, this buffer is partially in-use, but, for the worst case scenario, it will
@@ -62,6 +67,20 @@ void Stepper::init() {
         delete[] segment_buffer;
     }
     segment_buffer = new segment_t[Stepping::_segments];
+}
+
+// Update the cached ISR-safe spindle callback. Call this when the spindle changes.
+void Stepper::updateSpindleCallback() {
+    if (spindle) {
+        spindle_isr_callback = spindle->getISRSpeedCallback();
+    } else {
+        spindle_isr_callback = { Spindles::Spindle::defaultSpeedCallback, nullptr };
+    }
+}
+
+// Helper to invoke the ISR-safe spindle speed callback
+static inline void IRAM_ATTR setSpindleSpeedFromISR(uint32_t dev_speed) {
+    spindle_isr_callback.callback(dev_speed, spindle_isr_callback.userData);
 }
 
 // Stepper ISR data struct. Contains the running data for the main stepper ISR.
@@ -274,7 +293,8 @@ bool IRAM_ATTR Stepper::pulse_func() {
                 st.steps[axis] = st.exec_block->steps[axis] >> st.exec_segment->amass_level;
             }
             // Set real-time spindle output as segment is loaded, just prior to the first step.
-            spindle->setSpeedfromISR(st.exec_segment->spindle_dev_speed);
+            // Uses ISR-safe callback to avoid vtable lookups in IRAM (vtable may be in flash on ESP32)
+            setSpindleSpeedFromISR(st.exec_segment->spindle_dev_speed);
         } else {
             // Segment buffer empty. Shutdown.
             stop_stepping();
@@ -282,7 +302,7 @@ bool IRAM_ATTR Stepper::pulse_func() {
             if (!state_is(State::Jog)) {  // added to prevent ... jog after probing crash
                 // Ensure pwm is set properly upon completion of rate-controlled motion.
                 if (st.exec_block != NULL && st.exec_block->is_pwm_rate_adjusted) {
-                    spindle->setSpeedfromISR(0);
+                    setSpindleSpeedFromISR(0);
                 }
             }
 

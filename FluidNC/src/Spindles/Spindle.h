@@ -17,6 +17,16 @@
 // ================ NO FLOATS! ==========================
 
 namespace Spindles {
+    // ISR-safe callback for setting spindle speed from stepper ISR.
+    // Using a static callback avoids vtable lookups which can fail in IRAM
+    // because the vtable might be in flash memory on ESP32.
+    using SetSpeedCallback = void (*)(uint32_t dev_speed, void* userData);
+
+    // Struct to hold the callback and its associated userData (typically 'this' pointer)
+    struct SpeedCallbackInfo {
+        SetSpeedCallback callback;
+        void*            userData;
+    };
     class Spindle;
     using SpindleList = std::vector<Spindle*>;
 
@@ -88,6 +98,18 @@ namespace Spindles {
         virtual bool   tool_change(uint32_t tool_number, bool pre_select, bool set_tool);
 
         virtual void setSpeedfromISR(uint32_t dev_speed) = 0;
+
+        // ISR-safe speed callback mechanism.
+        // Returns a callback function and userData that can be called from ISR context
+        // without vtable lookups. Derived classes that support real-time speed changes
+        // should override this to return their ISR-safe implementation.
+        // The default implementation returns a no-op callback.
+        virtual SpeedCallbackInfo getISRSpeedCallback() { return { defaultSpeedCallback, nullptr }; }
+
+        // Default no-op callback for spindles that don't support ISR speed changes
+        static void IRAM_ATTR defaultSpeedCallback(uint32_t dev_speed, void* userData) {
+            // No-op: spindles that don't support ISR speed changes will use this
+        }
 
         void spinDown() { setState(SpindleState::Disable, 0); }
 

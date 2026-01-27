@@ -524,6 +524,16 @@ namespace Spindles {
         }
     }
 
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR ODriveSpindle::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        ODriveSpindle* instance = static_cast<ODriveSpindle*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo ODriveSpindle::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
+    }
+
     void ODriveSpindle::setSpeed(int32_t dev_speed, bool sync) {
         if (_current_dev_speed == dev_speed || _last_speed == dev_speed) {
             return;

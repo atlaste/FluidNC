@@ -61,6 +61,16 @@ namespace Spindles {
         _current_speed = dev_speed;
     }
 
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR OnOff::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        OnOff* instance = static_cast<OnOff*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo OnOff::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
+    }
+
     void IRAM_ATTR OnOff::set_enable(bool enable) {
         if (_disable_with_zero_speed && sys.spindle_speed() == 0) {
             enable = false;

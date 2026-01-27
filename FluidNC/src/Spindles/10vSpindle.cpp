@@ -15,6 +15,7 @@
 #include "10vSpindle.h"
 #include "System.h"  // sys.spindle_speed
 #include "GCode.h"   // gc_state.modal
+#include <esp_attr.h>
 
 namespace Spindles {
     void _10v::init() {
@@ -68,6 +69,16 @@ namespace Spindles {
         auto delay = (dev_speed < _current_speed) ? _spindown_ms : _spinup_ms;
         startRamp(delay);
         _current_speed = dev_speed;
+    }
+
+    // Static ISR-safe callback that avoids vtable lookup
+    void IRAM_ATTR _10v::isrSpeedCallback(uint32_t dev_speed, void* userData) {
+        _10v* instance = static_cast<_10v*>(userData);
+        instance->setSpeedfromISR(dev_speed);
+    }
+
+    SpeedCallbackInfo _10v::getISRSpeedCallback() {
+        return { isrSpeedCallback, this };
     }
 
     void IRAM_ATTR _10v::set_enable(bool enable) {

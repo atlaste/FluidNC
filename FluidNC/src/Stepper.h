@@ -16,6 +16,9 @@
 namespace Stepper {
     void init();
 
+    // Update the cached ISR-safe spindle callback. Call this when the spindle changes.
+    void updateSpindleCallback();
+
     bool pulse_func();
 
     // Enable steppers, but cycle does not start unless called by motion control or realtime command.
