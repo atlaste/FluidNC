@@ -60,6 +60,16 @@ if(NOT DEFINED ENV{IDF_COMPONENT_CHECK_NEW_VERSION})
     message(STATUS "Disabling component version checking to reduce registry requests")
 endif()
 
+# Handle machine configuration selection
+# Usage: idf.py -DMACHINE=lathe.yaml build
+# This will copy machine/lathe.yaml to data/config.yaml before building
+if(DEFINED MACHINE)
+    message(STATUS "Machine configuration selected: ${MACHINE}")
+    set(MACHINE_CONFIG "${MACHINE}.yaml")
+else()
+    set(MACHINE_CONFIG "default.yaml")
+endif()
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_SOURCE_DIR}/lib" "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/esp32")
@@ -96,9 +106,22 @@ add_custom_target(generate_symbols
     VERBATIM
 )
 
+# Copy machine configuration before creating filesystem image
+# This allows selecting different machine configs via -DMACHINE=<filename>
+add_custom_target(copy_machine_config
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_NAME=${CMAKE_PROJECT_NAME}
+        -DPROJECT_DIR=${CMAKE_SOURCE_DIR}
+        -DBINARY_DIR=${CMAKE_BINARY_DIR}
+        -DMACHINE_CONFIG=${MACHINE_CONFIG}
+    -P ${CMAKE_SOURCE_DIR}/copy-machine-config.cmake
+    COMMENT "Copying machine configuration"
+    VERBATIM
+)
+
 # Create LittleFS partition image (includes symbols.txt.gz from data/)
-# This must happen AFTER symbol generation
+# This must happen AFTER symbol generation AND machine config copy
 littlefs_create_partition_image(spiffs data FLASH_IN_PROJECT)
 
-# Make the LittleFS image depend on symbol generation
-add_dependencies(littlefs_spiffs_bin generate_symbols)
+# Make the LittleFS image depend on both symbol generation and machine config
+add_dependencies(littlefs_spiffs_bin generate_symbols copy_machine_config)

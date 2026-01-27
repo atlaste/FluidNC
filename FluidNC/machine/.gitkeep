@@ -1,0 +1,2 @@
+# This file ensures the machine/ directory is tracked in Git
+# Place your machine-specific YAML configuration files in this directory

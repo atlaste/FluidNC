@@ -342,8 +342,6 @@ namespace Spindles {
 
         set_mode(SpindleState::Disable, true);
 
-        _default_ramp_delay = 5000;
-
         if (_speeds.size() == 0) {
             // The default speed map for an odrive spindle is linear from 0=0% to [max]=100%
             linearSpeeds(maxSpeed, 100.0f);
