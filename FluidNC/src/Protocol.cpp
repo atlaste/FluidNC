@@ -118,7 +118,6 @@ void output_loop(void* unused) {
     }
 }
 
-
 Channel* activeChannel = nullptr;  // Channel associated with the input line
 
 TaskHandle_t pollingTask = nullptr;
@@ -227,7 +226,6 @@ void start_polling() {
                                 &outputTask,       // task handle
                                 SUPPORT_TASK_CORE  // core
         );
-        
     }
 }
 
@@ -412,7 +410,7 @@ static void protocol_do_start_homing() {
 static void protocol_do_soft_restart() {
     // Save state before reset
     StatePersistence::forceSave();
-    
+
     auto listeners = Listeners::SysListenerFactory::objects();
     for (auto l : listeners) {
         l->beforeVariableReset();
@@ -435,6 +433,10 @@ static void protocol_do_soft_restart() {
             report_ovr_counter = 0;  // Set to report change immediately
         }
         Stepper::reset();  // Clear stepper subsystem variables
+    }
+
+    if (spindle) {
+        spindle->reset();
     }
 
     // Sync cleared gcode and planner positions to current system position.
@@ -492,7 +494,7 @@ static void protocol_do_start() {
 static void protocol_do_alarm(void* alarmVoid) {
     // Save state on alarm
     StatePersistence::forceSave();
-    
+
     lastAlarm = (ExecAlarm)((int)(intptr_t)alarmVoid);
     if (spindle->_off_on_alarm) {
         spindle->stop();
@@ -1266,7 +1268,6 @@ QueueHandle_t event_queue;
 void protocol_init() {
     event_queue   = xQueueCreate(10, sizeof(EventItem));
     message_queue = xQueueCreate(10, sizeof(LogMessage));
-    
 }
 
 void IRAM_ATTR protocol_send_event_from_ISR(const Event* evt, void* arg) {

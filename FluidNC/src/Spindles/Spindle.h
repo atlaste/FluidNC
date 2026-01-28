@@ -96,6 +96,7 @@ namespace Spindles {
         virtual bool   use_delay_settings() const { return true; }
         virtual tool_t get_current_tool_num() { return _current_tool; }
         virtual bool   tool_change(uint32_t tool_number, bool pre_select, bool set_tool);
+        virtual void   reset() {}
 
         virtual void setSpeedfromISR(uint32_t dev_speed) = 0;
 
