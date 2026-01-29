@@ -131,7 +131,7 @@ namespace ATCs {
         }
         // fallthrough:
         {
-            // Outside tool: First retract X (away from workpiece OD), then Z
+            // Inside & outside tool: First retract X (away from workpiece OD), then Z
             snprintf(safeRetract, 100, "G53 G0 X%0.4f\n", safeX);
             run(safeRetract);
             snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeZ);
