@@ -20,6 +20,13 @@ namespace Spindles {
 
     class ODriveSpindle : public Spindle {
     private:
+	    enum class ODriveState {
+			Uninitialized,
+			Initialized,
+			Error,
+	    };
+
+	    
         static const uint8_t kNodeIdShift = 5;
         static const uint8_t kCmdIdBits   = 0x1F;
 
@@ -100,6 +107,8 @@ namespace Spindles {
 
         volatile bool _syncing;
 
+        ODriveState state = ODriveState::Uninitialized;
+
     public:
         uint8_t _debug = 1;
 
@@ -113,6 +122,7 @@ namespace Spindles {
         void config_message();
         void setState(SpindleState state, SpindleSpeed speed);
         void setSpeedfromISR(uint32_t dev_speed) override;
+        void reset() override;
 
         // ISR-safe callback for constant surface speed support
         SpeedCallbackInfo getISRSpeedCallback() override;

@@ -950,7 +950,6 @@ Error gc_execute_line(const char* input_line) {
                         }
                         break;
                     case 'X':
-                    // TODO FIXME SdB: This is only for X, we should also do this for Y and 
                         if (n_axis > X_AXIS) {
                             axis_word_bit = GCodeWord::X;
                             // In G7 diameter mode, X values are halved to convert to radius
@@ -967,9 +966,14 @@ Error gc_execute_line(const char* input_line) {
                         break;
                     case 'Y':
                         if (n_axis > Y_AXIS) {
-                            axis_word_bit               = GCodeWord::Y;
-                            gc_block.values.xyz[Y_AXIS] = value;
-                            set_bitnum(axis_words, Y_AXIS);
+                            axis_word_bit = GCodeWord::Y;
+                            // In G7 diameter mode, X values are halved to convert to radius
+                            if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter && config->_css_axis == Y_AXIS) {
+                                gc_block.values.xyz[Y_AXIS] = value * 0.5f;
+                            } else {
+                                gc_block.values.xyz[Y_AXIS] = value;
+                            }
+                            set_bitnum(axis_words, X_AXIS);
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -977,7 +981,12 @@ Error gc_execute_line(const char* input_line) {
                     case 'Z':
                         if (n_axis > Z_AXIS) {
                             axis_word_bit               = GCodeWord::Z;
-                            gc_block.values.xyz[Z_AXIS] = value;
+                            // In G7 diameter mode, X values are halved to convert to radius
+                            if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter && config->_css_axis == Z_AXIS) {
+                                gc_block.values.xyz[Z_AXIS] = value * 0.5f;
+                            } else {
+                                gc_block.values.xyz[Z_AXIS] = value;
+                            }
                             set_bitnum(axis_words, Z_AXIS);
                         } else {
                             return Error::GcodeUnsupportedCommand;

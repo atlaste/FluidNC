@@ -81,7 +81,7 @@ axes:
       cycle: 1
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.18:low
+      limit_neg_pin: gpio.18
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -99,7 +99,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.48:low
+      limit_neg_pin: gpio.48
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -116,7 +116,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.16:low
+      limit_neg_pin: gpio.16
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -235,6 +235,7 @@ report_inches: false
 enable_parking_override_control: false
 use_line_numbers: false
 planner_blocks: 16
+css_axis: X
 
 # Set RS485 to RX by pulling TX high
 # Idea is to use the RX as extra pin (gpio.6:low). However, it seems unreliable. Needs a 470 and 150 resistor on resp TX and RX.

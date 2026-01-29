@@ -107,7 +107,7 @@ namespace Spindles {
 
         double       targetVelocity = double(rpm) / 60.0;
         const double tolerance      = 100 /* slop */ / 60.0;  // +/- 250 RPM tolerance
-        const int    timeout        = 15;   // 15 seconds timeout
+        const int    timeout        = 15;                     // 15 seconds timeout
         bool         speedReached   = false;
 
         // Mark speed as invalid during ramp (for encoder validation)
@@ -117,7 +117,7 @@ namespace Spindles {
         velCmd.Input_Vel       = targetVelocity;  // 1000 RPM = 16.67 rev/s
         velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
-        
+
         if (sync) {
             // Wait till speed reaches target RPM
             auto deadline = esp_timer_get_time() + (timeout * 1000000);
@@ -149,7 +149,6 @@ namespace Spindles {
 
             return speedReached;
         } else {
-
             // Can't do endRamp because we're not synchronized. We'll just default.
             return true;
         }
@@ -167,7 +166,8 @@ namespace Spindles {
 
         if (!setState(ODrive::ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL)) {
             log_error("Failed to set closed loop state. State = " << lastAxisState);
-            while (1) {}
+            state = ODriveState::Error;
+            mc_critical(ExecAlarm::SpindleControl);
         }
     }
 
@@ -178,6 +178,7 @@ namespace Spindles {
     }
 
     void ODriveSpindle::initializationSequence() {
+        state = ODriveState::Uninitialized;
         if (can == nullptr) {
             can = new ODrive::CanESP32();
         }
@@ -186,7 +187,8 @@ namespace Spindles {
         // your hardware and the CAN stack that you're using.
         if (!can->init(txPin.getNative(Pin::Capabilities::Output), rxPin.getNative(Pin::Capabilities::Input))) {
             log_error("CAN failed to initialize: reset required");
-            while (true) {}  // Spin indefinitely.
+            state = ODriveState::Error;
+            return;
         }
 
         lastHeartbeat = 0;
@@ -205,8 +207,8 @@ namespace Spindles {
         ODrive::Get_Bus_Voltage_Current_msg_t vbus;
         if (!request(vbus)) {
             log_error("VBus request failed!");
-            while (true)
-                ;  // spin indefinitely
+            state = ODriveState::Error;
+            return;
         }
 
         log_info("DC voltage [V]: " << vbus.Bus_Voltage);
@@ -216,7 +218,8 @@ namespace Spindles {
         ODrive::Clear_Errors_msg_t clear;
         if (!send(clear)) {
             log_error("Failed to send Clear Errors message");
-            while (1) {}
+            state = ODriveState::Error;
+            return;
         } else {
             log_info("Cleared errors.");
         }
@@ -226,13 +229,16 @@ namespace Spindles {
         if (request(error)) {
             if (error.Active_Errors != 0 || error.Disarm_Reason != 0) {
                 log_error("Active errors: " << error.Active_Errors << ", disarm reason: " << error.Disarm_Reason);
-                while (1) {}
+                state = ODriveState::Error;
+                return;
             }
         }
 
         log_info("SUCCESS! All CAN communication tests passed");
 
         setIdleControl();
+
+        state = ODriveState::Initialized;
     }
 
     void ODriveSpindle::invokeAction(ODriveAction& action) {
@@ -297,7 +303,8 @@ namespace Spindles {
 
         // Main command processing loop
         for (;;) {
-            ODriveAction action;
+            if (instance->state == ODriveState::Initialized) {
+                ODriveAction action;
 
             // Check for commands in the queue
             if (xQueueReceive(cmd_queue, &action, poll_delay)) {
@@ -326,10 +333,13 @@ namespace Spindles {
                 instance->pump();
             }
 
-            // If syncing, periodically poll for speed updates
-            if (instance->_syncing && instance->speed_queue) {
-                uint32_t currentSpeed = uint32_t(instance->lastVelocity * 60.0f);  // Convert rev/s to RPM
-                xQueueSend(speed_queue, &currentSpeed, 0);
+                // If syncing, periodically poll for speed updates
+                if (instance->_syncing && instance->speed_queue) {
+                    uint32_t currentSpeed = uint32_t(instance->lastVelocity * 60.0f);  // Convert rev/s to RPM
+                    xQueueSend(speed_queue, &currentSpeed, 0);
+                }
+            } else if (instance->state == ODriveState::Uninitialized) {
+                instance->initializationSequence();
             }
         }
     }
@@ -373,6 +383,12 @@ namespace Spindles {
         }
 
         setupSpeeds(maxSpeed);
+    }
+
+    void ODriveSpindle::reset() {
+        if (state == ODriveState::Error) {
+            state = ODriveState::Uninitialized;
+        }
     }
 
     void ODriveSpindle::config_message() {
@@ -433,7 +449,7 @@ namespace Spindles {
                 log_debug("Set mode " << int(state));
                 set_mode(state, critical);  // critical if we are in a job
             } else {
-                _current_state   = state;
+                _current_state = state;
             }
             change_direction = true;
         }
@@ -455,20 +471,20 @@ namespace Spindles {
 
         _syncing = true;  // poll for speed
 
-        const int32_t allowedSlop = 100; // +/- 100 RPM
+        const int32_t allowedSlop = 100;  // +/- 100 RPM
 
         // Apply gear factor to expected speed for comparison with ODrive's reported velocity.
         // The cmd_task reports lastVelocity * 60 which is the ODrive's actual speed (with gear factor).
         int32_t expected_odrive_speed = int32_t(dev_speed * gearFactor);
-        auto minSpeedAllowed = expected_odrive_speed > allowedSlop ? (expected_odrive_speed - allowedSlop) : 0;
-        auto maxSpeedAllowed = expected_odrive_speed + allowedSlop;
+        auto    minSpeedAllowed       = expected_odrive_speed > allowedSlop ? (expected_odrive_speed - allowedSlop) : 0;
+        auto    maxSpeedAllowed       = expected_odrive_speed + allowedSlop;
 
         int unchanged = 0;
         //            const int limit     = 150;  // 15 sec / 100 ms
         const int limit = 100;
 
         if (_debug > 1 && _sync_dev_speed != UINT32_MAX) {
-		log_info("Syncing to ODrive speed " << expected_odrive_speed << " (user speed " << int(dev_speed) << ")");
+            log_info("Syncing to ODrive speed " << expected_odrive_speed << " (user speed " << int(dev_speed) << ")");
         }
 
         // Reset speed queue first
@@ -481,24 +497,22 @@ namespace Spindles {
         // Wait while it's changing.
         while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
                ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
+            // Keep re-arming startRamp() to prevent SpindleEncoder from validating
+            // while we're waiting for the ODrive cmd_task to process and reach target.
+            startRamp(_default_ramp_delay);
 
-	    // Keep re-arming startRamp() to prevent SpindleEncoder from validating
-	    // while we're waiting for the ODrive cmd_task to process and reach target.
-	    startRamp(_default_ramp_delay);
-	                                         
             if (!xQueueReceive(speed_queue, &_sync_dev_speed, 500)) {
-		    if (unchanged >= limit)
-		    {
-                mc_critical(ExecAlarm::SpindleControl);
-                log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
-                _syncing = false;
+                if (unchanged >= limit) {
+                    mc_critical(ExecAlarm::SpindleControl);
+                    log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
+                    _syncing = false;
 
-                // Let's just say it's valid again; otherwise we get issues later.
-                endRamp();
-                return;
-		    }
+                    // Let's just say it's valid again; otherwise we get issues later.
+                    endRamp();
+                    return;
+                }
             }
-         
+
             // Check if the speed changed significantly enough.
             auto diff = int32_t(lastSpeed) - int32_t(_sync_dev_speed);
             if (diff < 0) {
@@ -566,7 +580,7 @@ namespace Spindles {
             action.critical = dev_speed == 0;
             if (xQueueSend(cmd_queue, &action, 0) != pdTRUE) {
                 log_info("ODrive Queue Full");
-            } 
+            }
         }
     }
 
