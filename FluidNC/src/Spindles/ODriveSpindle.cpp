@@ -264,33 +264,29 @@ namespace Spindles {
                 _current_state = mode;
                 break;
             }
-            case ODriveAction::SetSpeedNoSync: {
-                int32_t rpm = action.arg;
-
-                _current_speed = rpm;  // Update target speed for validator
-            }
-                [[fallthrough]];
+            case ODriveAction::SetSpeedNoSync:
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
+                bool    sync = (action.action == ODriveAction::SetSpeed);
 
                 _current_dev_speed = rpm;
+                
+                // For NoSync (CSS mode), update _current_speed for validator
+                // For Sync mode, _current_speed was already set in setState()
+                if (!sync) {
+                    _current_speed = rpm;
+                }
 
-                // Set the speed (convert device units to RPM)
-                bool success = setSpeedCommand(int(rpm), action.action != ODriveAction::SetSpeedNoSync);
+                bool success = setSpeedCommand(rpm, sync);
 
                 if (!success) {
                     if (action.critical) {
                         mc_critical(ExecAlarm::SpindleControl);
-                        log_error("Critical ODrive spindle speed not reached: " << int(rpm) << " RPM");
+                        log_error("Critical ODrive spindle speed not reached: " << rpm << " RPM");
                     } else {
-                        log_warn("ODrive spindle speed not reached: " << int(rpm) << " RPM");
+                        log_warn("ODrive spindle speed not reached: " << rpm << " RPM");
                     }
                 }
-
-                // if (speed_queue) {
-                //     // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
-                //     xQueueSend(speed_queue, &rpm, 0); -- This seems wrong. We don't want to queue RPM
-                // }
                 break;
             }
             default:

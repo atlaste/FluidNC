@@ -29,6 +29,12 @@ namespace ATCs {
         std::string        toolProbeDirections;  // Direction to probe this tool, e.g. XXXZ
         std::vector<float> probeMaxTravel;       // Max travel for probing this tool, e.g. 100, 100, 80, 20
         std::vector<float> probePosition;        // Position to start probing this tool from, e.g. 0, 0, 0, 0
+        std::string        toolTypes;            // 'I' = inside (boring), 'O' = outside (turning). e.g. "OOIO"
+
+        // Safe retract configuration:
+        float              safeX = 0;            // Safe X position in machine coordinates
+        float              safeZ = 0;            // Safe Z position in machine coordinates
+        float              safetyMargin = 5.0f;  // Extra clearance margin in mm
 
         Macro macro;
 

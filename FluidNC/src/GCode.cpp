@@ -1779,24 +1779,28 @@ Error gc_execute_line(const char* input_line) {
     // [4. Set spindle speed ]:
     // In CSS mode (G96), S value is surface speed in m/min
     // In constant RPM mode (G97), S value is RPM
-    if ((gc_state.spindle_speed != gc_block.values.s) || syncLaser) {
+    // G50 uses S word for max spindle speed, not current speed - skip this section
+    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed &&
+        ((gc_state.spindle_speed != gc_block.values.s) || syncLaser)) {
         if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
             // CSS mode - store surface speed, calculate RPM for immediate spindle command
             gc_state.css_surface_speed = gc_block.values.s;
             gc_state.spindle_speed     = gc_block.values.s;  // Store for state tracking
 
             // Calculate initial RPM based on current CSS axis position
+            // CSS needs physical radius from spindle center = machine position + tool offset
+            // Work coordinate offsets (G54, G92) are intentionally NOT used - CSS needs real geometry
             axis_t css_axis = config->_css_axis;
             if (css_axis != INVALID_AXIS) {
-                float radius = fabsf(gc_state.position[css_axis]);
+                float* mpos = get_mpos();
+                float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                float  radius = fabsf(tool_tip_pos);
                 if (radius < 0.001f) {
-                    log_debug("CSS: radius clamped from " << fabsf(gc_state.position[css_axis]) << " to 0.001mm");
                     radius = 0.001f;  // Minimum radius to avoid division by zero
                 }
-                float diameter     = 2.0f * radius;
-                float rpm          = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
-                float max_rpm      = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
-                log_debug("CSS: pos=" << gc_state.position[css_axis] << " radius=" << radius << " rpm=" << rpm << " max=" << max_rpm);
+                float diameter = 2.0f * radius;
+                float rpm      = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                float max_rpm  = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
                 if (rpm > max_rpm) {
                     rpm = max_rpm;
                 }
@@ -1806,8 +1810,6 @@ Error gc_execute_line(const char* input_line) {
                     spindle->setState(gc_state.modal.spindle, disableLaser ? 0 : (uint32_t)rpm);
                     gc_ovr_changed();
                 }
-            } else {
-                log_warn("CSS mode active but css_axis not configured!");
             }
         } else {
             // Constant RPM mode (G97)
@@ -1829,6 +1831,10 @@ Error gc_execute_line(const char* input_line) {
         pl_data->css_mode          = true;
         pl_data->css_surface_speed = gc_state.css_surface_speed;
         pl_data->css_max_rpm       = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+        
+        // Pass tool offset so planner can calculate physical distance from spindle center
+        axis_t css_axis = config->_css_axis;
+        pl_data->css_tool_offset = (css_axis != INVALID_AXIS) ? gc_state.tool_length_offset[css_axis] : 0.0f;
     } else {
         pl_data->css_mode = false;
     }
@@ -1887,20 +1893,21 @@ Error gc_execute_line(const char* input_line) {
             protocol_buffer_synchronize();
             
             // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
-            // Calculate actual RPM from current position when turning spindle on
+            // Calculate actual RPM from machine position + tool offset when turning spindle on
             uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
             if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
                 gc_block.modal.spindle != SpindleState::Disable) {
                 axis_t css_axis = config->_css_axis;
                 if (css_axis != INVALID_AXIS) {
-                    float radius = fabsf(gc_state.position[css_axis]);
+                    float* mpos = get_mpos();
+                    float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                    float  radius = fabsf(tool_tip_pos);
                     if (radius < 0.001f) {
                         radius = 0.001f;
                     }
                     float diameter = 2.0f * radius;
-                    float rpm = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
-                    float max_rpm = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
-                    log_debug("CSS M3: pos=" << gc_state.position[css_axis] << " rpm=" << rpm << " max=" << max_rpm);
+                    float rpm      = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                    float max_rpm  = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
                     if (rpm > max_rpm) {
                         rpm = max_rpm;
                     }
@@ -2089,7 +2096,6 @@ Error gc_execute_line(const char* input_line) {
             // G50 Sxxx - Set maximum spindle speed for CSS mode
             if (bitnum_is_true(value_words, GCodeWord::S)) {
                 gc_state.css_max_rpm = gc_block.values.s;
-                log_info("CSS max RPM set to " << gc_state.css_max_rpm);
                 clear_bitnum(value_words, GCodeWord::S);
             }
             break;

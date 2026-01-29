@@ -49,6 +49,12 @@ namespace ATCs {
         handler.item("toolProbeDirections", toolProbeDirections);
         handler.item("probeMaxTravel", probeMaxTravel);
         handler.item("probePosition", probePosition);
+
+        // Tool types and safe retract:
+        handler.item("toolTypes", toolTypes);          // 'I' = inside (boring), 'O' = outside (turning)
+        handler.item("safeX", safeX);                  // Safe X position (machine coords)
+        handler.item("safeZ", safeZ);                  // Safe Z position (machine coords)
+        handler.item("safetyMargin", safetyMargin);    // Extra clearance in mm
     }
 
     void PneumaticToolTurret::validate() {
@@ -57,6 +63,14 @@ namespace ATCs {
             Assert(toolProbeDirections.size() == toolOffsets.size(), "Probe directions length should match the tool offsets vector length");
             Assert(probeMaxTravel.size() == toolOffsets.size(), "Probe max travel vector should match the tool offsets vector length");
             Assert(probePosition.size() == toolOffsets.size(), "Probe positions vector should match the tool offsets vector length");
+        }
+        // If toolTypes is specified, it should match the number of tools
+        if (toolTypes.size() > 0) {
+            Assert(toolTypes.size() == toolOffsets.size(), "Tool types length should match the tool offsets vector length");
+            // Validate that all characters are 'I' or 'O'
+            for (char c : toolTypes) {
+                Assert(c == 'I' || c == 'O' || c == 'i' || c == 'o', "Tool types must be 'I' (inside) or 'O' (outside)");
+            }
         }
     }
 
@@ -88,8 +102,41 @@ namespace ATCs {
         run("#<start_y >= #<_y>\n");
         run("#<start_z >= #<_z>\n");
 
-        run("G53 G0 X0\n");  // TODO: Safe_x and Safe_z ?
-        run("G53 G0 Z0\n");
+        // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
+        bool isInsideTool = false;
+        if (toolTypes.size() > currentToolNumber) {
+            char toolType = std::toupper(toolTypes[currentToolNumber]);
+            isInsideTool = (toolType == 'I');
+        }
+        else {
+            Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
+        }
+
+        // Safe retract sequence depends on tool type:
+        // - Inside tools (boring): Z first (out of hole, don't crash into tailstock!), then X, then more Z.
+        // - Outside tools (turning): X first (away from OD), then Z.
+        char safeRetract[100];
+        if (isInsideTool) {
+            // Inside tool: First retract Z (out of the bore), then X
+            // Use TLO + safety margin if available, otherwise use configured safeZ
+            if (useTLO && toolLengthOffsets.size() > currentToolNumber) {
+                // Calculate safe Z position based on current Z + TLO + margin
+                // This ensures we clear the bore before moving X
+                auto safeRetractLength = toolLengthOffsets[currentToolNumber] + safetyMargin;
+                snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeRetractLength);
+                run(safeRetract);
+            } else {
+                Assert(false, "TLO not found for tool number %d. Cannot retract safely.", currentToolNumber);
+            }
+        }
+        // fallthrough:
+        {
+            // Outside tool: First retract X (away from workpiece OD), then Z
+            snprintf(safeRetract, 100, "G53 G0 X%0.4f\n", safeX);
+            run(safeRetract);
+            snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeZ);
+            run(safeRetract);
+        }
 
         // Before doing the tool change, we need to check if the pressure is on:
         while (pneumaticSensor.readBar() < 2.0f) {
@@ -158,9 +205,13 @@ namespace ATCs {
             run(toolChange);
         }
 
-        // return to location before the tool change
-        run("G0Z#<start_z>\n");
-        run("G0X#<start_x>\n");
+        // DO NOT return to location before the tool change. Because you don't know the tool geometry, it
+        // might crash the machine!!!
+        // 
+        // CAM needs to handle the approach after a tool change in lathes!
+
+        // run("G0Z#<start_z>\n");
+        // run("G0X#<start_x>\n");
 
         // restore inch mode
         if (was_inch_mode) {
