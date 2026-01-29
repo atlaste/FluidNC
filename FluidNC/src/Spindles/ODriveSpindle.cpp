@@ -29,12 +29,6 @@ namespace Spindles {
         bool    critical = false;
     };
 
-    enum class ODriveState {
-        Uninitialized,
-        Initialized,
-        Error,
-    };
-
     // Static member initialization
     QueueHandle_t ODriveSpindle::cmd_queue     = nullptr;
     QueueHandle_t ODriveSpindle::speed_queue   = nullptr;
