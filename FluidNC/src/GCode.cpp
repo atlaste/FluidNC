@@ -973,7 +973,7 @@ Error gc_execute_line(const char* input_line) {
                             } else {
                                 gc_block.values.xyz[Y_AXIS] = value;
                             }
-                            set_bitnum(axis_words, X_AXIS);
+                            set_bitnum(axis_words, Y_AXIS);
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
