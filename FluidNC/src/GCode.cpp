@@ -1885,7 +1885,30 @@ Error gc_execute_line(const char* input_line) {
         // rather than gc_state, is used to manage laser state for non-laser motions.
         if (!state_is(State::CheckMode)) {
             protocol_buffer_synchronize();
-            spindle->setState(gc_block.modal.spindle, (uint32_t)pl_data->spindle_speed);
+            
+            // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
+            // Calculate actual RPM from current position when turning spindle on
+            uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
+            if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
+                gc_block.modal.spindle != SpindleState::Disable) {
+                axis_t css_axis = config->_css_axis;
+                if (css_axis != INVALID_AXIS) {
+                    float radius = fabsf(gc_state.position[css_axis]);
+                    if (radius < 0.001f) {
+                        radius = 0.001f;
+                    }
+                    float diameter = 2.0f * radius;
+                    float rpm = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                    float max_rpm = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+                    log_debug("CSS M3: pos=" << gc_state.position[css_axis] << " rpm=" << rpm << " max=" << max_rpm);
+                    if (rpm > max_rpm) {
+                        rpm = max_rpm;
+                    }
+                    actual_rpm = (uint32_t)rpm;
+                }
+            }
+            
+            spindle->setState(gc_block.modal.spindle, actual_rpm);
         }
         gc_ovr_changed();
         gc_state.modal.spindle = gc_block.modal.spindle;
