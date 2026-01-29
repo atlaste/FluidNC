@@ -264,8 +264,11 @@ namespace Spindles {
                 _current_state = mode;
                 break;
             }
-            case ODriveAction::SetSpeedNoSync:
+            case ODriveAction::SetSpeedNoSync: {
+                int32_t rpm = action.arg;
+
                 _current_speed = rpm;  // Update target speed for validator
+            }
                 [[fallthrough]];
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
