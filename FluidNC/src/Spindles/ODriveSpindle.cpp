@@ -149,7 +149,8 @@ namespace Spindles {
 
             return speedReached;
         } else {
-            // Can't do endRamp because we're not synchronized. We'll just default.
+            // NoSync mode - used during CSS where speed changes continuously
+            // Don't call startRamp/endRamp - let validation continue with updated _current_speed
             return true;
         }
     }
@@ -264,6 +265,8 @@ namespace Spindles {
                 break;
             }
             case ODriveAction::SetSpeedNoSync:
+                _current_speed = rpm;  // Update target speed for validator
+                [[fallthrough]];
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
 
