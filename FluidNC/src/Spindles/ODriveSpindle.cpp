@@ -301,6 +301,24 @@ namespace Spindles {
 
             // Check for commands in the queue
             if (xQueueReceive(cmd_queue, &action, poll_delay)) {
+                // If this is a non-sync speed update, coalesce multiple updates
+                // by draining the queue and only processing the latest one
+                if (action.action == ODriveAction::SetSpeedNoSync) {
+                    ODriveAction nextAction;
+                    while (xQueueReceive(cmd_queue, &nextAction, 0) == pdTRUE) {
+                        if (nextAction.action == ODriveAction::SetSpeedNoSync) {
+                            // Replace with newer speed command
+                            action = nextAction;
+                        } else {
+                            // Different command type - process current action first,
+                            // then put the new action back for next iteration
+                            instance->invokeAction(action);
+                            action = nextAction;
+                            break;
+                        }
+                    }
+                }
+                
                 // Process the action
                 instance->invokeAction(action);
             } else {
@@ -515,7 +533,7 @@ namespace Spindles {
 
         if (cmd_queue) {
             ODriveAction action;
-            action.action   = ODriveAction::SetSpeed;
+            action.action   = ODriveAction::SetSpeedNoSync;  // Use NoSync for ISR updates
             action.arg      = dev_speed;
             action.critical = (dev_speed == 0);
             // Ignore errors because reporting is not safe from an ISR.

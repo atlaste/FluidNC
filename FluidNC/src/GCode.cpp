@@ -159,19 +159,19 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 
 // TODO FIXME NOTES SdB 
 // LinuxCNC uses some g-codes that aren't supported yet. Namely:
-// - G7: Diameter mode for lathes. Sets some g-code parser state.
-// - G8: Radius mode for lathes. Sets some g-code parser state.
+// x G7: Diameter mode for lathes. Sets some g-code parser state.
+// x G8: Radius mode for lathes. Sets some g-code parser state.
 // - G64: Path control mode with optional blending tolerances to maintain constant velocity. Iirc this is similar to setting arc_tolerance_mm dynamically - which we already have.
-// - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which 
+// - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which
 //   is useful for finishing sharp corners. I'm not sure if this is the same as waiting for the planner to complete after each point.
-// - G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
+// t G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
 // - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
-// - G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
-// - G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
-// - G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the 
+// t G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
+// t G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
+// t G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // - G43: Tool length offset, typically applied after tool changes. Let's do this later.
-// - G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
+// t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
 // - G40: Cutter compensation cancellation. We'll deal with this later.
 // - G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // - G49: Tool length offset cancellation. We'll deal with this later.
@@ -1781,11 +1781,13 @@ Error gc_execute_line(const char* input_line) {
             if (css_axis != INVALID_AXIS) {
                 float radius = fabsf(gc_state.position[css_axis]);
                 if (radius < 0.001f) {
+                    log_debug("CSS: radius clamped from " << fabsf(gc_state.position[css_axis]) << " to 0.001mm");
                     radius = 0.001f;  // Minimum radius to avoid division by zero
                 }
                 float diameter     = 2.0f * radius;
                 float rpm          = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
                 float max_rpm      = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+                log_debug("CSS: pos=" << gc_state.position[css_axis] << " radius=" << radius << " rpm=" << rpm << " max=" << max_rpm);
                 if (rpm > max_rpm) {
                     rpm = max_rpm;
                 }
@@ -1795,6 +1797,8 @@ Error gc_execute_line(const char* input_line) {
                     spindle->setState(gc_state.modal.spindle, disableLaser ? 0 : (uint32_t)rpm);
                     gc_ovr_changed();
                 }
+            } else {
+                log_warn("CSS mode active but css_axis not configured!");
             }
         } else {
             // Constant RPM mode (G97)
