@@ -1435,6 +1435,33 @@ Error gc_execute_line(const char* input_line) {
             }
             // All remaining motion modes (all but G0 and G80), require a valid feed rate value. In units per mm mode,
             // the value must be positive. In inverse time mode, a positive value must be passed with each block.
+            // Exception: Threading modes (G33, G76) derive feed from pitch, not F word.
+        } else if (gc_block.modal.motion == Motion::Threading) {
+            // G33 - Spindle synchronized threading
+            // Requires K word (thread pitch) and axis words
+            if (!axis_words) {
+                return Error::GcodeNoAxisWords;  // [No axis words]
+            }
+            if (bitnum_is_false(value_words, GCodeWord::K)) {
+                return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
+            }
+            if (gc_block.values.ijk[2] <= 0.0f) {
+                return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
+            }
+            clear_bitnum(value_words, GCodeWord::K);
+        } else if (gc_block.modal.motion == Motion::ThreadingCycle) {
+            // G76 - Multi-pass threading canned cycle
+            // Requires P (pitch), axis words for end position
+            if (!axis_words) {
+                return Error::GcodeNoAxisWords;  // [No axis words]
+            }
+            if (gc_block.values.p <= 0.0f) {
+                return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
+            }
+            // I, J, K, R, Q are optional with defaults
+            clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
+                                    bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
+                                    bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
         } else {
             // Check if feed rate is defined for the motion modes that require it.
             if (gc_block.values.f == 0.0) {
@@ -1632,33 +1659,8 @@ Error gc_execute_line(const char* input_line) {
                         return Error::GcodeInvalidTarget;  // [Invalid target]
                     }
                     break;
-                case Motion::Threading:
-                    // G33 - Spindle synchronized threading
-                    // Requires K word (thread pitch) and axis words
-                    if (!axis_words) {
-                        return Error::GcodeNoAxisWords;  // [No axis words]
-                    }
-                    if (bitnum_is_false(value_words, GCodeWord::K)) {
-                        return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
-                    }
-                    if (gc_block.values.ijk[2] <= 0.0f) {
-                        return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
-                    }
-                    clear_bitnum(value_words, GCodeWord::K);
-                    break;
-                case Motion::ThreadingCycle:
-                    // G76 - Multi-pass threading canned cycle
-                    // Requires P (pitch), axis words for end position
-                    if (!axis_words) {
-                        return Error::GcodeNoAxisWords;  // [No axis words]
-                    }
-                    if (gc_block.values.p <= 0.0f) {
-                        return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
-                    }
-                    // I, J, K, R, Q are optional with defaults
-                    clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
-                                            bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
-                                            bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+                // Note: Motion::Threading and Motion::ThreadingCycle are handled in separate else-if blocks above
+                default:
                     break;
             }
         }
@@ -1831,7 +1833,7 @@ Error gc_execute_line(const char* input_line) {
         pl_data->css_mode          = true;
         pl_data->css_surface_speed = gc_state.css_surface_speed;
         pl_data->css_max_rpm       = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
-        
+
         // Pass tool offset so planner can calculate physical distance from spindle center
         axis_t css_axis = config->_css_axis;
         pl_data->css_tool_offset = (css_axis != INVALID_AXIS) ? gc_state.tool_length_offset[css_axis] : 0.0f;
