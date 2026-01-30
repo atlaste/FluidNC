@@ -26,15 +26,17 @@ namespace ATCs {
 
         // For each tool we need:
         std::vector<float> toolOffsets;          // Position on the wheel, e.g. 0, 90, 180, 270.
-        std::string        toolProbeDirections;  // Direction to probe this tool, e.g. XXXZ
-        std::vector<float> probeMaxTravel;       // Max travel for probing this tool, e.g. 100, 100, 80, 20
-        std::vector<float> probePosition;        // Position to start probing this tool from, e.g. 0, 0, 0, 0
         std::string        toolTypes;            // 'I' = inside (boring), 'O' = outside (turning). e.g. "OOIO"
+
+        // std::string        toolProbeDirections;  // Direction to probe this tool, e.g. XXXZ
+        // std::vector<float> probeMaxTravel;       // Max travel for probing this tool, e.g. 100, 100, 80, 20
+        // std::vector<float> probePosition;        // Position to start probing this tool from, e.g. 0, 0, 0, 0
 
         // Safe retract configuration:
         float              safeX = 0;            // Safe X position in machine coordinates
         float              safeZ = 0;            // Safe Z position in machine coordinates
         float              safetyMargin = 5.0f;  // Extra clearance margin in mm
+        float              maxRetractZ = 0;       // Maximum Z position to retract to (due to tool post)
 
         Macro macro;
 
@@ -59,7 +61,7 @@ namespace ATCs {
 
         void setTool(int32_t toolNumber);
 
-        void probeToolLengthOffset();
+        // void probeToolLengthOffset();
 
         // // ATC API:
         void probe_notification() override;

@@ -5,11 +5,13 @@
 #include <string>
 #include <cstring>
 #include "Pin.h"
+#include "Protocol.h"
 #include "System.h"
 #include "Machine/MachineConfig.h"
 #include "NutsBolts.h"
 #include "atc.h"
 #include "../State/StatePersistence.h"
+#include "../Logging.h"
 
 namespace ATCs {
     void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
@@ -29,13 +31,29 @@ namespace ATCs {
     }
 
     void PneumaticToolTurret::init() {
+        log_info("Initializing Pneumatic Tool Turret. Disabling tool change stepper.");
         // disable the tool change stepper:
         setToolChangeStepperEnable(false);
 
+        // TODO FIXME: I'm honstely not sure if the currentToolNumber is setup at this point. Let's log it for now.
+        log_info("Current tool number: " << int(currentToolNumber));
+
         // Set the correct tool length offset:
         if (useTLO) {
+            bool isInsideTool = false;
+            if (toolTypes.size() > currentToolNumber) {
+                char toolType = std::toupper(toolTypes[currentToolNumber]);
+                isInsideTool = (toolType == 'I');
+            }
+            else {
+                Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
+            }
+            char directionAxis = isInsideTool ? 'Z' : 'X';
+    
+            // Set TLO
             char setTLO[50];
-            snprintf(setTLO, 100, "G43.1 %c%0.4f\n", toolProbeDirections[currentToolNumber], toolLengthOffsets[currentToolNumber]);
+            // TODO FIXME: Check syntax! I'm not sure if this %c is correct, or if we should K/I offsets.
+            snprintf(setTLO, 100, "G43.1 %c%0.4f\n", directionAxis, toolLengthOffsets[currentToolNumber]);
             run(setTLO);
         }
     }
@@ -46,24 +64,25 @@ namespace ATCs {
 
         // Probing:
         handler.item("useTLO", useTLO);
-        handler.item("toolProbeDirections", toolProbeDirections);
-        handler.item("probeMaxTravel", probeMaxTravel);
-        handler.item("probePosition", probePosition);
+        // handler.item("toolProbeDirections", toolProbeDirections);
+        // handler.item("probeMaxTravel", probeMaxTravel);
+        // handler.item("probePosition", probePosition);
 
         // Tool types and safe retract:
         handler.item("toolTypes", toolTypes);          // 'I' = inside (boring), 'O' = outside (turning)
         handler.item("safeX", safeX);                  // Safe X position (machine coords)
         handler.item("safeZ", safeZ);                  // Safe Z position (machine coords)
         handler.item("safetyMargin", safetyMargin);    // Extra clearance in mm
+        handler.item("maxRetractZ", maxRetractZ);      // Maximum Z position to retract to (due to tool post)
     }
 
     void PneumaticToolTurret::validate() {
         Assert(toolOffsets.size() > 0, "No tool offsets are configured");
-        if (useTLO) {
-            Assert(toolProbeDirections.size() == toolOffsets.size(), "Probe directions length should match the tool offsets vector length");
-            Assert(probeMaxTravel.size() == toolOffsets.size(), "Probe max travel vector should match the tool offsets vector length");
-            Assert(probePosition.size() == toolOffsets.size(), "Probe positions vector should match the tool offsets vector length");
-        }
+        // if (useTLO) {
+        //     Assert(toolProbeDirections.size() == toolOffsets.size(), "Probe directions length should match the tool offsets vector length");
+        //     Assert(probeMaxTravel.size() == toolOffsets.size(), "Probe max travel vector should match the tool offsets vector length");
+        //     Assert(probePosition.size() == toolOffsets.size(), "Probe positions vector should match the tool offsets vector length");
+        // }
         // If toolTypes is specified, it should match the number of tools
         if (toolTypes.size() > 0) {
             Assert(toolTypes.size() == toolOffsets.size(), "Tool types length should match the tool offsets vector length");
@@ -72,6 +91,7 @@ namespace ATCs {
                 Assert(c == 'I' || c == 'O' || c == 'i' || c == 'o', "Tool types must be 'I' (inside) or 'O' (outside)");
             }
         }
+        Assert(maxRetractZ >= safeZ, "maxRetractZ must be greater than or equal to safe Z position.");
     }
 
     bool PneumaticToolTurret::changeTool(int toolNumber, bool probe) {
@@ -122,7 +142,14 @@ namespace ATCs {
             if (useTLO && toolLengthOffsets.size() > currentToolNumber) {
                 // Calculate safe Z position based on current Z + TLO + margin
                 // This ensures we clear the bore before moving X
-                auto safeRetractLength = toolLengthOffsets[currentToolNumber] + safetyMargin;
+                auto safeRetractLength = toolLengthOffsets[currentToolNumber] + safetyMargin; // e.g. -50. Max is -say- -40. 
+                if (safeRetractLength > maxRetractZ) {
+                    safeRetractLength = maxRetractZ;
+                    log_info("Safe retract Z is above maxRetractZ. Aborting.");
+                    mc_critical(ExecAlarm::HardLimit);
+
+                    return false;
+                }
                 snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeRetractLength);
                 run(safeRetract);
             } else {
@@ -190,15 +217,15 @@ namespace ATCs {
         // }
         // Assert(pneumaticEndstop.read(), "Pneumatic endstop is still active. Tool change failed!");
 
-        // And disable the stepper again. Otherwise it's just going to fight things.
+        // And disable the stepper again. Otherwise it's just going to fight the coupling.
         setToolChangeStepperEnable(false);
 
         if (useTLO) {
             // Quick check tool length offset that's persisted. If it's there -> use it.
             // Otherwise run a probe sequence.
-            if (toolLengthOffsets[currentToolNumber] <= 0.0) {
-                probeToolLengthOffset();
-            }
+            // if (toolLengthOffsets[currentToolNumber] <= 0.0) {
+            //     probeToolLengthOffset();
+            // }
 
             // Set TLO:
             snprintf(toolChange, 100, "G43.1 X%0.4f\n", toolLengthOffsets[toolNumber]);
@@ -228,6 +255,7 @@ namespace ATCs {
         currentToolNumber = toolNumber;
     }
 
+    /*
     void PneumaticToolTurret::probeToolLengthOffset() {
         if (!useTLO) {
             return;
@@ -264,8 +292,9 @@ namespace ATCs {
         steps_to_mpos(probe_position, probe_steps);
         toolLengthOffsets[currentToolNumber] = probe_position[idx - axis] + probePosition[idx - axis];
     }
+    */
 
-    // // ATC API:
+    // ATC API:
     void PneumaticToolTurret::probe_notification() {}
     bool PneumaticToolTurret::tool_change(tool_t value, bool pre_select, bool set_tool) {
         if (pre_select) {
