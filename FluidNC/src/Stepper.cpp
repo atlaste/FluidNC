@@ -281,10 +281,15 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
     //
     // TODO: For bidirectional sync (tapping), we need to:
     //   1. Store the expected direction
-    //   2. Monitor actual encoder direction  
+    //   2. Monitor actual encoder direction
     //   3. Flip stepper direction_bits when spindle reverses
     // For now, we use absolute value which works for forward motion only.
+
     int32_t counts_fp = seg->encoder.counts_per_step_fp;
+    
+    // Debug: trace what value we're getting from the segment
+    ets_printf("seg_load: counts_fp=%d\n", counts_fp);
+    
     if (counts_fp < 0) counts_fp = -counts_fp;  // abs() - forward motion only
     int32_t encoder_counts = (counts_fp + 500) / 1000;
     if (encoder_counts < 1) encoder_counts = 1;  // Minimum 1 count per step
