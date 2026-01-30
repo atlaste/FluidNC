@@ -38,12 +38,21 @@ struct pcnt_group_t {
     pcnt_unit_t*       units[SOC_PCNT_UNITS_PER_GROUP];
 };
 
+typedef struct {
+    pcnt_ll_watch_event_id_t event_id;           // event type
+    int                      watch_point_value;  // value to be watched
+} pcnt_watch_point_t;
+
 struct pcnt_unit_t {
-    pcnt_group_t* group;
-    portMUX_TYPE  spinlock;
-    int           unit_id;
-    int           low_limit;
-    int           high_limit;
+    pcnt_group_t*      group;                  // which group the pcnt unit belongs to
+    portMUX_TYPE       spinlock;               // Spinlock, stop one unit from accessing different parts of a same register concurrently
+    int                unit_id;                // allocated unit numerical ID
+    int                low_limit;              // low limit value
+    int                high_limit;             // high limit value
+    int                clear_signal_gpio_num;  // which gpio clear signal input
+    int                accum_value;            // accumulated count value
+    pcnt_chan_t*       channels[SOC_PCNT_CHANNELS_PER_UNIT];  // array of PCNT channels
+    pcnt_watch_point_t watchers[PCNT_LL_WATCH_EVENT_MAX];     // array of PCNT watchers
     // ... other fields
 };
 }
@@ -66,70 +75,92 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_group_t* group     = pcnt_unit->group;
     int           unit_id   = pcnt_unit->unit_id;
 
-    // Debug: trace ISR calls (uncomment to enable)
-    ets_printf("ISR: wp=%d cnt_rem=%d\n", edata->watch_point_value, enc->encoder_counts_remaining);
+    auto ecr = enc->encoder_counts_remaining;
 
+    // Debug: trace ISR calls (uncomment to enable)
+    ets_printf("ISR: wp=%d cnt_rem=%d\n", edata->watch_point_value, ecr);
+
+    // Update encoder counts remaining. NOTE: Direction matters here!
+    ecr -= edata->watch_point_value;
+    enc->encoder_counts_remaining = ecr;
 
     // Disable all threshold watch points (ISR-safe)
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, false);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, false);
 
-    // Handle the callback (G95/G33 encoder-driven stepping):
-    auto cb = enc->encoder_callback;
-    if (!cb) {
-        // No callback registered - shouldn't happen, but handle gracefully
-        pcnt_ll_clear_count(group->hal.dev, unit_id);
-        pcnt_unit_stop(enc->pcnt_alm);
-        return pdFALSE;
-    }
-
-    int32_t next_threshold = 0;
-
-    // Check if we need to execute another step
-    // TODO FIXME: Can be negative when going the other direction!
-    if (enc->encoder_counts_remaining <= 0) {
-        // Execute one step and get counts to next step
-        if (!cb()) {
-            // Motion complete - cleanup and exit
-            enc->encoder_callback         = nullptr;
-            enc->encoder_counts_remaining = 0;
+    // NOTE: Should be == 0 because direction matters!
+    if (ecr == 0)
+    {
+        // Target reached.
+        //
+        // Handle the callback (G95/G33 encoder-driven stepping):
+        auto cb = enc->encoder_callback;
+        if (!cb || !cb() || counts_fp == 0) {
+            // No callback registered - shouldn't happen, but handle gracefully. 
+            // CB result false means stop. 
+            // Counts_fp==0 means no further steps.
             pcnt_ll_clear_count(group->hal.dev, unit_id);
             pcnt_unit_stop(enc->pcnt_alm);
             return pdFALSE;
         }
 
-        // TODO FIXME: Calculate this off the 'total' value and don't do this incrementally.
-        // It's just asking for trouble because the callback takes time.
-        enc->encoder_counts_remaining = enc->alarmValue;
+        // Figure out the next step:
+        int32_t counts_fp = enc->counts_fp_remainder + enc->counts_fp;
+        int32_t value;
+        int32_t remainder;
+        if (counts_fp < 0) {
+            remainder = 1024 - remainder;
+            value     = ((counts_fp + remainder) / 1024);
+
+            // Ensure we always move at least one count
+            if (value == 0) {
+                // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
+                // We might just want to alarm instead.
+                value = -1;
+            }
+
+        } else {
+            value = (counts_fp - remainder) / 1024;
+
+            // Ensure we always move at least one count
+            if (value == 0) {
+                // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
+                // We might just want to alarm instead.
+                value = 1;
+            }
+        }
+
+        // Update the remainder:
+        enc->current_step_fp_remainder = remainder;
+
+        // Set next threshold:
+        ecr = value;
+    } 
+    
+    {
+        int32_t next_threshold = ecr;
+        if (next_threshold > 16383) {
+            next_threshold = 16383;
+        }
+        if (next_threshold < 1) {
+            next_threshold = 1;
+        }
+
+        // Set new threshold values and enable them (ISR-safe)
+        // Set new threshold values and enable them (ISR-safe)
+        pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
+        pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
+        pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
+        pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
+
+        // Clear the counter (ISR-safe)
+        pcnt_ll_clear_count(group->hal.dev, unit_id);
+
+        // Debug: uncomment to trace ISR triggering
+        ets_printf("setNextThresValue: next_threshold=%d\n", next_threshold);
+
+        return pdFALSE;
     }
-
-    // Set threshold, handling PCNT 16-bit limit (max ~16383 for safety)
-    if (enc->encoder_counts_remaining > 16383) {
-        next_threshold = 16383;
-        enc->encoder_counts_remaining -= 16383;
-    } else {
-        next_threshold                = enc->encoder_counts_remaining;
-        enc->encoder_counts_remaining = 0;  // Will trigger callback next time
-    }
-
-    // Clamp threshold to valid range
-    if (next_threshold < 1) {
-        next_threshold = 1;
-    }
-
-    // Set new threshold values and enable them (ISR-safe)
-    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
-    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
-    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
-    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
-
-    // Clear the counter (ISR-safe)
-    pcnt_ll_clear_count(group->hal.dev, unit_id);
-
-    // Debug: uncomment to trace ISR triggering
-    ets_printf("setNextThresValue: next_threshold=%d\n", next_threshold);
-
-    return pdFALSE;
 }
 
 Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
@@ -289,13 +320,14 @@ void SpindleEncoder::unregisterStepCallback() {
     encoder_counts_remaining = 0;
 }
 
-void IRAM_ATTR SpindleEncoder::startStepCallback() {
+void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     int output = 0;
     pcnt_unit_get_count(pcnt_total, &output);
-    int64_t sum = totalCount + int64_t(output);
+    int64_t sum = getCount();
 
     // Store the last total count as the starting point
-    encoder_last_alm_count = sum;
+    auto alarmValue          = int32_t(targetCount - sum);
+    encoder_counts_remaining = alarmValue;
 
     // Get the PCNT unit internals for low-level access
     pcnt_unit_t*  pcnt_unit = (pcnt_unit_t*)pcnt_alm;
@@ -304,37 +336,39 @@ void IRAM_ATTR SpindleEncoder::startStepCallback() {
 
     // Stop unit first before reconfiguring thresholds
     pcnt_unit_stop(pcnt_alm);
-    
-    // Clear the counter 
+
+    // Clear the counter
     pcnt_ll_clear_count(group->hal.dev, unit_id);
-    
+
     // Clear any pending interrupts
     pcnt_ll_clear_intr_status(group->hal.dev, (1 << unit_id));
 
     // Set up initial threshold using alarmValue (set by setStepAlarmValue)
     // This ensures the ISR fires after alarmValue counts instead of waiting for 32767
     int32_t initial_threshold = alarmValue > 0 ? alarmValue : 1;
-    if (initial_threshold > 16383) initial_threshold = 16383;
-    
+    if (initial_threshold > 16383) {
+        initial_threshold = 16383;
+    }
+
     // Update the ESP-IDF driver's internal watch point tracking so the callback fires
     // The driver uses watchers[0] for THRES0 and watchers[1] for THRES1
     pcnt_unit->watchers[0].watch_point_value = initial_threshold;
     pcnt_unit->watchers[1].watch_point_value = -initial_threshold;
-    
+
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, initial_threshold);
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -initial_threshold);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
 
-    // Initialize remaining counts so ISR knows we're waiting for first threshold
-    encoder_counts_remaining = 0;
-
     // Start the ALM counter
     AssertOK(pcnt_unit_start(pcnt_alm));
 
-        // Debug: uncomment to trace ISR triggering
-        ets_printf("startStepCallback: threshold=%d, alarmValue=%d\n", initial_threshold, alarmValue);
+    // Debug: uncomment to trace ISR triggering
+    ets_printf("armAlarm: threshold=%d, alarmValue=%d\n", initial_threshold, alarmValue);
+}
 
+void IRAM_ATTR SpindleEncoder::startStepCallback(int64_t target) {
+    armAlarm(target);
 }
 
 void IRAM_ATTR SpindleEncoder::stopStepCallback() {
@@ -342,39 +376,61 @@ void IRAM_ATTR SpindleEncoder::stopStepCallback() {
     encoder_counts_remaining = 0;
 }
 
-void IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t value) {
-    alarmValue = value;
-}
+int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
+    int32_t remainder = counts_fp & 1023;
+    int32_t value;
+    if (counts_fp < 0) {
+        remainder = 1024 - remainder;
+        value = ((counts_fp + remainder) / 1024);
 
-void IRAM_ATTR SpindleEncoder::setIndexAlarm() {
-    // Wait for index pulse (Z channel)
-    // If no index pin configured, fall back to waiting for one revolution worth of counts
-    waiting_for_index = true;
-    target_absolute_count = getCount() + countPerRevolution;
-    
-    // Set up alarm for the target
-    int64_t current       = getCount();
-    int32_t counts_to_go  = int32_t(target_absolute_count - current);
-    encoder_counts_remaining = counts_to_go;
+        // Ensure we always move at least one count
+        if (value == 0) {
+            // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
+            // We might just want to alarm instead.
+            value = -1;
+        }  
 
-    // Will be handled by the existing threshold mechanism in pcnt_on_reach
-}
+    }
+    else {
+        value = (counts_fp - remainder) / 1024;
 
-void IRAM_ATTR SpindleEncoder::setCountAlarm(int32_t target_count) {
-    // Wait until encoder reaches a specific absolute count
-    waiting_for_index     = false;
-    target_absolute_count = target_count;
-
-    int64_t current      = getCount();
-    int32_t counts_to_go = int32_t(target_count - current);
-
-    if (counts_to_go <= 0) {
-        // Already past target - trigger immediately
-        counts_to_go = 1;
+        // Ensure we always move at least one count
+        if (value == 0) {
+            // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
+            // We might just want to alarm instead.
+            value = 1;
+        }  
     }
 
-    encoder_counts_remaining = counts_to_go;
-    // Will be handled by the existing threshold mechanism in pcnt_on_reach
+    this->current_step_fp_remainder = remainder;
+    this->current_step_fp = counts_fp;
+
+    return getCount() + value;
+}
+
+int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {
+    // Wait for index pulse (Z channel). Since we're just tracking all the pulses, we are basically
+    // waiting for the next revolution.
+    auto count     = getCount();
+    auto remainder = count % countPerRevolution;
+
+    // We should also reset the remainder to avoid the +/- 1 count drift
+    this->current_step_fp_remainder = 0;
+
+    return count - remainder + countPerRevolution;
+}
+
+int64_t IRAM_ATTR SpindleEncoder::setCountAlarm(int32_t target_count) {
+    // Wait until encoder reaches a specific absolute count
+    // waiting for the next revolution.
+    auto count     = getCount();
+    auto remainder = count % countPerRevolution;
+    auto result    = count - remainder + target_count;
+
+    // We should also reset the remainder to avoid the +/- 1 count drift
+    this->current_step_fp_remainder = 0;
+
+    return result <= 0 ? result + countPerRevolution : result;
 }
 
 void SpindleEncoder::deinit() {
@@ -393,7 +449,7 @@ void SpindleEncoder::deinit() {
     pcnt_unit_disable(pcnt_total);
 }
 
-int64_t SpindleEncoder::getCount() {
+int64_t IRAM_ATTR SpindleEncoder::getCount() {
 tryAgain:
     auto before = totalCount;
     int  value;
@@ -445,8 +501,7 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     auto minRPM = (rpm * (100 - tolerance)) / 100;
     auto maxRPM = (rpm * (100 + tolerance)) / 100;
 
-    if (minRPM > maxRPM)
-    {
+    if (minRPM > maxRPM) {
         auto tmp = maxRPM;
         maxRPM   = minRPM;
         minRPM   = tmp;
@@ -483,10 +538,10 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
         ++errorCount;
         if (errorCount >= allowedErrors) {
             if (!fromISR) {
-                log_warn("ValidateSpeed errors: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
-                                                 << ", numerator=" << numerator << ", denominator=" << denominator
-                                                 << ", rpm_calc=" << revsPerMinute << ", target_rpm=" << rpm << ", minRPM=" << minRPM
-                                                 << ", maxRPM=" << maxRPM);
+                log_warn("ValidateSpeed errors: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution
+                                                        << ", ratio=" << ratio << ", numerator=" << numerator
+                                                        << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
+                                                        << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM);
             }
             return false;
         } else {

@@ -74,7 +74,7 @@ struct segment_t {
 
         // Encoder run mode (G95/G33 motion)
         struct {
-            int32_t counts_per_step_fp;  // Encoder counts per step (FP * 1000)
+            int32_t counts_per_step_fp;  // Encoder counts per step (FP * 1024). NOTE: Has direction sign!
         } encoder;
 
         // Encoder wait mode (G33/G76 sync point)
@@ -237,10 +237,10 @@ uint32_t Stepper::isr_count;  // for debugging only
 int32_t lastCpuTicks = 0;
 bool    timerMode    = true;
 
-void IRAM_ATTR start_spindle_encoder() {
+void IRAM_ATTR start_spindle_encoder(int64_t alarmValue) {
     if (spindle_encoder) {
         spindle_encoder->registerStepCallback(Stepper::pulse_func);
-        spindle_encoder->startStepCallback();
+        spindle_encoder->startStepCallback(alarmValue);
     }
 }
 
@@ -274,7 +274,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
         timerMode = false;
     }
 
-    // Convert fixed-point (x1000) to actual encoder counts (rounded)
+    // Convert fixed-point (x1024) to actual encoder counts (rounded)
     // The sign of counts_per_step indicates the expected encoder direction:
     //   positive = encoder counts increase as spindle turns in cutting direction
     //   negative = encoder counts decrease as spindle turns in cutting direction
@@ -283,6 +283,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
     //   1. Store the expected direction
     //   2. Monitor actual encoder direction
     //   3. Flip stepper direction_bits when spindle reverses
+    // 
     // For now, we use absolute value which works for forward motion only.
 
     int32_t counts_fp = seg->encoder.counts_per_step_fp;
@@ -290,12 +291,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
     // Debug: trace what value we're getting from the segment
     ets_printf("seg_load: counts_fp=%d\n", counts_fp);
     
-    if (counts_fp < 0) counts_fp = -counts_fp;  // abs() - forward motion only
-    int32_t encoder_counts = (counts_fp + 500) / 1000;
-    if (encoder_counts < 1) encoder_counts = 1;  // Minimum 1 count per step
-    
-    spindle_encoder->setStepAlarmValue(encoder_counts);
-    start_spindle_encoder();
+    start_spindle_encoder(spindle_encoder->stepAlarmValue(counts_fp));
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
 
@@ -308,14 +304,16 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
         timerMode = false;
     }
 
+    int64_t value;
     if (seg->encoder_wait.wait_for_index) {
         // Wait for index pulse
-        spindle_encoder->setIndexAlarm();
+        value = spindle_encoder->setIndexAlarm();
     } else {
         // Wait for specific encoder count
-        spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
+        value = spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
     }
-    start_spindle_encoder();
+
+    start_spindle_encoder(value);
     // Note: spindle speed is set, but n_step=0 so no motion occurs
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
@@ -424,10 +422,20 @@ void Stepper::wake_up() {
     // Set cpu ticks just before enabling the timer:
     lastCpuTicks = getCpuTicks();
 
-    // What we enable depends on the first segment's mode
+    // TODO FIXME SdB: This logic is a bit weird. Can't we just call the firstSegment->on_load? 
+    // 
+    // Apparently we shouldn't when dealing with the timer mode. I'm not sure what's the best course of action for the 
+    // spindle_encoder mode because there isn't really a target pulse to set. Or is there?
+    // 
+    // We might just do nothing in this case. Loading the segment will call on_load. I guess it depends on the state 
+    // we're in?
+    //
+    // Wake_up is called from: (1) protocol_do_initiate_cycle, (2) homing and (3) safety door / parking sequence.
+    // We don't care about the parking sequence; you shouldn't do that anyways with a lathe. We don't care about homing. 
+    // We *DO* care about the protocol_do_initiate_cycle. But I'm not really sure what the best course of action here is.
     auto firstSegment = st.exec_segment;
-    if (firstSegment != nullptr && firstSegment->on_load == segment_load_encoder && spindle_encoder != nullptr) {
-        start_spindle_encoder();
+    if (firstSegment != nullptr && firstSegment->on_load != segment_load_timer && spindle_encoder != nullptr) {
+        // (*firstSegment->on_load)(firstSegment);
         timerMode = false;
     } else {
         // Enable Stepping Driver Interrupt (default for timer mode)
