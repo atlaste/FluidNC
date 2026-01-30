@@ -75,39 +75,37 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_group_t* group     = pcnt_unit->group;
     int           unit_id   = pcnt_unit->unit_id;
 
-    auto ecr = enc->encoder_counts_remaining;
+    // Update encoder counts remaining using watch_point_value
+    // (we update watchers[] when setting thresholds, so this is accurate)
+    auto ecr = enc->encoder_counts_remaining - edata->watch_point_value;
 
-    // Debug: trace ISR calls (uncomment to enable)
-    ets_printf("ISR: wp=%d cnt_rem=%d\n", edata->watch_point_value, ecr);
+    // Debug: trace ISR calls
+    ets_printf("ISR: wp=%d ecr=%d->%d\n", edata->watch_point_value, enc->encoder_counts_remaining, ecr);
 
-    // Update encoder counts remaining. NOTE: Direction matters here!
-    ecr -= edata->watch_point_value;
     enc->encoder_counts_remaining = ecr;
 
-    // Disable all threshold watch points (ISR-safe)
+    // Disable threshold events while reconfiguring
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, false);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, false);
 
+    // Check if we've reached target
+    // Since we use watch_point_value (which we control), ecr hits exactly 0
     // NOTE: Should be == 0 because direction matters!
-    if (ecr == 0)
-    {
-        // Target reached.
-        //
-        // Handle the callback (G95/G33 encoder-driven stepping):
+    if (ecr == 0) {
+        // Target reached - execute step callback
         auto cb = enc->encoder_callback;
-        if (!cb || !cb() || counts_fp == 0) {
-            // No callback registered - shouldn't happen, but handle gracefully. 
-            // CB result false means stop. 
-            // Counts_fp==0 means no further steps.
+        if (!cb || !cb() || enc->current_step_fp == 0) {
+            // No callback, cb returned false (motion complete), or no more steps
             pcnt_ll_clear_count(group->hal.dev, unit_id);
             pcnt_unit_stop(enc->pcnt_alm);
             return pdFALSE;
         }
 
-        // Figure out the next step:
-        int32_t counts_fp = enc->counts_fp_remainder + enc->counts_fp;
+        // Calculate next step target using fixed-point remainder accumulation
+        int32_t counts_fp = enc->current_step_fp_remainder + enc->current_step_fp;
+        int32_t remainder = counts_fp & 1023;
         int32_t value;
-        int32_t remainder;
+        
         if (counts_fp < 0) {
             remainder = 1024 - remainder;
             value     = ((counts_fp + remainder) / 1024);
@@ -130,37 +128,40 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
             }
         }
 
-        // Update the remainder:
+        // Update the remainder for next step
         enc->current_step_fp_remainder = remainder;
 
-        // Set next threshold:
+        // Set next threshold
         ecr = value;
-    } 
-    
-    {
-        int32_t next_threshold = ecr;
-        if (next_threshold > 16383) {
-            next_threshold = 16383;
-        }
-        if (next_threshold < 1) {
-            next_threshold = 1;
-        }
-
-        // Set new threshold values and enable them (ISR-safe)
-        // Set new threshold values and enable them (ISR-safe)
-        pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
-        pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
-        pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
-        pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
-
-        // Clear the counter (ISR-safe)
-        pcnt_ll_clear_count(group->hal.dev, unit_id);
-
-        // Debug: uncomment to trace ISR triggering
-        ets_printf("setNextThresValue: next_threshold=%d\n", next_threshold);
-
-        return pdFALSE;
+        enc->encoder_counts_remaining = ecr;
     }
+
+    // Set up threshold for next interrupt
+    // Use absolute value for threshold, set both +/- to catch either direction
+    int32_t next_threshold = (ecr < 0) ? -ecr : ecr;
+    if (next_threshold > 16383) {
+        next_threshold = 16383;
+    }
+    if (next_threshold < 1) {
+        next_threshold = 1;
+    }
+
+    // Update ESP-IDF driver's watchers so next ISR gets correct watch_point_value
+    pcnt_unit->watchers[0].watch_point_value = next_threshold;
+    pcnt_unit->watchers[1].watch_point_value = -next_threshold;
+
+    // Set hardware thresholds
+    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
+    pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
+    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
+    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
+
+    // Clear the counter AFTER setting thresholds
+    pcnt_ll_clear_count(group->hal.dev, unit_id);
+
+    ets_printf("next_thresh=%d ecr=%d\n", next_threshold, ecr);
+
+    return pdFALSE;
 }
 
 Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
@@ -345,9 +346,13 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
 
     // Set up initial threshold using alarmValue (set by setStepAlarmValue)
     // This ensures the ISR fires after alarmValue counts instead of waiting for 32767
-    int32_t initial_threshold = alarmValue > 0 ? alarmValue : 1;
+    // Use absolute value - we set both +/- thresholds for bidirectional
+    int32_t initial_threshold = (alarmValue < 0) ? -alarmValue : alarmValue;
     if (initial_threshold > 16383) {
         initial_threshold = 16383;
+    }
+    if (initial_threshold < 1) {
+        initial_threshold = 1;
     }
 
     // Update the ESP-IDF driver's internal watch point tracking so the callback fires

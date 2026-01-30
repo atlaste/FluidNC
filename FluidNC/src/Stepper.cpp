@@ -291,7 +291,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
     // Debug: trace what value we're getting from the segment
     ets_printf("seg_load: counts_fp=%d\n", counts_fp);
     
-    start_spindle_encoder(spindle_encoder->stepAlarmValue(counts_fp));
+    start_spindle_encoder(spindle_encoder->setStepAlarmValue(counts_fp));
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
 
@@ -422,23 +422,22 @@ void Stepper::wake_up() {
     // Set cpu ticks just before enabling the timer:
     lastCpuTicks = getCpuTicks();
 
-    // TODO FIXME SdB: This logic is a bit weird. Can't we just call the firstSegment->on_load? 
-    // 
-    // Apparently we shouldn't when dealing with the timer mode. I'm not sure what's the best course of action for the 
-    // spindle_encoder mode because there isn't really a target pulse to set. Or is there?
-    // 
-    // We might just do nothing in this case. Loading the segment will call on_load. I guess it depends on the state 
-    // we're in?
-    //
-    // Wake_up is called from: (1) protocol_do_initiate_cycle, (2) homing and (3) safety door / parking sequence.
-    // We don't care about the parking sequence; you shouldn't do that anyways with a lathe. We don't care about homing. 
-    // We *DO* care about the protocol_do_initiate_cycle. But I'm not really sure what the best course of action here is.
-    auto firstSegment = st.exec_segment;
-    if (firstSegment != nullptr && firstSegment->on_load != segment_load_timer && spindle_encoder != nullptr) {
-        // (*firstSegment->on_load)(firstSegment);
-        timerMode = false;
+    // Determine mode from the next segment in the buffer (if any)
+    // For timer mode: startTimer() triggers ISR which calls pulse_func
+    // For encoder mode: we must call pulse_func() directly to bootstrap the first segment
+    if (segment_buffer_head != segment_buffer_tail) {
+        auto nextSeg = &segment_buffer[segment_buffer_tail];
+        if (nextSeg->on_load != segment_load_timer && spindle_encoder != nullptr) {
+            // Encoder mode: call pulse_func to load first segment, which starts encoder callback
+            timerMode = false;
+            pulse_func();
+        } else {
+            // Timer mode: start timer which will call pulse_func via ISR
+            Stepping::startTimer();
+            timerMode = true;
+        }
     } else {
-        // Enable Stepping Driver Interrupt (default for timer mode)
+        // No segments buffered - default to timer mode, it will go idle immediately
         Stepping::startTimer();
         timerMode = true;
     }
