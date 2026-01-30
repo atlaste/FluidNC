@@ -843,8 +843,12 @@ void Stepper::prep_buffer() {
         // Set segment mode based on sync_mode from planner block
         if (pl_block->sync_mode != SpindleSyncMode::None && spindle_encoder) {
             // Encoder-driven mode (G95/G33)
+            // Calculate encoder counts per step based on thread pitch and axis resolution
             prep_segment->on_load = segment_load_encoder;
-            prep_segment->encoder.counts_per_step_fp = spindle_encoder->countsPerStep(pl_block->step_event_count);
+            prep_segment->encoder.counts_per_step_fp = spindle_encoder->countsPerStep(
+                pl_block->feed_per_revolution,  // Thread pitch (mm/rev)
+                prep.step_per_mm                // Steps per mm for this axis
+            );
         } else {
             // Timer-driven mode (normal, laser, CSS)
             prep_segment->on_load = segment_load_timer;

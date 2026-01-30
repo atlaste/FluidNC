@@ -75,26 +75,30 @@ public:
     void setIndexAlarm();
     void setCountAlarm(int32_t target_count);
 
-    inline int32_t countsPerStep(int64_t total_steps) {
-        // Calculate encoder counts per step using integer arithmetic
-        // feed_per_revolution is in mm/rev (how much the tool moves per spindle revolution)
-        // We need: encoder_counts_per_step = (encoder_CPR * gear_ratio) / total_steps
-
-        // For one revolution: encoder counts = CPR * gear_ratio / 10000
-        // For this block: steps = step_event_count
-        // Result: encoder_counts_per_step = (CPR * ratio) / (10000 * step_event_count)
-
-        // Use fixed-point arithmetic with 1000x scaling to preserve precision
+    // Calculate encoder counts per motor step for spindle-synchronized motion
+    // pitch_mm: thread pitch (mm per spindle revolution)
+    // steps_per_mm: motor steps per mm for the sync axis
+    // Returns: fixed-point encoder counts per step (scaled by 1000)
+    inline int32_t countsPerStep(float pitch_mm, float steps_per_mm) {
+        // encoder_counts_per_rev = CPR × gear_ratio / 10000
+        // steps_per_rev = pitch_mm × steps_per_mm
+        // counts_per_step = encoder_counts_per_rev / steps_per_rev
+        //                 = (CPR × gear_ratio / 10000) / (pitch_mm × steps_per_mm)
+        //                 = (CPR × gear_ratio) / (10000 × pitch_mm × steps_per_mm)
+        
+        // Use fixed-point: multiply by 1000 for precision
+        // counts_per_step_fp = (CPR × ratio × 1000) / (10000 × pitch × steps_per_mm)
+        //                    = (CPR × ratio) / (10 × pitch × steps_per_mm)
         
         int64_t encoder_cpr = countPerRevolution;
         int64_t gear_ratio  = ratio;  // Already scaled by 10000
+        
+        float steps_per_rev = pitch_mm * steps_per_mm;
+        auto result = int32_t((encoder_cpr * gear_ratio * 1000) / (10000 * int64_t(steps_per_rev)));
 
-        // counts_per_step_fp = (CPR * ratio * 1000) / (10000 * total_steps)
-        //                    = (CPR * ratio) / (10 * total_steps)
-        auto result = int32_t((encoder_cpr * gear_ratio) / (10 * total_steps));
-
-        log_info("Encoder sync: CPR=" << encoder_cpr << ", ratio=" << gear_ratio << ", counts/step=" << (result / 1000) << "."
-                                      << (result % 1000) << ", steps=" << total_steps);
+        log_info("Encoder sync: CPR=" << encoder_cpr << ", ratio=" << gear_ratio 
+                 << ", pitch=" << pitch_mm << "mm, steps/rev=" << steps_per_rev
+                 << ", counts/step=" << (result / 1000) << "." << abs(result % 1000));
         return result;
     }
 

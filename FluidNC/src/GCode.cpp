@@ -168,7 +168,7 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 // - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
 // t G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
 // t G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
-// t G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
+// x G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // - G43: Tool length offset, typically applied after tool changes. Let's do this later.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
