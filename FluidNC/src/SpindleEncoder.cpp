@@ -148,17 +148,16 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     }
 
     // Update ESP-IDF driver's watchers so next ISR gets correct watch_point_value
-    pcnt_unit->watchers[0].watch_point_value = next_threshold;
-    pcnt_unit->watchers[1].watch_point_value = -next_threshold;
+    // ESP32/S3: watchers[0] = THRES1 event, watchers[1] = THRES0 event
+    pcnt_unit->watchers[PCNT_LL_WATCH_EVENT_THRES0].watch_point_value = next_threshold;   // THRES0 = positive
+    pcnt_unit->watchers[PCNT_LL_WATCH_EVENT_THRES1].watch_point_value = -next_threshold;  // THRES1 = negative
 
-    // Set hardware thresholds
+    // Set hardware thresholds and enable events
+    // Counter was already cleared at ISR start, now counting from 0
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, next_threshold);
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -next_threshold);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
-
-    // Clear the counter AFTER setting thresholds
-    pcnt_ll_clear_count(group->hal.dev, unit_id);
 
     ets_printf("next_thresh=%d ecr=%d\n", next_threshold, ecr);
 
@@ -355,9 +354,10 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     }
 
     // Update the ESP-IDF driver's internal watch point tracking so the callback fires
-    // The driver uses watchers[0] for THRES0 and watchers[1] for THRES1
-    pcnt_unit->watchers[0].watch_point_value = initial_threshold;
-    pcnt_unit->watchers[1].watch_point_value = -initial_threshold;
+    // ESP32/S3: watchers[0] = THRES1 event, watchers[1] = THRES0 event
+    // We set: THRES0 = positive threshold, THRES1 = negative threshold
+    pcnt_unit->watchers[PCNT_LL_WATCH_EVENT_THRES0].watch_point_value = initial_threshold;   // THRES0 = positive
+    pcnt_unit->watchers[PCNT_LL_WATCH_EVENT_THRES1].watch_point_value = -initial_threshold;  // THRES1 = negative
 
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 0, initial_threshold);
     pcnt_ll_set_thres_value(group->hal.dev, unit_id, 1, -initial_threshold);
