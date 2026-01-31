@@ -943,21 +943,22 @@ void Stepper::prep_buffer() {
         uint8_t  level;
 
         // Compute step timing and multi-axis smoothing level.
-        for (level = 0; level < maxAmassLevel; level++) {
-            if (timerTicks < amassThreshold) {
-                break;
-            }
-            timerTicks >>= 1;
-        }
-        prep_segment->amass_level = level;
-        prep_segment->n_step <<= level;
-        // Only set isr_period for timer mode - encoder mode uses the union for counts_per_step_fp
+        // AMASS only applies to timer mode - encoder mode needs exact 1:1 step timing
         if (prep_segment->on_load == segment_load_timer) {
+            for (level = 0; level < maxAmassLevel; level++) {
+                if (timerTicks < amassThreshold) {
+                    break;
+                }
+                timerTicks >>= 1;
+            }
+            prep_segment->amass_level = level;
+            prep_segment->n_step <<= level;
             // isr_period is stored as 16 bits, so limit timerTicks to the
             // largest value that will fit in a uint16_t.
-            // Note: Only valid for timer mode segments, but we set it unconditionally
-            // since encoder mode segments ignore this field (union).
             prep_segment->timer.isr_period = timerTicks > 0xffff ? 0xffff : timerTicks;
+        } else {
+            // Encoder mode: no AMASS, 1:1 step timing
+            prep_segment->amass_level = 0;
         }
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
