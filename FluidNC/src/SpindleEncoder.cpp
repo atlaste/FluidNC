@@ -84,8 +84,8 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     // (we update watchers[] when setting thresholds, so this is accurate)
     auto ecr = enc->encoder_counts_remaining - edata->watch_point_value;
 
-    // Debug: trace ISR calls
-    ets_printf("ISR: wp=%d ecr=%d->%d\n", edata->watch_point_value, enc->encoder_counts_remaining, ecr);
+    // Debug: trace ISR calls (commented out to avoid WDT timeout)
+    // ets_printf("ISR: wp=%d ecr=%d->%d\n", edata->watch_point_value, enc->encoder_counts_remaining, ecr);
 
     enc->encoder_counts_remaining = ecr;
 
@@ -103,30 +103,14 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
         }
 
         // Calculate next step target using fixed-point remainder accumulation
+        // counts_fp is scaled by 1024, so divide to get integer encoder counts
         int32_t counts_fp = enc->current_step_fp_remainder + enc->current_step_fp;
-        int32_t remainder = counts_fp & 1023;
-        int32_t value;
-        
-        if (counts_fp < 0) {
-            remainder = 1024 - remainder;
-            value     = ((counts_fp + remainder) / 1024);
+        int32_t value = counts_fp / 1024;
+        int32_t remainder = counts_fp - (value * 1024);  // Remainder keeps sign
 
-            // Ensure we always move at least one count
-            if (value == 0) {
-                // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
-                // We might just want to alarm instead.
-                value = -1;
-            }
-
-        } else {
-            value = (counts_fp - remainder) / 1024;
-
-            // Ensure we always move at least one count
-            if (value == 0) {
-                // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
-                // We might just want to alarm instead.
-                value = 1;
-            }
+        // Ensure we always move at least one count
+        if (value == 0) {
+            value = (enc->current_step_fp < 0) ? -1 : 1;
         }
 
         // Update the remainder for next step
@@ -162,7 +146,8 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     // Clear counter AFTER setting thresholds - starts fresh from 0
     pcnt_ll_clear_count(group->hal.dev, unit_id);
 
-    ets_printf("next_thresh=%d ecr=%d\n", next_threshold, ecr);
+    // Debug (commented out to avoid WDT timeout)
+    // ets_printf("next_thresh=%d ecr=%d\n", next_threshold, ecr);
 
     return pdFALSE;
 }
@@ -396,29 +381,13 @@ void IRAM_ATTR SpindleEncoder::stopStepCallback() {
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
-    int32_t remainder = counts_fp & 1023;
-    int32_t value;
-    if (counts_fp < 0) {
-        remainder = 1024 - remainder;
-        value = ((counts_fp + remainder) / 1024);
+    // Convert fixed-point (scaled by 1024) to integer encoder counts
+    int32_t value = counts_fp / 1024;
+    int32_t remainder = counts_fp - (value * 1024);  // Remainder keeps sign
 
-        // Ensure we always move at least one count
-        if (value == 0) {
-            // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
-            // We might just want to alarm instead.
-            value = -1;
-        }  
-
-    }
-    else {
-        value = (counts_fp - remainder) / 1024;
-
-        // Ensure we always move at least one count
-        if (value == 0) {
-            // TODO FIXME SdB: Not sure what this means in the physical world. It's probably nothing good...
-            // We might just want to alarm instead.
-            value = 1;
-        }  
+    // Ensure we always move at least one count
+    if (value == 0) {
+        value = (counts_fp < 0) ? -1 : 1;
     }
 
     this->current_step_fp_remainder = remainder;
