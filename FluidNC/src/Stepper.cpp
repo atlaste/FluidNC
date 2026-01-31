@@ -289,7 +289,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
     int32_t counts_fp = seg->encoder.counts_per_step_fp;
     
     // Debug: trace what value we're getting from the segment
-    ets_printf("seg_load: counts_fp=%d\n", counts_fp);
+    // ets_printf("seg_load: counts_fp=%d\n", counts_fp);
     
     start_spindle_encoder(spindle_encoder->setStepAlarmValue(counts_fp));
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
@@ -872,7 +872,17 @@ void Stepper::prep_buffer() {
         prep_segment->spindle_dev_speed = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);
 
         // Set segment mode based on sync_mode from planner block
-        if (pl_block->sync_mode != SpindleSyncMode::None && spindle_encoder) {
+        // Use encoder mode only if:
+        // - sync_mode is set (G95 or G33)
+        // - spindle_encoder exists
+        // - NOT a rapid move (G0)
+        // - feed_per_revolution > 0 (valid pitch/feed)
+        bool use_encoder_mode = pl_block->sync_mode != SpindleSyncMode::None 
+                             && spindle_encoder != nullptr
+                             && !pl_block->motion.rapidMotion
+                             && pl_block->feed_per_revolution > 0.0f;
+        
+        if (use_encoder_mode) {
             // Encoder-driven mode (G95/G33)
             // Calculate encoder counts per step based on thread pitch and axis resolution
             prep_segment->on_load = segment_load_encoder;
@@ -881,7 +891,7 @@ void Stepper::prep_buffer() {
                 prep.step_per_mm                // Steps per mm for this axis
             );
         } else {
-            // Timer-driven mode (normal, laser, CSS)
+            // Timer-driven mode (normal, rapid, laser, CSS)
             prep_segment->on_load = segment_load_timer;
         }
 

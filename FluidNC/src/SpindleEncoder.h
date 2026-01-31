@@ -99,19 +99,18 @@ public:
         int64_t gear_ratio  = ratio;  // Already scaled by 10000
 
         float steps_per_rev = pitch_mm * steps_per_mm;
-        auto  result        = int32_t((encoder_cpr * gear_ratio * 1024) / (10000 * int64_t(steps_per_rev)));
-
-        {
-            // If we have -100, we get FFFFFFFFFFFFFF9C -> 924.
-
-            auto remainder = result & 1023;
-            if (result < 0) {
-                remainder = 1024 - remainder;
-            }
-            log_info("Encoder sync: CPR=" << encoder_cpr << ", ratio=" << gear_ratio << ", pitch=" << pitch_mm
-                                          << "mm, steps/rev=" << steps_per_rev << ", counts/step=" << ((result - remainder) / 1024) << "."
-                                          << remainder);
+        
+        // Guard against divide-by-zero (shouldn't happen if caller checks feed_per_revolution > 0)
+        if (steps_per_rev == 0) {
+            return 0;
         }
+        
+        auto result = int32_t((encoder_cpr * gear_ratio * 1024) / (10000 * int64_t(steps_per_rev)));
+
+        // Debug logging (commented out for production - too verbose during motion)
+        // log_info("Encoder sync: CPR=" << encoder_cpr << ", ratio=" << gear_ratio 
+        //          << ", pitch=" << pitch_mm << "mm, steps/rev=" << steps_per_rev 
+        //          << ", counts/step=" << (result / 1024));
 
         return result;
     }

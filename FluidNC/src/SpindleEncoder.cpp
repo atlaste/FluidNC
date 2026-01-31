@@ -363,12 +363,12 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     // Start the ALM counter
     AssertOK(pcnt_unit_start(pcnt_alm));
 
-    // Debug: verify hardware was configured correctly
-    int hw_thres0 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 0);
-    int hw_thres1 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 1);
-    int hw_count = pcnt_ll_get_count(group->hal.dev, unit_id);
-    ets_printf("armAlarm: threshold=%d, alarmValue=%d, HW: thres0=%d thres1=%d count=%d\n", 
-               initial_threshold, alarmValue, hw_thres0, hw_thres1, hw_count);
+    // Debug (commented out for production):
+    // int hw_thres0 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 0);
+    // int hw_thres1 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 1);
+    // int hw_count = pcnt_ll_get_count(group->hal.dev, unit_id);
+    // ets_printf("armAlarm: threshold=%d, alarmValue=%d, HW: thres0=%d thres1=%d count=%d\n", 
+    //            initial_threshold, alarmValue, hw_thres0, hw_thres1, hw_count);
 }
 
 void IRAM_ATTR SpindleEncoder::startStepCallback(int64_t target) {
