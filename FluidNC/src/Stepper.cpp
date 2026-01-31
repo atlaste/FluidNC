@@ -346,15 +346,13 @@ bool IRAM_ATTR Stepper::pulse_func() {
             // Initialize new step segment
             st.exec_segment = &segment_buffer[segment_buffer_tail];
 
-            // Call segment's on_load callback to handle timing source and spindle speed.
-            // This replaces the previous if-then-else tree for timer/encoder modes.
-            st.exec_segment->on_load(st.exec_segment);
-
             st.step_count = st.exec_segment->n_step;  // NOTE: Can be zero for wait segments.
 
             // If the new segment starts a new planner block, initialize stepper variables and counters.
             // NOTE: When the segment data index changes, this indicates a new planner block.
-            if (st.exec_block_index != st.exec_segment->st_block_index) {
+            // CRITICAL: Must set st.exec_block BEFORE on_load, because encoder ISR may call
+            // pulse_func recursively during on_load (e.g., while armAlarm is still running).
+            if (st.exec_block_index != st.exec_segment->st_block_index || st.exec_block == NULL) {
                 st.exec_block_index = st.exec_segment->st_block_index;
                 st.exec_block       = &st_block_buffer[st.exec_block_index];
                 // Initialize Bresenham line and distance counters
@@ -364,6 +362,11 @@ bool IRAM_ATTR Stepper::pulse_func() {
             }
 
             st.dir_outbits = st.exec_block->direction_bits;
+
+            // Call segment's on_load callback to handle timing source and spindle speed.
+            // This replaces the previous if-then-else tree for timer/encoder modes.
+            // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func!
+            st.exec_segment->on_load(st.exec_segment);
             // Adjust Bresenham axis increment counters according to AMASS level.
             for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
                 st.steps[axis] = st.exec_block->steps[axis] >> st.exec_segment->amass_level;
