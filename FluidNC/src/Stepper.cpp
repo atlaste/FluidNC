@@ -363,14 +363,17 @@ bool IRAM_ATTR Stepper::pulse_func() {
 
             st.dir_outbits = st.exec_block->direction_bits;
 
-            // Call segment's on_load callback to handle timing source and spindle speed.
-            // This replaces the previous if-then-else tree for timer/encoder modes.
-            // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func!
-            st.exec_segment->on_load(st.exec_segment);
             // Adjust Bresenham axis increment counters according to AMASS level.
+            // CRITICAL: Must do this BEFORE on_load, because encoder ISR may complete the
+            // segment during on_load and set st.exec_segment = NULL.
             for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
                 st.steps[axis] = st.exec_block->steps[axis] >> st.exec_segment->amass_level;
             }
+
+            // Call segment's on_load callback to handle timing source and spindle speed.
+            // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func,
+            // potentially completing this segment before on_load returns!
+            st.exec_segment->on_load(st.exec_segment);
         } else {
             // Segment buffer empty. Shutdown.
             stop_stepping();
