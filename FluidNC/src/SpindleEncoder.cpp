@@ -159,6 +159,9 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
 
+    // Clear counter AFTER setting thresholds - starts fresh from 0
+    pcnt_ll_clear_count(group->hal.dev, unit_id);
+
     ets_printf("next_thresh=%d ecr=%d\n", next_threshold, ecr);
 
     return pdFALSE;
@@ -342,6 +345,11 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     // Clear any pending interrupts
     pcnt_ll_clear_intr_status(group->hal.dev, (1 << unit_id));
 
+    // CRITICAL: Disable limit events - we only want threshold events
+    // Limit events fire at ±32767 and cause the overflow behavior we're seeing
+    // pcnt_ll_enable_high_limit_event(group->hal.dev, unit_id, false);
+    // pcnt_ll_enable_low_limit_event(group->hal.dev, unit_id, false);
+
     // Set up initial threshold using alarmValue (set by setStepAlarmValue)
     // This ensures the ISR fires after alarmValue counts instead of waiting for 32767
     // Use absolute value - we set both +/- thresholds for bidirectional
@@ -364,11 +372,18 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, true);
     pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, true);
 
+    // Clear counter AFTER setting thresholds - ensures we start from 0
+    pcnt_ll_clear_count(group->hal.dev, unit_id);
+
     // Start the ALM counter
     AssertOK(pcnt_unit_start(pcnt_alm));
 
-    // Debug: uncomment to trace ISR triggering
-    ets_printf("armAlarm: threshold=%d, alarmValue=%d\n", initial_threshold, alarmValue);
+    // Debug: verify hardware was configured correctly
+    int hw_thres0 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 0);
+    int hw_thres1 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 1);
+    int hw_count = pcnt_ll_get_count(group->hal.dev, unit_id);
+    ets_printf("armAlarm: threshold=%d, alarmValue=%d, HW: thres0=%d thres1=%d count=%d\n", 
+               initial_threshold, alarmValue, hw_thres0, hw_thres1, hw_count);
 }
 
 void IRAM_ATTR SpindleEncoder::startStepCallback(int64_t target) {
