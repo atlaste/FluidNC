@@ -38,6 +38,15 @@ G97
 
 ## G95 - Feed Per Revolution (requires spindle encoder)
 
+; Simplest test first:
+M3 S100
+G95
+G1 Z-10 F1.0
+?
+G94
+G0 Z0
+M5
+
 ; First check if spindle encoder is configured
 M3 S100      ; Start spindle
 G94          ; Units per minute (default)

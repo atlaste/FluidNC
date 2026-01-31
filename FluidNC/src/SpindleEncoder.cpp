@@ -75,6 +75,11 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     pcnt_group_t* group     = pcnt_unit->group;
     int           unit_id   = pcnt_unit->unit_id;
 
+    // CRITICAL: Disable thresholds and clear counter FIRST to prevent overflow
+    // The counter keeps running during ISR, so we need to reset it before processing
+    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, false);
+    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, false);
+
     // Update encoder counts remaining using watch_point_value
     // (we update watchers[] when setting thresholds, so this is accurate)
     auto ecr = enc->encoder_counts_remaining - edata->watch_point_value;
@@ -84,11 +89,7 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
 
     enc->encoder_counts_remaining = ecr;
 
-    // Disable threshold events while reconfiguring
-    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 0, false);
-    pcnt_ll_enable_thres_event(group->hal.dev, unit_id, 1, false);
-
-    // Check if we've reached target
+    // Check if we've reached target (ecr == 0)
     // Since we use watch_point_value (which we control), ecr hits exactly 0
     // NOTE: Should be == 0 because direction matters!
     if (ecr == 0) {
@@ -291,8 +292,6 @@ void SpindleEncoder::init() {
     pcnt_event_callbacks_t cbs2 = {
         .on_reach = pcnt_on_reach,
     };
-
-    // NOTE: We just put it on a queue for now. We'll need to do something more useful later.
     AssertOK(pcnt_unit_register_event_callbacks(pcnt_alm, &cbs2, this));
 
     log_debug("Start pcnt units");

@@ -935,11 +935,14 @@ void Stepper::prep_buffer() {
         }
         prep_segment->amass_level = level;
         prep_segment->n_step <<= level;
-        // isr_period is stored as 16 bits, so limit timerTicks to the
-        // largest value that will fit in a uint16_t.
-        // Note: Only valid for timer mode segments, but we set it unconditionally
-        // since encoder mode segments ignore this field (union).
-        prep_segment->timer.isr_period = timerTicks > 0xffff ? 0xffff : timerTicks;
+        // Only set isr_period for timer mode - encoder mode uses the union for counts_per_step_fp
+        if (prep_segment->on_load == segment_load_timer) {
+            // isr_period is stored as 16 bits, so limit timerTicks to the
+            // largest value that will fit in a uint16_t.
+            // Note: Only valid for timer mode segments, but we set it unconditionally
+            // since encoder mode segments ignore this field (union).
+            prep_segment->timer.isr_period = timerTicks > 0xffff ? 0xffff : timerTicks;
+        }
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
         auto lastseg        = segment_next_head;
