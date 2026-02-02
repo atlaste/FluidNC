@@ -1,3 +1,10 @@
+# TODO list
+
+- Tool table helemaal afmaken
+- ATC tool changes moeten rekening houden met tool table
+- Probing
+
+
 # G-Code Functions:
 
 G33 - Spindle synchronized motion (single-pass threading) - requires spindle encoder
