@@ -176,7 +176,7 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
 // - G40: Cutter compensation cancellation. We'll deal with this later.
 // - G41 / G42: Cutter compensation left/right. We'll deal with this later.
-// - G49: Tool length offset cancellation. We'll deal with this later.
+// t G49: Tool length offset cancellation. We'll deal with this later.
 // t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
 
