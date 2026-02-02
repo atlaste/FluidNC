@@ -51,6 +51,9 @@ namespace ATCs {
         void init() override;
         void probe_notification() override;
         bool tool_change(tool_t value, bool pre_select, bool set_tool) override;
+        
+        // Manual ATC handles TLO internally via probing
+        bool handles_tlo() override { return true; }
 
         void validate() override {}
 

@@ -21,6 +21,8 @@
 #include "Parameters.h"
 #include "Flowcontrol.h"
 #include "SpindleEncoder.h"  // spindle_encoder
+#include "ToolTable.h"       // toolTable
+#include "Logging.h"         // log_warn
 
 #include <string.h>  // memset
 #include <math.h>    // sqrt etc.
@@ -170,12 +172,12 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 // x G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
 // x G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
-// - G43: Tool length offset, typically applied after tool changes. Let's do this later.
+// t G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
 // - G40: Cutter compensation cancellation. We'll deal with this later.
 // - G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // - G49: Tool length offset cancellation. We'll deal with this later.
-// - G10 L1 / L2 / L20: Used to programmatically update the tool table or set coordinate system origins. Let's deal with this later.
+// t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
 
 // Edit GCode line in-place, removing whitespace and comments and
@@ -627,6 +629,8 @@ Error gc_execute_line(const char* input_line) {
                             gc_block.modal.tool_length = ToolLengthOffset::Cancel;
                         } else if (mantissa == 10) {  // G43.1
                             gc_block.modal.tool_length = ToolLengthOffset::EnableDynamic;
+                        } else if (mantissa == 0) {  // G43 H# - Load from tool table
+                            gc_block.modal.tool_length = ToolLengthOffset::Enable;
                         } else {
                             return Error::GcodeUnsupportedCommand;  // [Unsupported G43.x command]
                         }
@@ -867,7 +871,10 @@ Error gc_execute_line(const char* input_line) {
                         axis_word_bit     = GCodeWord::F;
                         gc_block.values.f = value;
                         break;
-                    // case 'H': // Not supported
+                    case 'H':
+                        axis_word_bit     = GCodeWord::H;
+                        gc_block.values.h = int32_t(value);
+                        break;
                     case 'I':
                         axis_word_bit               = GCodeWord::I;
                         gc_block.values.ijk[X_AXIS] = value;
@@ -1244,7 +1251,8 @@ Error gc_execute_line(const char* input_line) {
     // [G40 Errors]: G2/3 arc is programmed after a G40. The linear move after disabling is less than tool diameter.
     //   NOTE: Since cutter radius compensation is never enabled, these G40 errors don't apply. G40 is supported
     //   only for the purpose of not erroring when G40 is sent with a g-code program header to setup the default modes.
-    // [14. Cutter length compensation ]: G43 NOT SUPPORTED, but G43.1 and G49 are.
+    // [14. Cutter length compensation ]: G43 H#, G43.1 and G49 are supported.
+    // [G43 Errors]: H word must specify valid tool number in tool table.
     // [G43.1 Errors]: Motion command in same line.
     //   NOTE: Although not explicitly stated so, G43.1 should be applied to only one valid
     //   axis that is configured (in config.h). There should be an error if the configured axis
@@ -1281,57 +1289,93 @@ Error gc_execute_line(const char* input_line) {
     // the axis value, G92 similarly to G10 L20, and G28/30 as an intermediate target position that observes
     // all the current coordinate system and G92 offsets.
     switch (gc_block.non_modal_command) {
-        case NonModal::SetCoordinateData:
+        case NonModal::SetCoordinateData: {
             // [G10 Errors]: L missing and is not 2 or 20. P word missing. (Negative P value done.)
             // [G10 L2 Errors]: R word NOT SUPPORTED. P value not 0 to nCoordSys(max 9). Axis words missing.
-            // [G10 L20 Errors]: P must be 0 to nCoordSys(max 9). Axis words missing.
+            // [G10 Errors]: P and L words required. Axis words required.
             if (!axis_words) {
                 return Error::GcodeNoAxisWords;
             };  // [No axis words]
             if (bits_are_false(value_words, (bitnum_to_mask(GCodeWord::P) | bitnum_to_mask(GCodeWord::L)))) {
                 return Error::GcodeValueWordMissing;  // [P/L word missing]
             }
-            if (gc_block.values.l != 20) {
-                if (gc_block.values.l == 2) {
-                    if (bitnum_is_true(value_words, GCodeWord::R)) {
-                        return Error::GcodeUnsupportedCommand;  // [G10 L2 R not supported]
-                    }
-                } else {
-                    return Error::GcodeUnsupportedCommand;  // [Unsupported L]
+            
+            // Check for valid L values
+            uint8_t l_value = gc_block.values.l;
+            if (l_value == 1 || l_value == 10 || l_value == 11) {
+                // L1, L10, L11: Set tool table offset
+                // P word is tool number for these
+                pValue = int32_t(truncf(gc_block.values.p));
+                if (pValue <= 0) {
+                    return Error::GcodeValueWordMissing;  // Tool number must be > 0
                 }
-            }
-            // Select the coordinate system based on the P word
-            pValue = int8_t(truncf(gc_block.values.p));  // Convert p value to integer
-            if (pValue > 0) {
-                // P1 means G54, P2 means G55, etc.
-                coord_select = static_cast<CoordIndex>(pValue - 1 + int(CoordIndex::G54));
-            } else {
-                // P0 means use currently-selected system
-                coord_select = gc_block.modal.coord_select;
-            }
-            if (coord_select >= CoordIndex::NWCSystems) {
-                return Error::GcodeUnsupportedCoordSys;  // [Greater than N sys]
-            }
-            clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P)));
-            coords[coord_select]->get(coord_data);
-
-            // Pre-calculate the coordinate data changes.
-            for (axis_t axis = X_AXIS; axis < n_axis; axis++) {  // Axes indices are consistent, so loop may be used.
-                // Update axes defined only in block. Always in machine coordinates. Can change non-active system.
-                if (bitnum_is_true(axis_words, axis)) {
-                    if (gc_block.values.l == 20) {
-                        // L20: Update coordinate system axis at current position (with modifiers) with programmed value
-                        // WPos = MPos - WCS - G92 - TLO  ->  WCS = MPos - G92 - TLO - WPos
-                        coord_data[axis] = gc_state.position[axis] - gc_state.coord_offset[axis] - gc_block.values.xyz[axis];
-                        coord_data[axis] -= gc_state.tool_length_offset[axis];
-                    } else {
-                        // L2: Update coordinate system axis to programmed value.
-                        coord_data[axis] = gc_block.values.xyz[axis];
+                clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P)));
+                
+                // Pre-calculate tool offset based on L value
+                // coord_data is reused here to store tool offset values
+                memset(coord_data, 0, sizeof(coord_data));
+                for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
+                    if (bitnum_is_true(axis_words, axis)) {
+                        if (l_value == 1) {
+                            // L1: Set tool offset directly to specified value
+                            coord_data[axis] = gc_block.values.xyz[axis];
+                        } else if (l_value == 10) {
+                            // L10: Set tool offset so current position equals specified work position
+                            // TLO = MPos - WCS - G92 - DesiredWPos
+                            coord_data[axis] = gc_state.position[axis] - gc_state.coord_system[axis] 
+                                             - gc_state.coord_offset[axis] - gc_block.values.xyz[axis];
+                        } else {  // l_value == 11
+                            // L11: Set tool offset relative to G59.3 coordinate system
+                            float g59_3_offset[MAX_N_AXIS];
+                            coords[CoordIndex::G59_3]->get(g59_3_offset);
+                            // TLO = MPos - G59.3 - DesiredWPos
+                            coord_data[axis] = gc_state.position[axis] - g59_3_offset[axis] - gc_block.values.xyz[axis];
+                        }
                     }
-                }  // Else, keep current stored value.
+                }
+                gc_ngc_changed(CoordIndex::TLO);
+            } else if (l_value == 2 || l_value == 20) {
+                // L2, L20: Set coordinate system offset (existing behavior)
+                if (l_value == 2 && bitnum_is_true(value_words, GCodeWord::R)) {
+                    return Error::GcodeUnsupportedCommand;  // [G10 L2 R not supported]
+                }
+                
+                // Select the coordinate system based on the P word
+                pValue = int8_t(truncf(gc_block.values.p));  // Convert p value to integer
+                if (pValue > 0) {
+                    // P1 means G54, P2 means G55, etc.
+                    coord_select = static_cast<CoordIndex>(pValue - 1 + int(CoordIndex::G54));
+                } else {
+                    // P0 means use currently-selected system
+                    coord_select = gc_block.modal.coord_select;
+                }
+                if (coord_select >= CoordIndex::NWCSystems) {
+                    return Error::GcodeUnsupportedCoordSys;  // [Greater than N sys]
+                }
+                clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P)));
+                coords[coord_select]->get(coord_data);
+
+                // Pre-calculate the coordinate data changes.
+                for (axis_t axis = X_AXIS; axis < n_axis; axis++) {  // Axes indices are consistent, so loop may be used.
+                    // Update axes defined only in block. Always in machine coordinates. Can change non-active system.
+                    if (bitnum_is_true(axis_words, axis)) {
+                        if (l_value == 20) {
+                            // L20: Update coordinate system axis at current position (with modifiers) with programmed value
+                            // WPos = MPos - WCS - G92 - TLO  ->  WCS = MPos - G92 - TLO - WPos
+                            coord_data[axis] = gc_state.position[axis] - gc_state.coord_offset[axis] - gc_block.values.xyz[axis];
+                            coord_data[axis] -= gc_state.tool_length_offset[axis];
+                        } else {
+                            // L2: Update coordinate system axis to programmed value.
+                            coord_data[axis] = gc_block.values.xyz[axis];
+                        }
+                    }  // Else, keep current stored value.
+                }
+                gc_ngc_changed(static_cast<CoordIndex>(coord_select));
+            } else {
+                return Error::GcodeUnsupportedCommand;  // [Unsupported L value]
             }
-            gc_ngc_changed(static_cast<CoordIndex>(coord_select));
             break;
+        }
         case NonModal::SetCoordinateOffset:
             // [G92 Errors]: No axis words.
             if (!axis_words) {
@@ -1795,7 +1839,8 @@ Error gc_execute_line(const char* input_line) {
             axis_t css_axis = config->_css_axis;
             if (css_axis != INVALID_AXIS) {
                 float* mpos = get_mpos();
-                float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                // Tool tip position = MPos - TLO (LinuxCNC convention)
+                float  tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
                 float  radius = fabsf(tool_tip_pos);
                 if (radius < 0.001f) {
                     radius = 0.001f;  // Minimum radius to avoid division by zero
@@ -1862,6 +1907,25 @@ Error gc_execute_line(const char* input_line) {
             if (spindle->_atc_name == "" && spindle->_m6_macro.get().empty()) {  // if neither of these exist we need to set the value here
                 gc_state.current_tool = gc_state.selected_tool;
             }
+            
+            // Apply TLO from tool table if ATC doesn't handle it internally
+            // Check if there's an ATC that handles TLO
+            bool atc_handles_tlo = false;
+            if (spindle->atc() != nullptr) {
+                atc_handles_tlo = spindle->atc()->handles_tlo();
+            }
+            if (!atc_handles_tlo && toolTable != nullptr && gc_state.current_tool > 0) {
+                float offset[MAX_N_AXIS] = {};
+                if (toolTable->getToolOffset(gc_state.current_tool, offset)) {
+                    for (size_t idx = 0; idx < n_axis; idx++) {
+                        gc_state.tool_length_offset[idx] = offset[idx];
+                    }
+                    gc_state.modal.tool_length = ToolLengthOffset::Enable;
+                    coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
+                    log_info("Applied TLO from tool table for tool " << gc_state.current_tool);
+                }
+            }
+            
             report_ovr_counter = 0;  // Set to report change immediately
             gc_ovr_changed();
         }
@@ -1895,14 +1959,15 @@ Error gc_execute_line(const char* input_line) {
             protocol_buffer_synchronize();
             
             // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
-            // Calculate actual RPM from machine position + tool offset when turning spindle on
+            // Calculate actual RPM from machine position - tool offset when turning spindle on
             uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
             if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
                 gc_block.modal.spindle != SpindleState::Disable) {
                 axis_t css_axis = config->_css_axis;
                 if (css_axis != INVALID_AXIS) {
                     float* mpos = get_mpos();
-                    float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                    // Tool tip position = MPos - TLO (LinuxCNC convention)
+                    float  tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
                     float  radius = fabsf(tool_tip_pos);
                     if (radius < 0.001f) {
                         radius = 0.001f;
@@ -2025,17 +2090,49 @@ Error gc_execute_line(const char* input_line) {
     gc_state.modal.units = gc_block.modal.units;
     // [13. Cutter radius compensation ]: G41/42 NOT SUPPORTED
     // gc_state.modal.cutter_comp = gc_block.modal.cutter_comp; // NOTE: Not needed since always disabled.
-    // [14. Cutter length compensation ]: G43.1 and G49 supported. G43 NOT SUPPORTED.
-    // NOTE: If G43 were supported, its operation wouldn't be any different from G43.1 in terms
-    // of execution. The error-checking step would simply load the offset value into the correct
-    // axis of the block XYZ value array.
+    // [14. Cutter length compensation ]: G43, G43.1 and G49 supported.
     if (axis_command == AxisCommand::ToolLengthOffset) {  // Indicates a change.
         gc_state.modal.tool_length = gc_block.modal.tool_length;
-        // else G43.1
-        for (size_t idx = 0; idx < n_axis; idx++) {  // Axes indices are consistent, so loop may be used to save flash space.
-            if (gc_state.modal.tool_length == ToolLengthOffset::Cancel) {
+        
+        if (gc_state.modal.tool_length == ToolLengthOffset::Cancel) {
+            // G49 - Cancel tool length offset
+            for (size_t idx = 0; idx < n_axis; idx++) {
                 gc_state.tool_length_offset[idx] = 0.0;
+            }
+        } else if (gc_state.modal.tool_length == ToolLengthOffset::Enable) {
+            // G43 H# - Load from tool table
+            // If H word not specified or H0, use current tool
+            int32_t tool_num = gc_block.values.h;
+            if (!bitnum_is_true(value_words, GCodeWord::H) || tool_num == 0) {
+                // H0 or no H word: cancel TLO (same as G49)
+                for (size_t idx = 0; idx < n_axis; idx++) {
+                    gc_state.tool_length_offset[idx] = 0.0;
+                }
             } else {
+                // Load offset from tool table
+                if (toolTable != nullptr) {
+                    float offset[MAX_N_AXIS] = {};
+                    if (toolTable->getToolOffset(tool_num, offset)) {
+                        for (size_t idx = 0; idx < n_axis; idx++) {
+                            gc_state.tool_length_offset[idx] = offset[idx];
+                        }
+                    } else {
+                        // Tool not in table - log warning but don't error
+                        log_warn("Tool " << tool_num << " not found in tool table");
+                        for (size_t idx = 0; idx < n_axis; idx++) {
+                            gc_state.tool_length_offset[idx] = 0.0;
+                        }
+                    }
+                } else {
+                    log_warn("Tool table not loaded");
+                    for (size_t idx = 0; idx < n_axis; idx++) {
+                        gc_state.tool_length_offset[idx] = 0.0;
+                    }
+                }
+            }
+        } else {
+            // G43.1 - Dynamic TLO from axis words
+            for (size_t idx = 0; idx < n_axis; idx++) {
                 if (bitnum_is_true(axis_words, idx)) {
                     gc_state.tool_length_offset[idx] = gc_block.values.xyz[idx];
                 }
@@ -2057,14 +2154,30 @@ Error gc_execute_line(const char* input_line) {
     // [18. Set retract mode ]: NOT SUPPORTED
     // [19. Go to predefined position, Set G10, or Set axis offsets ]:
     switch (gc_block.non_modal_command) {
-        case NonModal::SetCoordinateData:
-            coords[coord_select]->set(coord_data);
-            gc_wco_changed();
-            // Update system coordinate system if currently active.
-            if (gc_state.modal.coord_select == coord_select) {
-                copyAxes(gc_state.coord_system, coord_data);
+        case NonModal::SetCoordinateData: {
+            uint8_t l_value = gc_block.values.l;
+            if (l_value == 1 || l_value == 10 || l_value == 11) {
+                // L1, L10, L11: Set tool table offset
+                // pValue contains tool number, coord_data contains calculated offset
+                if (toolTable != nullptr) {
+                    int32_t tool_num = int32_t(truncf(gc_block.values.p));
+                    toolTable->setToolOffset(tool_num, coord_data);
+                    toolTable->save();  // Persist to tooltable.yaml
+                    log_info("Updated tool " << tool_num << " offset");
+                } else {
+                    log_warn("Tool table not loaded, cannot save tool offset");
+                }
+            } else {
+                // L2, L20: Set coordinate system offset (existing behavior)
+                coords[coord_select]->set(coord_data);
+                gc_wco_changed();
+                // Update system coordinate system if currently active.
+                if (gc_state.modal.coord_select == coord_select) {
+                    copyAxes(gc_state.coord_system, coord_data);
+                }
             }
             break;
+        }
         case NonModal::GoHome0:
         case NonModal::GoHome1:
             // Move to intermediate position before going home. Obeys current coordinate system and offsets
@@ -2249,7 +2362,7 @@ Error gc_execute_line(const char* input_line) {
    group 4 = {M1} (Optional stop, ignored)
    group 6 = {M6} (Tool change)
    group 7 = {G41, G42} cutter radius compensation (G40 is supported)
-   group 8 = {G43} tool length offset (G43.1/G49 are supported)
+   group 8 = {G43 H#, G43.1, G49} tool length offset (all supported)
    group 8 = {M7*} enable mist coolant (* Compile-option)
    group 9 = {M48, M49} enable/disable feed and speed override switches
    group 10 = {G98, G99} return mode canned cycles

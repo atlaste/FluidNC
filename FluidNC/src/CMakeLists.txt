@@ -49,6 +49,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Stepping.cpp
 							string_util.cpp
 							System.cpp
+							ToolTable.cpp
 							Uart.cpp
 							UartChannel.cpp
 							UTF8.cpp

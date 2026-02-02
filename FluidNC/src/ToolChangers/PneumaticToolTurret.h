@@ -66,5 +66,8 @@ namespace ATCs {
         // // ATC API:
         void probe_notification() override;
         bool tool_change(tool_t value, bool pre_select, bool set_tool) override;
+        
+        // This ATC handles TLO internally when useTLO is enabled
+        bool handles_tlo() override { return useTLO; }
     };
 }

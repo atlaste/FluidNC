@@ -12,6 +12,7 @@
 #include "atc.h"
 #include "../State/StatePersistence.h"
 #include "../Logging.h"
+#include "../ToolTable.h"
 
 namespace ATCs {
     void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
@@ -35,25 +36,13 @@ namespace ATCs {
         // disable the tool change stepper:
         setToolChangeStepperEnable(false);
 
-        // TODO FIXME: I'm honstely not sure if the currentToolNumber is setup at this point. Let's log it for now.
         log_info("Current tool number: " << int(currentToolNumber));
 
-        // Set the correct tool length offset:
-        if (useTLO) {
-            bool isInsideTool = false;
-            if (toolTypes.size() > currentToolNumber) {
-                char toolType = std::toupper(toolTypes[currentToolNumber]);
-                isInsideTool = (toolType == 'I');
-            }
-            else {
-                Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
-            }
-            char directionAxis = isInsideTool ? 'Z' : 'X';
-    
-            // Set TLO
-            char setTLO[50];
-            // TODO FIXME: Check syntax! I'm not sure if this %c is correct, or if we should K/I offsets.
-            snprintf(setTLO, 100, "G43.1 %c%0.4f\n", directionAxis, toolLengthOffsets[currentToolNumber]);
+        // Set the correct tool length offset from tool table:
+        if (useTLO && currentToolNumber > 0) {
+            // Use G43 H# to load TLO from tool table
+            char setTLO[32];
+            snprintf(setTLO, sizeof(setTLO), "G43 H%d\n", int(currentToolNumber));
             run(setTLO);
         }
     }
@@ -139,10 +128,12 @@ namespace ATCs {
         if (isInsideTool) {
             // Inside tool: First retract Z (out of the bore), then X
             // Use TLO + safety margin if available, otherwise use configured safeZ
-            if (useTLO && toolLengthOffsets.size() > currentToolNumber) {
-                // Calculate safe Z position based on current Z + TLO + margin
+            float tlo[MAX_N_AXIS] = {};
+            bool hasTLO = useTLO && toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
+            if (hasTLO) {
+                // Calculate safe Z position based on TLO + margin
                 // This ensures we clear the bore before moving X
-                auto safeRetractLength = toolLengthOffsets[currentToolNumber] + safetyMargin; // e.g. -50. Max is -say- -40. 
+                float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
                 if (safeRetractLength > maxRetractZ) {
                     safeRetractLength = maxRetractZ;
                     log_info("Safe retract Z is above maxRetractZ. Aborting.");
@@ -153,7 +144,8 @@ namespace ATCs {
                 snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeRetractLength);
                 run(safeRetract);
             } else {
-                Assert(false, "TLO not found for tool number %d. Cannot retract safely.", currentToolNumber);
+                log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
+                return false;
             }
         }
         // fallthrough:
@@ -221,14 +213,8 @@ namespace ATCs {
         setToolChangeStepperEnable(false);
 
         if (useTLO) {
-            // Quick check tool length offset that's persisted. If it's there -> use it.
-            // Otherwise run a probe sequence.
-            // if (toolLengthOffsets[currentToolNumber] <= 0.0) {
-            //     probeToolLengthOffset();
-            // }
-
-            // Set TLO:
-            snprintf(toolChange, 100, "G43.1 X%0.4f\n", toolLengthOffsets[toolNumber]);
+            // Load TLO from tool table using G43 H#
+            snprintf(toolChange, sizeof(toolChange), "G43 H%d\n", toolNumber);
             run(toolChange);
         }
 

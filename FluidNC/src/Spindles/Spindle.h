@@ -73,7 +73,9 @@ namespace Spindles {
 
         void         spindleDelay(SpindleState state, SpindleSpeed speed);
         virtual void init() = 0;  // not in constructor because this also gets called when $$ settings change
+        
         virtual void init_atc();
+        ATCs::ATC* atc() { return _atc; }  // Public accessor for ATC
         std::string  atc_info() { return _atc_info; };
 
         void save_atc_data(std::vector<uint8_t>& buffer) {

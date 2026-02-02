@@ -22,6 +22,8 @@
 #include "Driver/gpio_dump.h"     // gpio_dump()
 #include "FileCommands.h"         // make_file_commands()
 #include "Job.h"                  // Job::active()
+#include "ToolTable.h"            // toolTable
+#include "Logging.h"              // LogStream
 
 #include "FluidPath.h"
 #include "HashFS.h"
@@ -963,6 +965,77 @@ static Error showHeap(const char* value, AuthenticationLevel auth_level, Channel
     return Error::Ok;
 }
 
+// Tool table commands
+static Error showToolTable(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (toolTable == nullptr) {
+        log_error_to(out, "Tool table not loaded");
+        return Error::InvalidStatement;
+    }
+    
+    log_info_to(out, "Tool Table: " << toolTable->filename());
+    log_info_to(out, "Tools: " << toolTable->count());
+    
+    for (auto tool : toolTable->tools()) {
+        if (tool == nullptr) continue;
+        LogStream ss(out, MsgLevelInfo, "[MSG:INFO: ");
+        ss << "  T" << tool->_number << ": ";
+        if (!tool->_name.empty()) {
+            ss << "\"" << tool->_name << "\" ";
+        }
+        ss << "X:" << tool->_offset[X_AXIS] 
+           << " Y:" << tool->_offset[Y_AXIS] 
+           << " Z:" << tool->_offset[Z_AXIS];
+    }
+    
+    // Show turret mapping if any
+    const auto turret = toolTable->turret();
+    if (turret != nullptr && turret->hasAnyMapping()) {
+        log_info_to(out, "Turret mapping:");
+        for (int pos = 1; pos <= 20; pos++) {
+            int32_t toolNum = turret->getToolForPosition(pos);
+            if (toolNum > 0) {
+                log_info_to(out, "  Position " << pos << " -> Tool " << toolNum);
+            }
+        }
+    }
+    
+    return Error::Ok;
+}
+
+static Error reloadToolTable(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (toolTable == nullptr) {
+        toolTable = new ToolTable();
+    }
+    
+    std::string filename = "/localfs/tooltable.yaml";
+    if (value && *value) {
+        filename = value;
+    }
+    
+    if (toolTable->load(filename)) {
+        log_info_to(out, "Loaded tool table from " << filename);
+        return Error::Ok;
+    } else {
+        log_error_to(out, "Failed to load tool table from " << filename);
+        return Error::FsFailedOpenFile;
+    }
+}
+
+static Error saveToolTable(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (toolTable == nullptr) {
+        log_error_to(out, "Tool table not loaded");
+        return Error::InvalidStatement;
+    }
+    
+    if (toolTable->save()) {
+        log_info_to(out, "Saved tool table to " << toolTable->filename());
+        return Error::Ok;
+    } else {
+        log_error_to(out, "Failed to save tool table");
+        return Error::FsFailedCreateFile;
+    }
+}
+
 // Commands use the same syntax as Settings, but instead of setting or
 // displaying a persistent value, a command causes some action to occur.
 // That action could be anything, from displaying a run-time parameter
@@ -1035,6 +1108,11 @@ void make_user_commands() {
     new UserCommand("13", "Report/Inches", switchInchMM, notIdleOrAlarm);
 
     new UserCommand("GS", "GRBL/Show", report_init_message_cmd, notIdleOrAlarm);
+
+    // Tool table commands
+    new UserCommand("TT", "ToolTable/Show", showToolTable, anyState);
+    new UserCommand("TTL", "ToolTable/Load", reloadToolTable, anyState);
+    new UserCommand("TTS", "ToolTable/Save", saveToolTable, anyState);
 
     new AsyncUserCommand("J", "Jog", doJog, notIdleOrJog);
     new AsyncUserCommand("G", "GCode/Modes", report_gcode, anyState);

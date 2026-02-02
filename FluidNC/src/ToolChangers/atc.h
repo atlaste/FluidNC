@@ -41,6 +41,10 @@ namespace ATCs {
         virtual void probe_notification()                                      = 0;
         virtual bool tool_change(tool_t value, bool pre_select, bool set_tool) = 0;
         
+        // Returns true if the ATC handles TLO internally (e.g., after probing).
+        // When true, the M6 handler will not automatically apply TLO from the tool table.
+        virtual bool handles_tlo() { return false; }
+        
         virtual void save_atc_data(std::vector<uint8_t>& buffer) { 
             auto size = buffer.size();
             buffer.resize(buffer.size() + 4);

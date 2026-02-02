@@ -201,7 +201,8 @@ static const int MaxUserAnalogPin  = 4;
 // Modal Group G8: Tool length offset
 enum class ToolLengthOffset : gcodenum_t {
     Cancel        = 490,  // G49 Default
-    EnableDynamic = 431,  // G43.1
+    Enable        = 430,  // G43 H# - Load from tool table
+    EnableDynamic = 431,  // G43.1 - Dynamic, set directly
 };
 
 static const uint32_t MaxToolNumber = 99999999;
@@ -223,27 +224,28 @@ enum class SetToolNumber : bool {
 enum class GCodeWord : uint8_t {
     E = 0,
     F = 1,
-    I = 2,
-    J = 3,
-    K = 4,
-    L = 5,
-    N = 6,
-    P = 7,
-    Q = 8,
-    R = 9,
-    S = 10,
-    T = 11,
-    X = 12,
-    Y = 13,
-    Z = 14,
-    A = 15,
-    B = 16,
-    C = 17,
-    O = 18,
-    D = 19,  // For debugging
-    U = 20,
-    V = 21,
-    W = 22,
+    H = 2,   // Tool number for G43
+    I = 3,
+    J = 4,
+    K = 5,
+    L = 6,
+    N = 7,
+    P = 8,
+    Q = 9,
+    R = 10,
+    S = 11,
+    T = 12,
+    X = 13,
+    Y = 14,
+    Z = 15,
+    A = 16,
+    B = 17,
+    C = 18,
+    O = 19,
+    D = 20,  // For debugging
+    U = 21,
+    V = 22,
+    W = 23,
 };
 
 // GCode parser position updating flags
@@ -303,6 +305,7 @@ struct gc_modal_t {
 struct gc_values_t {
     uint8_t  e;                // {M66,M67}
     float    f;                // Feed
+    int32_t  h;                // Tool number for G43 H#
     float    ijk[3];           // I,J,K Axis arc offsets - only 3 are possible
     uint8_t  l;                // {M66,G10}, or canned cycles parameters
     int32_t  n;                // Line number

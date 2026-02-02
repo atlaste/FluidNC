@@ -332,11 +332,11 @@ bool plan_buffer_line(float* target, plan_line_data_t* pl_data) {
     }
 
     // Set CSS start position for lathe CSS mode
-    // CSS position = machine position + tool offset (physical distance from spindle center)
+    // CSS position = machine position - tool offset (LinuxCNC convention: tool_tip = MPos - TLO)
     if (block->css_mode) {
         axis_t css_axis = config->_css_axis;
         if (css_axis != INVALID_AXIS && css_axis < MAX_N_AXIS) {
-            block->css_start_position = steps_to_motor_pos(position_steps[css_axis], css_axis) + pl_data->css_tool_offset;
+            block->css_start_position = steps_to_motor_pos(position_steps[css_axis], css_axis) - pl_data->css_tool_offset;
         }
     }
     

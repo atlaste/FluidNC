@@ -15,6 +15,7 @@
 
 #include "SettingsDefinitions.h"  // config_filename
 #include "FileStream.h"
+#include "ToolTable.h"
 
 #include "Configuration/Parser.h"
 #include "Configuration/ParserHandler.h"
@@ -268,6 +269,19 @@ namespace Machine {
             log_config_error("Unknown error while processing config file");
         }
 
+        // Load tool table from separate file
+        try {
+            if (toolTable != nullptr) {
+                delete toolTable;
+            }
+            toolTable = new ToolTable();
+            toolTable->load();
+        } catch (std::exception& ex) {
+            log_error("Failed to load tool table: " << ex.what());
+        } catch (...) {
+            log_error("Unknown error loading tool table");
+        }
+
         std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
@@ -286,5 +300,11 @@ namespace Machine {
 #endif
         delete _control;
         delete _macros;
+        
+        // Clean up tool table
+        if (toolTable != nullptr) {
+            delete toolTable;
+            toolTable = nullptr;
+        }
     }
 }
