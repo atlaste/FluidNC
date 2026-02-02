@@ -159,19 +159,19 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 
 // TODO FIXME NOTES SdB 
 // LinuxCNC uses some g-codes that aren't supported yet. Namely:
-// - G7: Diameter mode for lathes. Sets some g-code parser state.
-// - G8: Radius mode for lathes. Sets some g-code parser state.
+// x G7: Diameter mode for lathes. Sets some g-code parser state.
+// x G8: Radius mode for lathes. Sets some g-code parser state.
 // - G64: Path control mode with optional blending tolerances to maintain constant velocity. Iirc this is similar to setting arc_tolerance_mm dynamically - which we already have.
-// - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which 
+// - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which
 //   is useful for finishing sharp corners. I'm not sure if this is the same as waiting for the planner to complete after each point.
-// - G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
+// t G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
 // - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
-// - G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
-// - G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
-// - G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the 
+// t G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
+// x G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
+// x G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // - G43: Tool length offset, typically applied after tool changes. Let's do this later.
-// - G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
+// t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
 // - G40: Cutter compensation cancellation. We'll deal with this later.
 // - G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // - G49: Tool length offset cancellation. We'll deal with this later.
@@ -973,7 +973,7 @@ Error gc_execute_line(const char* input_line) {
                             } else {
                                 gc_block.values.xyz[Y_AXIS] = value;
                             }
-                            set_bitnum(axis_words, X_AXIS);
+                            set_bitnum(axis_words, Y_AXIS);
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -1435,6 +1435,33 @@ Error gc_execute_line(const char* input_line) {
             }
             // All remaining motion modes (all but G0 and G80), require a valid feed rate value. In units per mm mode,
             // the value must be positive. In inverse time mode, a positive value must be passed with each block.
+            // Exception: Threading modes (G33, G76) derive feed from pitch, not F word.
+        } else if (gc_block.modal.motion == Motion::Threading) {
+            // G33 - Spindle synchronized threading
+            // Requires K word (thread pitch) and axis words
+            if (!axis_words) {
+                return Error::GcodeNoAxisWords;  // [No axis words]
+            }
+            if (bitnum_is_false(value_words, GCodeWord::K)) {
+                return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
+            }
+            if (gc_block.values.ijk[2] <= 0.0f) {
+                return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
+            }
+            clear_bitnum(value_words, GCodeWord::K);
+        } else if (gc_block.modal.motion == Motion::ThreadingCycle) {
+            // G76 - Multi-pass threading canned cycle
+            // Requires P (pitch), axis words for end position
+            if (!axis_words) {
+                return Error::GcodeNoAxisWords;  // [No axis words]
+            }
+            if (gc_block.values.p <= 0.0f) {
+                return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
+            }
+            // I, J, K, R, Q are optional with defaults
+            clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
+                                    bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
+                                    bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
         } else {
             // Check if feed rate is defined for the motion modes that require it.
             if (gc_block.values.f == 0.0) {
@@ -1632,33 +1659,8 @@ Error gc_execute_line(const char* input_line) {
                         return Error::GcodeInvalidTarget;  // [Invalid target]
                     }
                     break;
-                case Motion::Threading:
-                    // G33 - Spindle synchronized threading
-                    // Requires K word (thread pitch) and axis words
-                    if (!axis_words) {
-                        return Error::GcodeNoAxisWords;  // [No axis words]
-                    }
-                    if (bitnum_is_false(value_words, GCodeWord::K)) {
-                        return Error::GcodeValueWordMissing;  // [K word required for thread pitch]
-                    }
-                    if (gc_block.values.ijk[2] <= 0.0f) {
-                        return Error::GcodeInvalidTarget;  // [Thread pitch must be positive]
-                    }
-                    clear_bitnum(value_words, GCodeWord::K);
-                    break;
-                case Motion::ThreadingCycle:
-                    // G76 - Multi-pass threading canned cycle
-                    // Requires P (pitch), axis words for end position
-                    if (!axis_words) {
-                        return Error::GcodeNoAxisWords;  // [No axis words]
-                    }
-                    if (gc_block.values.p <= 0.0f) {
-                        return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
-                    }
-                    // I, J, K, R, Q are optional with defaults
-                    clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
-                                            bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
-                                            bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+                // Note: Motion::Threading and Motion::ThreadingCycle are handled in separate else-if blocks above
+                default:
                     break;
             }
         }
@@ -1779,22 +1781,28 @@ Error gc_execute_line(const char* input_line) {
     // [4. Set spindle speed ]:
     // In CSS mode (G96), S value is surface speed in m/min
     // In constant RPM mode (G97), S value is RPM
-    if ((gc_state.spindle_speed != gc_block.values.s) || syncLaser) {
+    // G50 uses S word for max spindle speed, not current speed - skip this section
+    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed &&
+        ((gc_state.spindle_speed != gc_block.values.s) || syncLaser)) {
         if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
             // CSS mode - store surface speed, calculate RPM for immediate spindle command
             gc_state.css_surface_speed = gc_block.values.s;
             gc_state.spindle_speed     = gc_block.values.s;  // Store for state tracking
 
             // Calculate initial RPM based on current CSS axis position
+            // CSS needs physical radius from spindle center = machine position + tool offset
+            // Work coordinate offsets (G54, G92) are intentionally NOT used - CSS needs real geometry
             axis_t css_axis = config->_css_axis;
             if (css_axis != INVALID_AXIS) {
-                float radius = fabsf(gc_state.position[css_axis]);
+                float* mpos = get_mpos();
+                float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                float  radius = fabsf(tool_tip_pos);
                 if (radius < 0.001f) {
                     radius = 0.001f;  // Minimum radius to avoid division by zero
                 }
-                float diameter     = 2.0f * radius;
-                float rpm          = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
-                float max_rpm      = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+                float diameter = 2.0f * radius;
+                float rpm      = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                float max_rpm  = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
                 if (rpm > max_rpm) {
                     rpm = max_rpm;
                 }
@@ -1825,6 +1833,10 @@ Error gc_execute_line(const char* input_line) {
         pl_data->css_mode          = true;
         pl_data->css_surface_speed = gc_state.css_surface_speed;
         pl_data->css_max_rpm       = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+
+        // Pass tool offset so planner can calculate physical distance from spindle center
+        axis_t css_axis = config->_css_axis;
+        pl_data->css_tool_offset = (css_axis != INVALID_AXIS) ? gc_state.tool_length_offset[css_axis] : 0.0f;
     } else {
         pl_data->css_mode = false;
     }
@@ -1881,7 +1893,31 @@ Error gc_execute_line(const char* input_line) {
         // rather than gc_state, is used to manage laser state for non-laser motions.
         if (!state_is(State::CheckMode)) {
             protocol_buffer_synchronize();
-            spindle->setState(gc_block.modal.spindle, (uint32_t)pl_data->spindle_speed);
+            
+            // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
+            // Calculate actual RPM from machine position + tool offset when turning spindle on
+            uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
+            if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
+                gc_block.modal.spindle != SpindleState::Disable) {
+                axis_t css_axis = config->_css_axis;
+                if (css_axis != INVALID_AXIS) {
+                    float* mpos = get_mpos();
+                    float  tool_tip_pos = mpos[css_axis] + gc_state.tool_length_offset[css_axis];
+                    float  radius = fabsf(tool_tip_pos);
+                    if (radius < 0.001f) {
+                        radius = 0.001f;
+                    }
+                    float diameter = 2.0f * radius;
+                    float rpm      = (gc_state.css_surface_speed * 1000.0f) / (M_PI * diameter);
+                    float max_rpm  = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
+                    if (rpm > max_rpm) {
+                        rpm = max_rpm;
+                    }
+                    actual_rpm = (uint32_t)rpm;
+                }
+            }
+            
+            spindle->setState(gc_block.modal.spindle, actual_rpm);
         }
         gc_ovr_changed();
         gc_state.modal.spindle = gc_block.modal.spindle;
@@ -2062,7 +2098,6 @@ Error gc_execute_line(const char* input_line) {
             // G50 Sxxx - Set maximum spindle speed for CSS mode
             if (bitnum_is_true(value_words, GCodeWord::S)) {
                 gc_state.css_max_rpm = gc_block.values.s;
-                log_info("CSS max RPM set to " << gc_state.css_max_rpm);
                 clear_bitnum(value_words, GCodeWord::S);
             }
             break;

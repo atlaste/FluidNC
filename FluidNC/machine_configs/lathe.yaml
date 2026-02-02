@@ -80,6 +80,7 @@ axes:
     homing:
       cycle: 1
       positive_direction: true
+      mpos_mm: 29
     motor0:
       limit_neg_pin: gpio.18:low
       hard_limits: false
@@ -124,9 +125,9 @@ axes:
           direction_pin: i2so.2
           step_pin: i2so.1
   c:
-    steps_per_mm: 80.000000
-    max_rate_mm_per_min: 500.000000
-    acceleration_mm_per_sec2: 25.000000
+    steps_per_mm: 20.000000
+    max_rate_mm_per_min: 400.000000
+    acceleration_mm_per_sec2: 20.000000
     max_travel_mm: 1000.000000
     soft_limits: false
     motor0:
@@ -224,9 +225,14 @@ uvc_camera:
   buffer_count: 3
 
 pneumatic_tool_turret:
-  offsetsPerRevolution: 80
-  toolOffsets: 0 10 20 30 40 50 60 70
-  useTLO: false
+  offsetsPerRevolution: 320
+  toolOffsets: 0 40 80 120 160 200 240 280
+  useTLO: true
+  toolTypes: "OOOOOOOO"
+  safeX: 29
+  safeZ: 0
+  # tool post length is 120mm, so we need to retract to -120mm to avoid crashing into the tool post.
+  maxRetractZ: -120 
 
 arc_tolerance_mm: 0.002000
 junction_deviation_mm: 0.010000

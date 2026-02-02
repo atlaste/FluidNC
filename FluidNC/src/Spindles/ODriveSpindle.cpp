@@ -29,12 +29,6 @@ namespace Spindles {
         bool    critical = false;
     };
 
-    enum class ODriveState {
-        Uninitialized,
-        Initialized,
-        Error,
-    };
-
     // Static member initialization
     QueueHandle_t ODriveSpindle::cmd_queue     = nullptr;
     QueueHandle_t ODriveSpindle::speed_queue   = nullptr;
@@ -155,7 +149,8 @@ namespace Spindles {
 
             return speedReached;
         } else {
-            // Can't do endRamp because we're not synchronized. We'll just default.
+            // NoSync mode - used during CSS where speed changes continuously
+            // Don't call startRamp/endRamp - let validation continue with updated _current_speed
             return true;
         }
     }
@@ -272,25 +267,26 @@ namespace Spindles {
             case ODriveAction::SetSpeedNoSync:
             case ODriveAction::SetSpeed: {
                 int32_t rpm = action.arg;
+                bool    sync = (action.action == ODriveAction::SetSpeed);
 
                 _current_dev_speed = rpm;
+                
+                // For NoSync (CSS mode), update _current_speed for validator
+                // For Sync mode, _current_speed was already set in setState()
+                if (!sync) {
+                    _current_speed = rpm;
+                }
 
-                // Set the speed (convert device units to RPM)
-                bool success = setSpeedCommand(int(rpm), action.action != ODriveAction::SetSpeedNoSync);
+                bool success = setSpeedCommand(rpm, sync);
 
                 if (!success) {
                     if (action.critical) {
                         mc_critical(ExecAlarm::SpindleControl);
-                        log_error("Critical ODrive spindle speed not reached: " << int(rpm) << " RPM");
+                        log_error("Critical ODrive spindle speed not reached: " << rpm << " RPM");
                     } else {
-                        log_warn("ODrive spindle speed not reached: " << int(rpm) << " RPM");
+                        log_warn("ODrive spindle speed not reached: " << rpm << " RPM");
                     }
                 }
-
-                // if (speed_queue) {
-                //     // rpm cannot be queued. TODO FIXME: Queueing a pointer to a local is NOT okay.
-                //     xQueueSend(speed_queue, &rpm, 0); -- This seems wrong. We don't want to queue RPM
-                // }
                 break;
             }
             default:
@@ -312,14 +308,32 @@ namespace Spindles {
             if (instance->state == ODriveState::Initialized) {
                 ODriveAction action;
 
-                // Check for commands in the queue
-                if (xQueueReceive(cmd_queue, &action, poll_delay)) {
-                    // Process the action
-                    instance->invokeAction(action);
-                } else {
-                    // No command in queue, just pump to handle incoming messages
-                    instance->pump();
+            // Check for commands in the queue
+            if (xQueueReceive(cmd_queue, &action, poll_delay)) {
+                // If this is a non-sync speed update, coalesce multiple updates
+                // by draining the queue and only processing the latest one
+                if (action.action == ODriveAction::SetSpeedNoSync) {
+                    ODriveAction nextAction;
+                    while (xQueueReceive(cmd_queue, &nextAction, 0) == pdTRUE) {
+                        if (nextAction.action == ODriveAction::SetSpeedNoSync) {
+                            // Replace with newer speed command
+                            action = nextAction;
+                        } else {
+                            // Different command type - process current action first,
+                            // then put the new action back for next iteration
+                            instance->invokeAction(action);
+                            action = nextAction;
+                            break;
+                        }
+                    }
                 }
+                
+                // Process the action
+                instance->invokeAction(action);
+            } else {
+                // No command in queue, just pump to handle incoming messages
+                instance->pump();
+            }
 
                 // If syncing, periodically poll for speed updates
                 if (instance->_syncing && instance->speed_queue) {
@@ -535,7 +549,7 @@ namespace Spindles {
 
         if (cmd_queue) {
             ODriveAction action;
-            action.action   = ODriveAction::SetSpeed;
+            action.action   = ODriveAction::SetSpeedNoSync;  // Use NoSync for ISR updates
             action.arg      = dev_speed;
             action.critical = (dev_speed == 0);
             // Ignore errors because reporting is not safe from an ISR.

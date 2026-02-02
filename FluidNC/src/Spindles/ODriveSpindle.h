@@ -20,6 +20,13 @@ namespace Spindles {
 
     class ODriveSpindle : public Spindle {
     private:
+	    enum class ODriveState {
+			Uninitialized,
+			Initialized,
+			Error,
+	    };
+
+	    
         static const uint8_t kNodeIdShift = 5;
         static const uint8_t kCmdIdBits   = 0x1F;
 

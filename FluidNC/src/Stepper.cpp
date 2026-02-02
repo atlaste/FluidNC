@@ -74,7 +74,7 @@ struct segment_t {
 
         // Encoder run mode (G95/G33 motion)
         struct {
-            int32_t counts_per_step_fp;  // Encoder counts per step (FP * 1000)
+            int32_t counts_per_step_fp;  // Encoder counts per step (FP * 1024). NOTE: Has direction sign!
         } encoder;
 
         // Encoder wait mode (G33/G76 sync point)
@@ -237,10 +237,10 @@ uint32_t Stepper::isr_count;  // for debugging only
 int32_t lastCpuTicks = 0;
 bool    timerMode    = true;
 
-void IRAM_ATTR start_spindle_encoder() {
+void IRAM_ATTR start_spindle_encoder(int64_t alarmValue) {
     if (spindle_encoder) {
         spindle_encoder->registerStepCallback(Stepper::pulse_func);
-        spindle_encoder->startStepCallback();
+        spindle_encoder->startStepCallback(alarmValue);
     }
 }
 
@@ -274,10 +274,24 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
         timerMode = false;
     }
 
-    // Convert fixed-point (x1000) to actual encoder counts (rounded)
-    int32_t encoder_counts = (seg->encoder.counts_per_step_fp + 500) / 1000;
-    spindle_encoder->setStepAlarmValue(encoder_counts);
-    start_spindle_encoder();
+    // Convert fixed-point (x1024) to actual encoder counts (rounded)
+    // The sign of counts_per_step indicates the expected encoder direction:
+    //   positive = encoder counts increase as spindle turns in cutting direction
+    //   negative = encoder counts decrease as spindle turns in cutting direction
+    //
+    // TODO: For bidirectional sync (tapping), we need to:
+    //   1. Store the expected direction
+    //   2. Monitor actual encoder direction
+    //   3. Flip stepper direction_bits when spindle reverses
+    // 
+    // For now, we use absolute value which works for forward motion only.
+
+    int32_t counts_fp = seg->encoder.counts_per_step_fp;
+    
+    // Debug: trace what value we're getting from the segment
+    // ets_printf("seg_load: counts_fp=%d\n", counts_fp);
+    
+    start_spindle_encoder(spindle_encoder->setStepAlarmValue(counts_fp));
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
 
@@ -290,14 +304,16 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
         timerMode = false;
     }
 
+    int64_t value;
     if (seg->encoder_wait.wait_for_index) {
         // Wait for index pulse
-        spindle_encoder->setIndexAlarm();
+        value = spindle_encoder->setIndexAlarm();
     } else {
         // Wait for specific encoder count
-        spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
+        value = spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
     }
-    start_spindle_encoder();
+
+    start_spindle_encoder(value);
     // Note: spindle speed is set, but n_step=0 so no motion occurs
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
@@ -330,15 +346,13 @@ bool IRAM_ATTR Stepper::pulse_func() {
             // Initialize new step segment
             st.exec_segment = &segment_buffer[segment_buffer_tail];
 
-            // Call segment's on_load callback to handle timing source and spindle speed.
-            // This replaces the previous if-then-else tree for timer/encoder modes.
-            st.exec_segment->on_load(st.exec_segment);
-
             st.step_count = st.exec_segment->n_step;  // NOTE: Can be zero for wait segments.
 
             // If the new segment starts a new planner block, initialize stepper variables and counters.
             // NOTE: When the segment data index changes, this indicates a new planner block.
-            if (st.exec_block_index != st.exec_segment->st_block_index) {
+            // CRITICAL: Must set st.exec_block BEFORE on_load, because encoder ISR may call
+            // pulse_func recursively during on_load (e.g., while armAlarm is still running).
+            if (st.exec_block_index != st.exec_segment->st_block_index || st.exec_block == NULL) {
                 st.exec_block_index = st.exec_segment->st_block_index;
                 st.exec_block       = &st_block_buffer[st.exec_block_index];
                 // Initialize Bresenham line and distance counters
@@ -348,10 +362,18 @@ bool IRAM_ATTR Stepper::pulse_func() {
             }
 
             st.dir_outbits = st.exec_block->direction_bits;
+
             // Adjust Bresenham axis increment counters according to AMASS level.
+            // CRITICAL: Must do this BEFORE on_load, because encoder ISR may complete the
+            // segment during on_load and set st.exec_segment = NULL.
             for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
                 st.steps[axis] = st.exec_block->steps[axis] >> st.exec_segment->amass_level;
             }
+
+            // Call segment's on_load callback to handle timing source and spindle speed.
+            // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func,
+            // potentially completing this segment before on_load returns!
+            st.exec_segment->on_load(st.exec_segment);
         } else {
             // Segment buffer empty. Shutdown.
             stop_stepping();
@@ -406,13 +428,22 @@ void Stepper::wake_up() {
     // Set cpu ticks just before enabling the timer:
     lastCpuTicks = getCpuTicks();
 
-    // What we enable depends on the first segment's mode
-    auto firstSegment = st.exec_segment;
-    if (firstSegment != nullptr && firstSegment->on_load == segment_load_encoder && spindle_encoder != nullptr) {
-        start_spindle_encoder();
-        timerMode = false;
+    // Determine mode from the next segment in the buffer (if any)
+    // For timer mode: startTimer() triggers ISR which calls pulse_func
+    // For encoder mode: we must call pulse_func() directly to bootstrap the first segment
+    if (segment_buffer_head != segment_buffer_tail) {
+        auto nextSeg = &segment_buffer[segment_buffer_tail];
+        if (nextSeg->on_load != segment_load_timer && spindle_encoder != nullptr) {
+            // Encoder mode: call pulse_func to load first segment, which starts encoder callback
+            timerMode = false;
+            pulse_func();
+        } else {
+            // Timer mode: start timer which will call pulse_func via ISR
+            Stepping::startTimer();
+            timerMode = true;
+        }
     } else {
-        // Enable Stepping Driver Interrupt (default for timer mode)
+        // No segments buffered - default to timer mode, it will go idle immediately
         Stepping::startTimer();
         timerMode = true;
     }
@@ -841,12 +872,26 @@ void Stepper::prep_buffer() {
         prep_segment->spindle_dev_speed = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);
 
         // Set segment mode based on sync_mode from planner block
-        if (pl_block->sync_mode != SpindleSyncMode::None && spindle_encoder) {
+        // Use encoder mode only if:
+        // - sync_mode is set (G95 or G33)
+        // - spindle_encoder exists
+        // - NOT a rapid move (G0)
+        // - feed_per_revolution > 0 (valid pitch/feed)
+        bool use_encoder_mode = pl_block->sync_mode != SpindleSyncMode::None 
+                             && spindle_encoder != nullptr
+                             && !pl_block->motion.rapidMotion
+                             && pl_block->feed_per_revolution > 0.0f;
+        
+        if (use_encoder_mode) {
             // Encoder-driven mode (G95/G33)
+            // Calculate encoder counts per step based on thread pitch and axis resolution
             prep_segment->on_load = segment_load_encoder;
-            prep_segment->encoder.counts_per_step_fp = spindle_encoder->countsPerStep(pl_block->step_event_count);
+            prep_segment->encoder.counts_per_step_fp = spindle_encoder->countsPerStep(
+                pl_block->feed_per_revolution,  // Thread pitch (mm/rev)
+                prep.step_per_mm                // Steps per mm for this axis
+            );
         } else {
-            // Timer-driven mode (normal, laser, CSS)
+            // Timer-driven mode (normal, rapid, laser, CSS)
             prep_segment->on_load = segment_load_timer;
         }
 
@@ -898,19 +943,23 @@ void Stepper::prep_buffer() {
         uint8_t  level;
 
         // Compute step timing and multi-axis smoothing level.
-        for (level = 0; level < maxAmassLevel; level++) {
-            if (timerTicks < amassThreshold) {
-                break;
+        // AMASS only applies to timer mode - encoder mode needs exact 1:1 step timing
+        if (prep_segment->on_load == segment_load_timer) {
+            for (level = 0; level < maxAmassLevel; level++) {
+                if (timerTicks < amassThreshold) {
+                    break;
+                }
+                timerTicks >>= 1;
             }
-            timerTicks >>= 1;
+            prep_segment->amass_level = level;
+            prep_segment->n_step <<= level;
+            // isr_period is stored as 16 bits, so limit timerTicks to the
+            // largest value that will fit in a uint16_t.
+            prep_segment->timer.isr_period = timerTicks > 0xffff ? 0xffff : timerTicks;
+        } else {
+            // Encoder mode: no AMASS, 1:1 step timing
+            prep_segment->amass_level = 0;
         }
-        prep_segment->amass_level = level;
-        prep_segment->n_step <<= level;
-        // isr_period is stored as 16 bits, so limit timerTicks to the
-        // largest value that will fit in a uint16_t.
-        // Note: Only valid for timer mode segments, but we set it unconditionally
-        // since encoder mode segments ignore this field (union).
-        prep_segment->timer.isr_period = timerTicks > 0xffff ? 0xffff : timerTicks;
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.
         auto lastseg        = segment_next_head;

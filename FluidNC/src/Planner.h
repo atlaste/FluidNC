@@ -95,6 +95,7 @@ struct plan_line_data_t {
     bool  css_mode;           // True when in G96 CSS mode
     float css_surface_speed;  // Surface speed in m/min (G96 S value)
     float css_max_rpm;        // Maximum RPM limit
+    float css_tool_offset;    // Tool length offset on CSS axis (added to machine position)
 };
 
 void plan_init();
