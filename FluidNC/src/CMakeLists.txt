@@ -4,6 +4,7 @@ idf_component_register(SRCS BTConfig.cpp
 							ControlPin.cpp
 							CoolantControl.cpp
 							CustomCode.cpp
+							DynamicLimits.cpp
 							Error.cpp
 							Expression.cpp
 							FileCommands.cpp
@@ -144,9 +145,14 @@ idf_component_register(SRCS BTConfig.cpp
 							Spindles/ODrive/CanESP32.cpp
 							State/FM25VXX.cpp
 							State/StatePersistence.cpp
+							SoftLimits/LimitsChecker.cpp
+							SoftLimits/FixedBoundingBox.cpp
+							SoftLimits/FixedCylinder.cpp
+							SoftLimits/MovingBoundingBox.cpp
 							ToolChangers/atc.cpp
 							ToolChangers/atc_manual.cpp
 							ToolChangers/PneumaticToolTurret.cpp
+							ToolChangers/Tailstock.cpp
 							ToolChangers/ADC.cpp
 							ToolChangers/PressureSensor.cpp
 							WebUI/Authentication.cpp

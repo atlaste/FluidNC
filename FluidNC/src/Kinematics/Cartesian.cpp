@@ -3,7 +3,11 @@
 #include "Machine/MachineConfig.h"
 #include "Machine/Axes.h"  // ambiguousLimit()
 #include "Limit.h"
+#include "DynamicLimits.h"
+#include "GCode.h"  // gc_state for TLO
 #include <math.h>
+#include <string>
+#include <cmath>  // std::isnan
 
 namespace Kinematics {
     void Cartesian::init() {
@@ -256,6 +260,28 @@ namespace Kinematics {
                 log_debug("Jog constrained to axis range");
             }
         }
+        
+        // Also constrain to dynamic limits (from tailstock, gang tools, etc.)
+        if (DynamicLimits::providerCount() > 0) {
+            float axis_min[MAX_N_AXIS];
+            float axis_max[MAX_N_AXIS];
+            DynamicLimits::getEffectiveLimits(current_position, gc_state.tool_length_offset, axis_min, axis_max);
+            
+            for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
+                // Account for TLO when checking limits
+                float effective_target = target[axis] + gc_state.tool_length_offset[axis];
+                
+                if (!std::isnan(axis_min[axis]) && effective_target < axis_min[axis]) {
+                    target[axis] = axis_min[axis] - gc_state.tool_length_offset[axis];
+                    log_debug("Jog constrained by dynamic min limit on " << Machine::Axes::axisName(axis));
+                }
+                if (!std::isnan(axis_max[axis]) && effective_target > axis_max[axis]) {
+                    target[axis] = axis_max[axis] - gc_state.tool_length_offset[axis];
+                    log_debug("Jog constrained by dynamic max limit on " << Machine::Axes::axisName(axis));
+                }
+            }
+        }
+        
         pl_data->limits_checked = true;
     }
 
@@ -263,6 +289,7 @@ namespace Kinematics {
         auto axes   = config->_axes;
         auto n_axis = Axes::_numberAxis;
 
+        // Check static soft limits
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
             float coordinate = cartesian[axis];
             if (axes->_axis[axis]->_softLimits && (coordinate < limitsMinPosition(axis) || coordinate > limitsMaxPosition(axis))) {
@@ -270,6 +297,16 @@ namespace Kinematics {
                 return true;
             }
         }
+        
+        // Check dynamic limits (from tailstock, gang tools, etc.)
+        if (DynamicLimits::providerCount() > 0) {
+            std::string error_msg;
+            if (!DynamicLimits::checkPosition(cartesian, gc_state.tool_length_offset, error_msg)) {
+                log_error("Dynamic limit: " << error_msg);
+                return true;
+            }
+        }
+        
         return false;
     }
 

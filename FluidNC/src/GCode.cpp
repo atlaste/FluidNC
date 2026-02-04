@@ -23,6 +23,7 @@
 #include "SpindleEncoder.h"  // spindle_encoder
 #include "ToolTable.h"       // toolTable
 #include "Logging.h"         // log_warn
+#include "Stepper.h"         // Stepper::updateSpindleCallback
 
 #include <string.h>  // memset
 #include <math.h>    // sqrt etc.
@@ -1888,21 +1889,50 @@ Error gc_execute_line(const char* input_line) {
 
     // [5. Select tool ]: NOT SUPPORTED. Only tracks tool value.
     // [M6. Change tool ]:
+    // P parameter selects holder/spindle: P0 = default, P1 = secondary (tailstock), etc.
     if (gc_block.modal.tool_change == ToolChange::Enable) {
         if (gc_state.selected_tool != gc_state.current_tool) {
             bool stopped_spindle = false;   // was spindle stopped via the change
             bool new_spindle     = false;   // was the spindle changed
             protocol_buffer_synchronize();  // wait for motion in buffer to finish
 
-            Spindles::Spindle::switchSpindle(
-                gc_state.selected_tool, Spindles::SpindleFactory::objects(), spindle, stopped_spindle, new_spindle);
+            // Check if P parameter specifies a holder index
+            auto spindles = Spindles::SpindleFactory::objects();
+            int32_t holder_index = 0;  // Default to first spindle
+            if (bitnum_is_true(value_words, GCodeWord::P)) {
+                holder_index = int32_t(truncf(gc_block.values.p));
+                clear_bitnum(value_words, GCodeWord::P);
+            }
+            
+            if (holder_index >= 0 && holder_index < (int32_t)spindles.size()) {
+                // Select spindle by index (P parameter)
+                Spindles::Spindle* target_spindle = spindles[holder_index];
+                if (target_spindle != spindle) {
+                    if (spindle != nullptr) {
+                        spindle->stop();
+                        stopped_spindle = true;
+                    }
+                    spindle = target_spindle;
+                    new_spindle = true;
+                    log_info("Selected holder P" << holder_index << " (" << spindle->name() << ")");
+                    Stepper::updateSpindleCallback();
+                }
+            } else if (holder_index > 0) {
+                log_error("Invalid holder index P" << holder_index << " (only " << spindles.size() << " holders available)");
+                return Error::GcodeValueWordInvalid;
+            } else {
+                // No P or P0: use default tool-based spindle selection
+                Spindles::Spindle::switchSpindle(
+                    gc_state.selected_tool, spindles, spindle, stopped_spindle, new_spindle);
+            }
+            
             if (stopped_spindle) {
                 gc_block.modal.spindle = SpindleState::Disable;
             }
             if (new_spindle) {
                 gc_state.spindle_speed = 0.0;
             }
-            log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool);
+            log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool << " Holder:P" << holder_index);
             spindle->tool_change(gc_state.selected_tool, false, false);
             if (spindle->_atc_name == "" && spindle->_m6_macro.get().empty()) {  // if neither of these exist we need to set the value here
                 gc_state.current_tool = gc_state.selected_tool;
@@ -1930,6 +1960,8 @@ Error gc_execute_line(const char* input_line) {
             gc_ovr_changed();
         }
     }
+    // [M61. Set tool number]:
+    // P parameter selects holder/spindle: P0 = default, P1 = secondary (tailstock), etc.
     if (gc_block.modal.set_tool_number == SetToolNumber::Enable) {  // M61
         if (gc_block.values.q < 0) {
             return Error::NegativeValue;  // https://linuxcnc.org/docs/2.8/html/gcode/m-code.html#mcode:m61
@@ -1938,15 +1970,44 @@ Error gc_execute_line(const char* input_line) {
         bool stopped_spindle   = false;  // was spindle stopped via the change
         bool new_spindle       = false;  // was the spindle changed
         protocol_buffer_synchronize();   // wait for motion in buffer to finish
-        Spindles::Spindle::switchSpindle(gc_state.selected_tool, Spindles::SpindleFactory::objects(), spindle, stopped_spindle, new_spindle);
+        
+        // Check if P parameter specifies a holder index
+        auto spindles = Spindles::SpindleFactory::objects();
+        int32_t holder_index = 0;  // Default to first spindle
+        if (bitnum_is_true(value_words, GCodeWord::P)) {
+            holder_index = int32_t(truncf(gc_block.values.p));
+            clear_bitnum(value_words, GCodeWord::P);
+        }
+        
+        Spindles::Spindle* target_spindle = spindle;
+        if (holder_index >= 0 && holder_index < (int32_t)spindles.size()) {
+            target_spindle = spindles[holder_index];
+            if (target_spindle != spindle && holder_index > 0) {
+                // For M61 with P>0, we're setting the tool on a secondary holder
+                // Don't switch the active spindle, just tell that holder its tool
+                log_info("Setting tool " << gc_block.values.q << " on holder P" << holder_index << " (" << target_spindle->name() << ")");
+            }
+        } else if (holder_index > 0) {
+            log_error("Invalid holder index P" << holder_index << " (only " << spindles.size() << " holders available)");
+            return Error::GcodeValueWordInvalid;
+        } else {
+            // No P or P0: use default behavior
+            Spindles::Spindle::switchSpindle(gc_state.selected_tool, spindles, spindle, stopped_spindle, new_spindle);
+            target_spindle = spindle;
+        }
+        
         if (stopped_spindle) {
             gc_block.modal.spindle = SpindleState::Disable;
         }
         if (new_spindle) {
             gc_state.spindle_speed = 0.0;
         }
-        spindle->tool_change(gc_state.selected_tool, false, true);
-        gc_state.current_tool = gc_block.values.q;
+        target_spindle->tool_change(gc_state.selected_tool, false, true);
+        
+        // Only update gc_state.current_tool if we're setting it on the primary holder
+        if (holder_index == 0 || target_spindle == spindle) {
+            gc_state.current_tool = gc_block.values.q;
+        }
         report_ovr_counter    = 0;  // Set to report change immediately
         gc_ovr_changed();
     }

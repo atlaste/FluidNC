@@ -80,7 +80,7 @@ public:
     Module(const char* name) : _name(name) {}
     ~Module() = default;
 
-    const char* name() { return _name; };
+    const char* name() const { return _name; };
 
     virtual void init() {}
     virtual int  init_priority() { return 0; };
@@ -101,7 +101,7 @@ public:
     ConfigurableModule(const char* name) : _name(name) {}
     ~ConfigurableModule() = default;
 
-    const char*  name() { return _name; };
+    const char*  name() const { return _name; };
     virtual void init() {}
     virtual int  init_priority() { return 0; };
     virtual void deinit() {}

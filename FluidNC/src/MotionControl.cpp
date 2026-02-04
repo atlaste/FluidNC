@@ -16,6 +16,7 @@
 #include "State.h"           // State
 #include "Stepper.h"         // Stepper::reset
 #include "GCode.h"           // gc_state
+#include "SoftLimits/LimitsChecker.h"  // component-based soft limits
 
 #include <cmath>
 
@@ -115,6 +116,13 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
             return false;
         }
     }
+
+    // Component-based soft limits check (in physical Cartesian space)
+    if (LimitsChecker::instance().TestMotion(position, target)) {
+        limit_error();
+        return false;
+    }
+
     return mc_linear_no_check(target, pl_data, position);
 }
 
