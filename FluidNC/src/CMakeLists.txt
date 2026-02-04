@@ -29,6 +29,10 @@ idf_component_register(SRCS BTConfig.cpp
 							Pin.cpp
 							PinMapper.cpp
 							Planner.cpp
+							Planner/BasePlanner.cpp
+							Planner/TrapezoidPlanner.cpp
+							Planner/SCurveMath.cpp
+							Planner/SCurvePlanner.cpp
 							Probe.cpp
 							ProcessSettings.cpp
 							Protocol.cpp

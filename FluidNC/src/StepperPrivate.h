@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "Machine/MachineConfig.h"
+
 // Some useful constants.
 const float DT_SEGMENT              = (1.0f / (float(ACCELERATION_TICKS_PER_SECOND) * 60.0f));  // min/segment
 const float REQ_MM_INCREMENT_SCALAR = 1.25f;
