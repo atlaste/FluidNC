@@ -177,8 +177,8 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // t G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
-// - G40: Cutter compensation cancellation. We'll deal with this later.
-// - G41 / G42: Cutter compensation left/right. We'll deal with this later.
+// t G40: Cutter compensation cancellation. We'll deal with this later.
+// t G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // t G49: Tool length offset cancellation. We'll deal with this later.
 // t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
