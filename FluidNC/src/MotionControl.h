@@ -16,6 +16,23 @@ extern volatile bool probing;  // Probing state value.  Used to coordinate the p
 
 extern bool probe_succeeded;  // Tracks if last probing cycle was successful.
 
+// Cutter radius compensation state
+struct CutterCompState {
+    bool  active;           // True if compensation is currently active
+    bool  first_move;       // True if this is the first move after enabling comp
+    float prev_dir[2];      // Previous segment's direction vector (normalized)
+    float prev_comp_end[2]; // Previous segment's compensated endpoint
+    float radius;           // Current compensation radius
+    bool  is_left;          // True for G41 (left), false for G42 (right)
+    int   axis_0;           // First axis of the compensation plane
+    int   axis_1;           // Second axis of the compensation plane
+};
+
+extern CutterCompState cutter_comp_state;
+
+// Reset cutter compensation state (called on G40, reset, etc.)
+void mc_cutter_comp_reset();
+
 // Execute a linear motion in cartesian space.
 bool mc_linear(float* target, plan_line_data_t* pl_data, float* position);
 

@@ -34,6 +34,8 @@ void ToolEntry::group(Configuration::HandlerBase& handler) {
     if (MAX_N_AXIS > C_AXIS) {
         handler.item("c", _offset[C_AXIS]);
     }
+    // Tool radius for cutter compensation (G41/G42)
+    handler.item("radius", _radius);
 }
 
 std::string ToolEntry::getDisplayName() const {
@@ -263,6 +265,27 @@ void ToolTable::setToolOffset(int32_t toolNum, const float* offset) {
         for (int i = 0; i < MAX_N_AXIS; i++) {
             tool->_offset[i] = offset[i];
         }
+    }
+    _dirty = true;
+}
+
+float ToolTable::getToolRadius(int32_t toolNum) const {
+    const ToolEntry* tool = findTool(toolNum);
+    if (tool == nullptr) {
+        return 0.0f;
+    }
+    return tool->_radius;
+}
+
+void ToolTable::setToolRadius(int32_t toolNum, float radius) {
+    ToolEntry* tool = findTool(toolNum);
+    if (tool == nullptr) {
+        // Create new entry with just radius
+        tool = new ToolEntry(toolNum);
+        tool->_radius = radius;
+        _tools.push_back(tool);
+    } else {
+        tool->_radius = radius;
     }
     _dirty = true;
 }

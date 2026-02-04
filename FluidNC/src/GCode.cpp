@@ -60,7 +60,7 @@ gc_modal_t modal_defaults = {
     LatheDiameterMode::Radius,  // G8 (default)
     // ArcDistance::Incremental
     Plane::XY,
-    // CutterCompensation::Disable,
+    CutterCompensation::Disable,
     ToolLengthOffset::Cancel,
     CoordIndex::G54,
     ProgramFlow::Running,
@@ -84,6 +84,9 @@ void gc_init() {
     gc_state.current_tool   = -1;
     coords[gc_state.modal.coord_select]->get(gc_state.coord_system);
     flowcontrol_init();
+    
+    // Reset cutter compensation state
+    mc_cutter_comp_reset();
 }
 
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
@@ -175,8 +178,8 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // t G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
-// - G40: Cutter compensation cancellation. We'll deal with this later.
-// - G41 / G42: Cutter compensation left/right. We'll deal with this later.
+// t G40: Cutter compensation cancellation. We'll deal with this later.
+// t G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // t G49: Tool length offset cancellation. We'll deal with this later.
 // t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
@@ -611,10 +614,19 @@ Error gc_execute_line(const char* input_line) {
                         mg_word_bit          = ModalGroup::MG6;
                         break;
                     case 40:
-                        // NOTE: Not required since cutter radius compensation is always disabled. Only here
-                        // to support G40 commands that often appear in g-code program headers to setup defaults.
-                        // gc_block.modal.cutter_comp = CutterCompensation::Disable; // G40
-                        mg_word_bit = ModalGroup::MG7;
+                        // G40 - Cancel cutter radius compensation
+                        gc_block.modal.cutter_comp = CutterCompensation::Disable;
+                        mg_word_bit                = ModalGroup::MG7;
+                        break;
+                    case 41:
+                        // G41 - Cutter radius compensation left
+                        gc_block.modal.cutter_comp = CutterCompensation::Left;
+                        mg_word_bit                = ModalGroup::MG7;
+                        break;
+                    case 42:
+                        // G42 - Cutter radius compensation right
+                        gc_block.modal.cutter_comp = CutterCompensation::Right;
+                        mg_word_bit                = ModalGroup::MG7;
                         break;
                     case 43:
                     case 49:
@@ -860,9 +872,9 @@ Error gc_execute_line(const char* input_line) {
                         }
                         break;
 
-                    case 'D':  // Unsupported word used for parameter debugging
-                        axis_word_bit = GCodeWord::D;
-                        log_info("Value is " << value);
+                    case 'D':  // Tool number for cutter radius compensation (G41/G42)
+                        axis_word_bit     = GCodeWord::D;
+                        gc_block.values.d = int_value;
                         break;
                     case 'E':
                         axis_word_bit     = GCodeWord::E;
@@ -1248,10 +1260,28 @@ Error gc_execute_line(const char* input_line) {
         }
     }
 
-    // [13. Cutter radius compensation ]: G41/42 NOT SUPPORTED. Error, if enabled while G53 is active.
+    // [13. Cutter radius compensation ]: G41/42 with D word for tool radius lookup.
     // [G40 Errors]: G2/3 arc is programmed after a G40. The linear move after disabling is less than tool diameter.
-    //   NOTE: Since cutter radius compensation is never enabled, these G40 errors don't apply. G40 is supported
-    //   only for the purpose of not erroring when G40 is sent with a g-code program header to setup the default modes.
+    // [G41/G42 Errors]: G53 is active with cutter compensation enabled.
+    if (gc_block.modal.cutter_comp != CutterCompensation::Disable) {
+        // Check for G53 conflict - can't use cutter comp with absolute override
+        if (gc_block.non_modal_command == NonModal::AbsoluteOverride) {
+            return Error::GcodeUnsupportedCommand;  // [G53 with cutter comp]
+        }
+        // D word specifies tool number for radius lookup
+        if (bitnum_is_true(value_words, GCodeWord::D)) {
+            gc_block.values.d = gc_block.values.d;  // Already parsed
+            if (gc_block.values.d < 0) {
+                return Error::NegativeValue;  // [Negative D value]
+            }
+            // D0 cancels compensation (same as G40)
+            if (gc_block.values.d == 0) {
+                gc_block.modal.cutter_comp = CutterCompensation::Disable;
+            }
+            clear_bits(value_words, bitnum_to_mask(GCodeWord::D));
+        }
+        // If no D word, use current tool number
+    }
     // [14. Cutter length compensation ]: G43 H#, G43.1 and G49 are supported.
     // [G43 Errors]: H word must specify valid tool number in tool table.
     // [G43.1 Errors]: Motion command in same line.
@@ -2149,8 +2179,33 @@ Error gc_execute_line(const char* input_line) {
     gc_state.modal.plane_select = gc_block.modal.plane_select;
     // [12. Set length units ]:
     gc_state.modal.units = gc_block.modal.units;
-    // [13. Cutter radius compensation ]: G41/42 NOT SUPPORTED
-    // gc_state.modal.cutter_comp = gc_block.modal.cutter_comp; // NOTE: Not needed since always disabled.
+    // [13. Cutter radius compensation ]: G40, G41, G42 supported
+    if (bitnum_is_true(command_words, ModalGroup::MG7)) {
+        gc_state.modal.cutter_comp = gc_block.modal.cutter_comp;
+        if (gc_state.modal.cutter_comp != CutterCompensation::Disable) {
+            // Look up tool radius from tool table
+            int32_t tool_num = gc_block.values.d;
+            if (tool_num == 0) {
+                // D0 or no D word: use current tool
+                tool_num = gc_state.current_tool > 0 ? gc_state.current_tool : 0;
+            }
+            if (tool_num > 0 && toolTable != nullptr) {
+                gc_state.cutter_comp_radius = toolTable->getToolRadius(tool_num);
+                gc_state.cutter_comp_tool   = tool_num;
+                if (gc_state.cutter_comp_radius <= 0.0f) {
+                    log_warn("Tool " << tool_num << " has no radius defined for cutter compensation");
+                }
+            } else {
+                gc_state.cutter_comp_radius = 0.0f;
+                gc_state.cutter_comp_tool   = 0;
+            }
+        } else {
+            // G40 - Cancel compensation
+            gc_state.cutter_comp_radius = 0.0f;
+            gc_state.cutter_comp_tool   = 0;
+            mc_cutter_comp_reset();  // Reset motion control compensation state
+        }
+    }
     // [14. Cutter length compensation ]: G43, G43.1 and G49 supported.
     if (axis_command == AxisCommand::ToolLengthOffset) {  // Indicates a change.
         gc_state.modal.tool_length = gc_block.modal.tool_length;
@@ -2368,7 +2423,10 @@ Error gc_execute_line(const char* input_line) {
             gc_state.modal.plane_select = Plane::XY;
             gc_state.modal.distance     = Distance::Absolute;
             gc_state.modal.feed_rate    = FeedRate::UnitsPerMin;
-            // gc_state.modal.cutter_comp = CutterComp::Disable; // Not supported.
+            gc_state.modal.cutter_comp  = CutterCompensation::Disable;
+            gc_state.cutter_comp_radius = 0.0f;
+            gc_state.cutter_comp_tool   = 0;
+            mc_cutter_comp_reset();  // Reset motion control compensation state
             gc_state.modal.coord_select = CoordIndex::G54;
             gc_state.modal.spindle      = SpindleState::Disable;
             gc_state.modal.coolant      = {};
@@ -2409,7 +2467,6 @@ Error gc_execute_line(const char* input_line) {
   Not supported:
 
   - Canned cycles
-  - Tool radius compensation
   - A,B,C-axes
   - Evaluation of expressions
   - Variables
@@ -2422,7 +2479,7 @@ Error gc_execute_line(const char* input_line) {
    group 1 = {G81 - G89} (Motion modes: Canned cycles)
    group 4 = {M1} (Optional stop, ignored)
    group 6 = {M6} (Tool change)
-   group 7 = {G41, G42} cutter radius compensation (G40 is supported)
+   group 7 = {G40, G41, G42} cutter radius compensation (all supported)
    group 8 = {G43 H#, G43.1, G49} tool length offset (all supported)
    group 8 = {M7*} enable mist coolant (* Compile-option)
    group 9 = {M48, M49} enable/disable feed and speed override switches

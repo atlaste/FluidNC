@@ -30,6 +30,10 @@ idf_component_register(SRCS BTConfig.cpp
 							Pin.cpp
 							PinMapper.cpp
 							Planner.cpp
+							Planner/BasePlanner.cpp
+							Planner/TrapezoidPlanner.cpp
+							Planner/SCurveMath.cpp
+							Planner/SCurvePlanner.cpp
 							Probe.cpp
 							ProcessSettings.cpp
 							Protocol.cpp
@@ -76,6 +80,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Kinematics/Midtbot.cpp
 							Kinematics/ParallelDelta.cpp
 							Kinematics/WallPlotter.cpp
+							Kinematics/Compensated1D.cpp
+							Kinematics/Compensated2D.cpp
 							Listeners/RGBLed.cpp
 							Machine/Axes.cpp
 							Machine/Axis.cpp

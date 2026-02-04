@@ -1,12 +1,18 @@
 // Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC
 // Copyright (c) 2009-2011 Simen Svale Skogsrud
 // Copyright (c) 2018 -	Bart Dring
+// Copyright (c) 2024 - Stefan de Bruijn
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #pragma once
 
 /*
   Planner.h - buffers movement commands and manages the acceleration profile plan
+  
+  This file provides the public interface for motion planning. The actual implementation
+  is in the Planner/ subdirectory with polymorphic planners:
+  - TrapezoidPlanner: Original GRBL-style trapezoidal profiles
+  - SCurvePlanner: Jerk-limited S-curve profiles for smoother motion
 */
 
 #include "Config.h"            // MAX_N_AXIS
@@ -74,6 +80,12 @@ struct plan_block_t {
     float css_start_position; // CSS axis position at block start (mm)
 
     bool is_jog;
+    
+    // S-curve planner extensions (used by SCurvePlanner, ignored by TrapezoidPlanner)
+    float entry_accel;          // Entry acceleration at junction (mm/min²)
+    float exit_accel;           // Exit acceleration at junction (mm/min²)
+    float max_entry_accel;      // Max allowable entry accel based on direction change
+    float jerk;                 // Axis-limited jerk for this block (mm/min³)
 };
 
 // Planner data prototype. Must be used when passing new motions to the planner.

@@ -23,6 +23,8 @@
 #include "Configuration/AfterParse.h"
 #include "Config.h"  // ENABLE_*
 
+#include "Planner/TrapezoidPlanner.h"
+
 #include "Driver/restart.h"
 #include "Stepper.h"  // for updateSpindleCallback()
 
@@ -79,6 +81,7 @@ namespace Machine {
         ATCs::ATCFactory::factory(handler);
         Spindles::SpindleFactory::factory(handler);
         Listeners::SysListenerFactory::factory(handler);
+        PlannerFactory::factory(handler);
 
         // TODO: Consider putting these under a gcode: hierarchy level? Or motion control?
         handler.item("arc_tolerance_mm", _arcTolerance, 0.001, 1.0);
@@ -133,6 +136,11 @@ namespace Machine {
 
         if (_stepping == nullptr) {
             _stepping = new Stepping();
+        }
+
+        if (_planner == nullptr) {
+            // Default to TrapezoidPlanner if no planner specified
+            _planner = new TrapezoidPlanner("TrapezoidPlanner");
         }
 
         // We do not auto-create an I2SO bus config node

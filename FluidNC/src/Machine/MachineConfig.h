@@ -30,6 +30,7 @@
 #include "UserOutputs.h"
 #include "UserInputs.h"
 #include "Macros.h"
+#include "../Planner/BasePlanner.h"
 
 #include <string_view>
 
@@ -73,6 +74,7 @@ namespace Machine {
         I2SOBus* _i2so = nullptr;
 #endif
         Stepping*       _stepping    = nullptr;
+        BasePlanner*    _planner     = nullptr;
         CoolantControl* _coolant     = nullptr;
         Probe*          _probe       = nullptr;
         Control*        _control     = nullptr;
