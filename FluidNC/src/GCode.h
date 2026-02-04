@@ -36,7 +36,7 @@ enum class ModalGroup : uint8_t {
     MG4  = 4,   // [G91.1] Arc IJK distance mode
     MG5  = 5,   // [G93,G94,G95] Feed rate mode
     MG6  = 6,   // [G20,G21] Units
-    MG7  = 7,   // [G40] Cutter radius compensation mode. G41/42 NOT SUPPORTED.
+    MG7  = 7,   // [G40,G41,G42] Cutter radius compensation mode
     MG8  = 8,   // [G43.1,G49] Tool length offset
     MG12 = 9,   // [G54,G55,G56,G57,G58,G59] Coordinate system selection
     MG13 = 10,  // [G61] Control mode
@@ -145,8 +145,9 @@ enum class Units : gcodenum_t {
 
 // Modal Group G7: Cutter radius compensation mode
 enum class CutterCompensation : gcodenum_t {
-    Disable = 400,  // G40 Default
-    Enable  = 410,
+    Disable = 400,  // G40 Default - Cancel compensation
+    Left    = 410,  // G41 - Cutter compensation left
+    Right   = 420,  // G42 - Cutter compensation right
 };
 
 // Modal Group G13: Control mode
@@ -242,7 +243,7 @@ enum class GCodeWord : uint8_t {
     B = 17,
     C = 18,
     O = 19,
-    D = 20,  // For debugging
+    D = 20,  // Tool number for G41/G42 cutter compensation
     U = 21,
     V = 22,
     W = 23,
@@ -288,9 +289,9 @@ struct gc_modal_t {
     SpindleSpeedMode  spindle_speed_mode;  // {G96,G97} CSS or constant RPM
     LatheDiameterMode lathe_diameter_mode; // {G7,G8} Diameter or radius mode
     // ArcDistance distance_arc; // {G91.1} NOTE: Don't track. Only default supported.
-    Plane plane_select;  // {G17,G18,G19}
-    // CutterCompensation cutter_comp;  // {G40} NOTE: Don't track. Only default supported.
-    ToolLengthOffset tool_length;   // {G43.1,G49}
+    Plane              plane_select;  // {G17,G18,G19}
+    CutterCompensation cutter_comp;   // {G40,G41,G42} Cutter radius compensation
+    ToolLengthOffset   tool_length;   // {G43.1,G49}
     CoordIndex       coord_select;  // {G54,G55,G56,G57,G58,G59}
     // uint8_t control;      // {G61} NOTE: Don't track. Only default supported.
     ProgramFlow   program_flow;  // {M0,M1,M2,M30}
@@ -306,6 +307,7 @@ struct gc_values_t {
     uint8_t  e;                // {M66,M67}
     float    f;                // Feed
     int32_t  h;                // Tool number for G43 H#
+    int32_t  d;                // Tool number for G41/G42 cutter compensation
     float    ijk[3];           // I,J,K Axis arc offsets - only 3 are possible
     uint8_t  l;                // {M66,G10}, or canned cycles parameters
     int32_t  n;                // Line number
@@ -339,6 +341,10 @@ struct parser_state_t {
     // machine zero in mm. Non-persistent. Cleared upon reset and boot.
     float tool_length_offset[MAX_N_AXIS];  // Tracks tool length offset value when enabled.
     bool  skip_blocks;                     // Skipping due to flow control
+
+    // Cutter radius compensation (G41/G42) state
+    float   cutter_comp_radius;  // Active tool radius for compensation (mm)
+    int32_t cutter_comp_tool;    // D word tool number (0 = no tool selected)
 };
 
 extern parser_state_t gc_state;

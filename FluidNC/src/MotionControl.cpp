@@ -16,6 +16,7 @@
 #include "State.h"           // State
 #include "Stepper.h"         // Stepper::reset
 #include "GCode.h"           // gc_state
+#include "Logging.h"         // log_debug
 
 #include <cmath>
 
@@ -30,8 +31,66 @@
 // this is needed if a jogCancel comes along after we have already parsed a jog and it is in-flight.
 static volatile void* mc_pl_data_inflight;  // holds a plan_line_data_t while mc_move_motors has taken ownership of a line motion
 
+// Cutter radius compensation state
+CutterCompState cutter_comp_state = {};
+
+void mc_cutter_comp_reset() {
+    cutter_comp_state.active     = false;
+    cutter_comp_state.first_move = false;
+    cutter_comp_state.prev_dir[0] = 0.0f;
+    cutter_comp_state.prev_dir[1] = 0.0f;
+    cutter_comp_state.prev_comp_end[0] = 0.0f;
+    cutter_comp_state.prev_comp_end[1] = 0.0f;
+    cutter_comp_state.radius     = 0.0f;
+    cutter_comp_state.is_left    = true;
+    cutter_comp_state.axis_0     = X_AXIS;
+    cutter_comp_state.axis_1     = Y_AXIS;
+}
+
+// 2D vector helper functions for cutter compensation
+static inline float vec2_length(float x, float y) {
+    return sqrtf(x * x + y * y);
+}
+
+// Calculate perpendicular offset vector (left or right of direction)
+static inline void vec2_perpendicular(float dx, float dy, bool left, float radius, float& ox, float& oy) {
+    // Left perpendicular: rotate 90° CCW -> (-dy, dx)
+    // Right perpendicular: rotate 90° CW -> (dy, -dx)
+    if (left) {
+        ox = -dy * radius;
+        oy = dx * radius;
+    } else {
+        ox = dy * radius;
+        oy = -dx * radius;
+    }
+}
+
+// Calculate 2D cross product (z-component of 3D cross product)
+static inline float vec2_cross(float ax, float ay, float bx, float by) {
+    return ax * by - ay * bx;
+}
+
+// Calculate intersection point of two lines defined by point and direction
+// Line 1: p1 + t * d1, Line 2: p2 + s * d2
+// Returns false if lines are parallel (no intersection)
+static bool line_intersection(float p1x, float p1y, float d1x, float d1y,
+                              float p2x, float p2y, float d2x, float d2y,
+                              float& ix, float& iy) {
+    float cross = vec2_cross(d1x, d1y, d2x, d2y);
+    if (fabsf(cross) < 0.0001f) {
+        return false;  // Lines are parallel
+    }
+    float dx = p2x - p1x;
+    float dy = p2y - p1y;
+    float t = vec2_cross(dx, dy, d2x, d2y) / cross;
+    ix = p1x + t * d1x;
+    iy = p1y + t * d1y;
+    return true;
+}
+
 void mc_init() {
     mc_pl_data_inflight = NULL;
+    mc_cutter_comp_reset();
 }
 
 // Execute linear motor motion in absolute millimeter coordinates. Feed rate given in
@@ -109,13 +168,382 @@ void mc_cancel_jog() {
 static bool mc_linear_no_check(float* target, plan_line_data_t* pl_data, float* position) {
     return config->_kinematics->cartesian_to_motors(target, pl_data, position);
 }
-bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
-    if (!pl_data->is_jog && !pl_data->limits_checked) {  // soft limits for jogs have already been dealt with
+
+// Forward declaration for corner arc generation
+static void mc_comp_corner_arc(float cx, float cy, float start_x, float start_y, float end_x, float end_y,
+                               int axis_0, int axis_1, float* position, plan_line_data_t* pl_data, bool is_left);
+
+// Internal function to emit a compensated line segment
+static bool mc_linear_compensated(float* target, plan_line_data_t* pl_data, float* position) {
+    if (!pl_data->is_jog && !pl_data->limits_checked) {
         if (config->_kinematics->invalid_line(target)) {
             return false;
         }
     }
     return mc_linear_no_check(target, pl_data, position);
+}
+
+// Get plane axes based on current plane selection
+static void get_plane_axes(int& axis_0, int& axis_1, int& axis_linear) {
+    switch (gc_state.modal.plane_select) {
+        case Plane::XY:
+            axis_0 = X_AXIS;
+            axis_1 = Y_AXIS;
+            axis_linear = Z_AXIS;
+            break;
+        case Plane::ZX:
+            axis_0 = Z_AXIS;
+            axis_1 = X_AXIS;
+            axis_linear = Y_AXIS;
+            break;
+        case Plane::YZ:
+            axis_0 = Y_AXIS;
+            axis_1 = Z_AXIS;
+            axis_linear = X_AXIS;
+            break;
+    }
+}
+
+bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
+    // Check if cutter compensation is active
+    CutterCompensation comp_mode = gc_state.modal.cutter_comp;
+    
+    // Skip compensation for rapid moves (G0) - standard behavior
+    if (pl_data->motion.rapidMotion) {
+        // Still need to update comp state direction for next move
+        if (comp_mode != CutterCompensation::Disable && cutter_comp_state.active) {
+            int axis_0, axis_1, axis_linear;
+            get_plane_axes(axis_0, axis_1, axis_linear);
+            float dx = target[axis_0] - position[axis_0];
+            float dy = target[axis_1] - position[axis_1];
+            float len = vec2_length(dx, dy);
+            if (len > 0.0001f) {
+                cutter_comp_state.prev_dir[0] = dx / len;
+                cutter_comp_state.prev_dir[1] = dy / len;
+                // Update previous compensated endpoint
+                float ox, oy;
+                vec2_perpendicular(cutter_comp_state.prev_dir[0], cutter_comp_state.prev_dir[1],
+                                   cutter_comp_state.is_left, cutter_comp_state.radius, ox, oy);
+                cutter_comp_state.prev_comp_end[0] = target[axis_0] + ox;
+                cutter_comp_state.prev_comp_end[1] = target[axis_1] + oy;
+            }
+        }
+        // Execute rapid without compensation
+        if (!pl_data->is_jog && !pl_data->limits_checked) {
+            if (config->_kinematics->invalid_line(target)) {
+                return false;
+            }
+        }
+        return mc_linear_no_check(target, pl_data, position);
+    }
+    
+    // If compensation is disabled, check if we need to handle exit move
+    if (comp_mode == CutterCompensation::Disable) {
+        if (cutter_comp_state.active) {
+            // G40 was just issued - need to ramp off compensation
+            // The target is the programmed path - move from compensated position to it
+            // This creates a smooth exit from the offset path
+            cutter_comp_state.active = false;
+            
+            // Soft limits check
+            if (!pl_data->is_jog && !pl_data->limits_checked) {
+                if (config->_kinematics->invalid_line(target)) {
+                    return false;
+                }
+            }
+            return mc_linear_no_check(target, pl_data, position);
+        }
+        // Normal uncompensated move
+        if (!pl_data->is_jog && !pl_data->limits_checked) {
+            if (config->_kinematics->invalid_line(target)) {
+                return false;
+            }
+        }
+        return mc_linear_no_check(target, pl_data, position);
+    }
+    
+    // Compensation is active (G41 or G42)
+    float radius = gc_state.cutter_comp_radius;
+    bool is_left = (comp_mode == CutterCompensation::Left);
+    
+    // Get plane axes
+    int axis_0, axis_1, axis_linear;
+    get_plane_axes(axis_0, axis_1, axis_linear);
+    
+    // Check if this is first move after enabling comp or comp parameters changed
+    if (!cutter_comp_state.active || 
+        cutter_comp_state.radius != radius ||
+        cutter_comp_state.is_left != is_left ||
+        cutter_comp_state.axis_0 != axis_0 ||
+        cutter_comp_state.axis_1 != axis_1) {
+        // Initialize/reinitialize compensation state
+        cutter_comp_state.active = true;
+        cutter_comp_state.first_move = true;
+        cutter_comp_state.radius = radius;
+        cutter_comp_state.is_left = is_left;
+        cutter_comp_state.axis_0 = axis_0;
+        cutter_comp_state.axis_1 = axis_1;
+    }
+    
+    // Calculate direction vector in the compensation plane
+    float dx = target[axis_0] - position[axis_0];
+    float dy = target[axis_1] - position[axis_1];
+    float len = vec2_length(dx, dy);
+    
+    // If no movement in the plane, just pass through
+    if (len < 0.0001f) {
+        if (!pl_data->is_jog && !pl_data->limits_checked) {
+            if (config->_kinematics->invalid_line(target)) {
+                return false;
+            }
+        }
+        return mc_linear_no_check(target, pl_data, position);
+    }
+    
+    // Normalize direction
+    float dir_x = dx / len;
+    float dir_y = dy / len;
+    
+    // Calculate perpendicular offset
+    float offset_x, offset_y;
+    vec2_perpendicular(dir_x, dir_y, is_left, radius, offset_x, offset_y);
+    
+    // Compensated start and end points
+    float comp_start_x = position[axis_0] + offset_x;
+    float comp_start_y = position[axis_1] + offset_y;
+    float comp_end_x = target[axis_0] + offset_x;
+    float comp_end_y = target[axis_1] + offset_y;
+    
+    // Build compensated target position (copy all axes, modify compensated ones)
+    float comp_target[MAX_N_AXIS];
+    for (int i = 0; i < MAX_N_AXIS; i++) {
+        comp_target[i] = target[i];
+    }
+    
+    if (cutter_comp_state.first_move) {
+        // First move after enabling compensation
+        // Move directly to compensated start, then to compensated end
+        cutter_comp_state.first_move = false;
+        
+        // Set compensated endpoint
+        comp_target[axis_0] = comp_end_x;
+        comp_target[axis_1] = comp_end_y;
+        
+        // Update state for next segment
+        cutter_comp_state.prev_dir[0] = dir_x;
+        cutter_comp_state.prev_dir[1] = dir_y;
+        cutter_comp_state.prev_comp_end[0] = comp_end_x;
+        cutter_comp_state.prev_comp_end[1] = comp_end_y;
+        
+        return mc_linear_compensated(comp_target, pl_data, position);
+    }
+    
+    // Handle corner between previous and current segment
+    float prev_dir_x = cutter_comp_state.prev_dir[0];
+    float prev_dir_y = cutter_comp_state.prev_dir[1];
+    
+    // Calculate cross product to determine corner type
+    // Positive cross = CCW turn (outside corner for G41, inside for G42)
+    // Negative cross = CW turn (inside corner for G41, outside for G42)
+    float cross = vec2_cross(prev_dir_x, prev_dir_y, dir_x, dir_y);
+    
+    // Check if nearly collinear (small angle)
+    if (fabsf(cross) < 0.001f) {
+        // Collinear or near-collinear - no special corner handling needed
+        comp_target[axis_0] = comp_end_x;
+        comp_target[axis_1] = comp_end_y;
+        
+        cutter_comp_state.prev_dir[0] = dir_x;
+        cutter_comp_state.prev_dir[1] = dir_y;
+        cutter_comp_state.prev_comp_end[0] = comp_end_x;
+        cutter_comp_state.prev_comp_end[1] = comp_end_y;
+        
+        return mc_linear_compensated(comp_target, pl_data, position);
+    }
+    
+    // Determine if this is an inside or outside corner
+    // For G41 (left): positive cross = outside corner
+    // For G42 (right): negative cross = outside corner
+    bool is_outside_corner = is_left ? (cross > 0) : (cross < 0);
+    
+    if (is_outside_corner) {
+        // Outside corner: insert arc at the corner point
+        // Arc goes from previous comp endpoint to current comp start
+        // Center is at the original (uncompensated) corner point
+        float corner_x = position[axis_0];
+        float corner_y = position[axis_1];
+        
+        // Generate arc segments from prev_comp_end to comp_start
+        mc_comp_corner_arc(corner_x, corner_y,
+                          cutter_comp_state.prev_comp_end[0], cutter_comp_state.prev_comp_end[1],
+                          comp_start_x, comp_start_y,
+                          axis_0, axis_1, position, pl_data, is_left);
+        
+        // Now move to compensated end
+        comp_target[axis_0] = comp_end_x;
+        comp_target[axis_1] = comp_end_y;
+        
+        // Update position to reflect where we are after the arc
+        float arc_end_pos[MAX_N_AXIS];
+        for (int i = 0; i < MAX_N_AXIS; i++) {
+            arc_end_pos[i] = position[i];
+        }
+        arc_end_pos[axis_0] = comp_start_x;
+        arc_end_pos[axis_1] = comp_start_y;
+        
+        cutter_comp_state.prev_dir[0] = dir_x;
+        cutter_comp_state.prev_dir[1] = dir_y;
+        cutter_comp_state.prev_comp_end[0] = comp_end_x;
+        cutter_comp_state.prev_comp_end[1] = comp_end_y;
+        
+        return mc_linear_compensated(comp_target, pl_data, arc_end_pos);
+    } else {
+        // Inside corner: calculate intersection of offset lines
+        // Previous offset line: prev_comp_end + t * prev_dir
+        // Current offset line: comp_start + s * dir (but we need a point on it)
+        // We can use comp_end - len * dir as another point on the line
+        float ix, iy;
+        bool has_intersection = line_intersection(
+            cutter_comp_state.prev_comp_end[0], cutter_comp_state.prev_comp_end[1],
+            prev_dir_x, prev_dir_y,
+            comp_start_x, comp_start_y,
+            dir_x, dir_y,
+            ix, iy);
+        
+        if (has_intersection) {
+            // Move to intersection point, then to compensated end
+            float inter_target[MAX_N_AXIS];
+            for (int i = 0; i < MAX_N_AXIS; i++) {
+                inter_target[i] = position[i];
+            }
+            inter_target[axis_0] = ix;
+            inter_target[axis_1] = iy;
+            
+            // First move to intersection
+            mc_linear_compensated(inter_target, pl_data, position);
+            
+            // Update position
+            float new_pos[MAX_N_AXIS];
+            for (int i = 0; i < MAX_N_AXIS; i++) {
+                new_pos[i] = inter_target[i];
+            }
+            
+            // Then move to compensated end
+            comp_target[axis_0] = comp_end_x;
+            comp_target[axis_1] = comp_end_y;
+            
+            cutter_comp_state.prev_dir[0] = dir_x;
+            cutter_comp_state.prev_dir[1] = dir_y;
+            cutter_comp_state.prev_comp_end[0] = comp_end_x;
+            cutter_comp_state.prev_comp_end[1] = comp_end_y;
+            
+            return mc_linear_compensated(comp_target, pl_data, new_pos);
+        } else {
+            // No intersection (shouldn't happen) - fall back to direct move
+            comp_target[axis_0] = comp_end_x;
+            comp_target[axis_1] = comp_end_y;
+            
+            cutter_comp_state.prev_dir[0] = dir_x;
+            cutter_comp_state.prev_dir[1] = dir_y;
+            cutter_comp_state.prev_comp_end[0] = comp_end_x;
+            cutter_comp_state.prev_comp_end[1] = comp_end_y;
+            
+            return mc_linear_compensated(comp_target, pl_data, position);
+        }
+    }
+}
+
+// Generate arc segments for outside corner in cutter compensation
+static void mc_comp_corner_arc(float cx, float cy, float start_x, float start_y, float end_x, float end_y,
+                               int axis_0, int axis_1, float* position, plan_line_data_t* pl_data, bool is_left) {
+    // Arc from start to end, centered at (cx, cy)
+    // Direction: CCW for G41 (left), CW for G42 (right)
+    
+    float r1x = start_x - cx;
+    float r1y = start_y - cy;
+    float r2x = end_x - cx;
+    float r2y = end_y - cy;
+    
+    float radius = vec2_length(r1x, r1y);
+    if (radius < 0.0001f) return;
+    
+    // Calculate angles
+    float start_angle = atan2f(r1y, r1x);
+    float end_angle = atan2f(r2y, r2x);
+    
+    // Determine angular travel based on direction
+    float angular_travel;
+    if (is_left) {
+        // CCW arc
+        angular_travel = end_angle - start_angle;
+        if (angular_travel <= 0) {
+            angular_travel += 2.0f * M_PI;
+        }
+    } else {
+        // CW arc
+        angular_travel = end_angle - start_angle;
+        if (angular_travel >= 0) {
+            angular_travel -= 2.0f * M_PI;
+        }
+    }
+    
+    // Limit arc to reasonable size (shouldn't exceed 180 degrees for compensation)
+    if (fabsf(angular_travel) > (float)M_PI) {
+        // Clamp to 180 degrees
+        angular_travel = (angular_travel > 0) ? (float)M_PI : -(float)M_PI;
+    }
+    
+    // Calculate number of segments based on arc tolerance
+    float arc_tolerance = config->_arcTolerance;
+    uint16_t segments = (uint16_t)floorf(fabsf(0.5f * angular_travel * radius) / 
+                        sqrtf(arc_tolerance * (2.0f * radius - arc_tolerance)));
+    if (segments < 1) segments = 1;
+    if (segments > 50) segments = 50;  // Reasonable limit for corner arcs
+    
+    float theta_per_segment = angular_travel / segments;
+    
+    // Generate arc segments
+    float cos_T = cosf(theta_per_segment);
+    float sin_T = sinf(theta_per_segment);
+    
+    float rx = r1x;
+    float ry = r1y;
+    
+    float seg_target[MAX_N_AXIS];
+    float seg_position[MAX_N_AXIS];
+    for (int i = 0; i < MAX_N_AXIS; i++) {
+        seg_position[i] = position[i];
+    }
+    seg_position[axis_0] = start_x;
+    seg_position[axis_1] = start_y;
+    
+    for (uint16_t i = 1; i < segments; i++) {
+        // Rotate radius vector
+        float new_rx = rx * cos_T - ry * sin_T;
+        float new_ry = rx * sin_T + ry * cos_T;
+        rx = new_rx;
+        ry = new_ry;
+        
+        for (int j = 0; j < MAX_N_AXIS; j++) {
+            seg_target[j] = position[j];
+        }
+        seg_target[axis_0] = cx + rx;
+        seg_target[axis_1] = cy + ry;
+        
+        mc_linear_compensated(seg_target, pl_data, seg_position);
+        
+        seg_position[axis_0] = seg_target[axis_0];
+        seg_position[axis_1] = seg_target[axis_1];
+    }
+    
+    // Final segment to exact endpoint
+    for (int i = 0; i < MAX_N_AXIS; i++) {
+        seg_target[i] = position[i];
+    }
+    seg_target[axis_0] = end_x;
+    seg_target[axis_1] = end_y;
+    
+    mc_linear_compensated(seg_target, pl_data, seg_position);
 }
 
 // Execute an arc in offset mode format. position == current xyz, target == target xyz,

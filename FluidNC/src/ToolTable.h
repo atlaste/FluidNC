@@ -16,6 +16,7 @@ public:
     int32_t     _number = 0;               // Tool number (extracted from section name)
     std::string _name;                     // Optional descriptive name
     float       _offset[MAX_N_AXIS] = {};  // X, Y, Z, etc. offsets (mm), defaults to 0
+    float       _radius = 0.0f;            // Tool radius for cutter compensation (mm)
 
     ToolEntry() = default;
     explicit ToolEntry(int32_t number) : _number(number) {}
@@ -86,6 +87,13 @@ public:
     // Set tool offset for a tool number
     // Creates tool entry if it doesn't exist
     void setToolOffset(int32_t toolNum, const float* offset);
+
+    // Get tool radius by tool number for cutter compensation
+    // Returns 0.0 if tool not found or radius not set
+    float getToolRadius(int32_t toolNum) const;
+
+    // Set tool radius for a tool number
+    void setToolRadius(int32_t toolNum, float radius);
 
     // Get tool entry by number (returns nullptr if not found)
     ToolEntry*       getTool(int32_t toolNum);

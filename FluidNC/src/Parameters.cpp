@@ -323,12 +323,10 @@ bool get_system_param(const std::string& name, float& result) {
         result = static_cast<gcodenum_t>(gc_state.modal.plane_select);
         return true;
     }
-#if 0
     if (sysn == "_ccomp") {
         result = static_cast<gcodenum_t>(gc_state.modal.cutter_comp);
         return true;
     }
-#endif
     if (sysn == "_coord_system") {
         result = coord_values[gc_state.modal.coord_select];
         return true;
