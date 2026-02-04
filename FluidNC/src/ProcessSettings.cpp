@@ -23,6 +23,8 @@
 #include "FileCommands.h"         // make_file_commands()
 #include "Job.h"                  // Job::active()
 #include "ToolTable.h"            // toolTable
+#include "Kinematics/Compensated1D.h"  // compensated1D
+#include "Kinematics/Compensated2D.h"  // compensated2D
 #include "Logging.h"              // LogStream
 
 #include "FluidPath.h"
@@ -32,6 +34,7 @@
 #include <string_view>
 #include <map>
 #include <filesystem>
+#include <cmath>
 
 // WG Readable and writable as guest
 // WU Readable and writable as user and admin
@@ -1036,6 +1039,173 @@ static Error saveToolTable(const char* value, AuthenticationLevel auth_level, Ch
     }
 }
 
+// 1D Compensation commands (Lathe X-from-Z)
+static Error showComp1D(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated1D == nullptr) {
+        log_error_to(out, "Compensated1D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    log_info_to(out, "1D Compensation (X from Z):");
+    log_info_to(out, "  File: " << compensated1D->getFilename());
+    log_info_to(out, "  Z range: " << compensated1D->getZMin() << " to " << compensated1D->getZMax() << " mm");
+    log_info_to(out, "  Granularity: " << compensated1D->getGranularity() << " mm");
+    log_info_to(out, "  Table size: " << compensated1D->getOffsets().size() << " points");
+    
+    // Show non-zero offsets (sparse view)
+    const auto& offsets = compensated1D->getOffsets();
+    float       gran    = compensated1D->getGranularity();
+    float       z_min   = compensated1D->getZMin();
+    int         count   = 0;
+    
+    for (size_t i = 0; i < offsets.size(); i++) {
+        if (std::abs(offsets[i]) > 0.0001f) {
+            float z = z_min + i * gran;
+            log_info_to(out, "  Z=" << z << " X_offset=" << offsets[i]);
+            count++;
+            if (count >= 50) {
+                log_info_to(out, "  ... (more points not shown)");
+                break;
+            }
+        }
+    }
+    
+    if (count == 0) {
+        log_info_to(out, "  (all offsets are zero)");
+    }
+    
+    return Error::Ok;
+}
+
+static Error setComp1DPoint(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated1D == nullptr) {
+        log_error_to(out, "Compensated1D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    if (value == nullptr || *value == '\0') {
+        log_error_to(out, "Usage: $C1P=z,x_offset");
+        return Error::InvalidStatement;
+    }
+    
+    // Parse z,x_offset
+    float z, x_offset;
+    if (sscanf(value, "%f,%f", &z, &x_offset) != 2) {
+        log_error_to(out, "Invalid format. Usage: $C1P=z,x_offset");
+        return Error::InvalidStatement;
+    }
+    
+    compensated1D->setOffset(z, x_offset);
+    log_info_to(out, "Set compensation at Z=" << z << " to X_offset=" << x_offset << " (auto-saved)");
+    return Error::Ok;
+}
+
+static Error clearComp1D(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated1D == nullptr) {
+        log_error_to(out, "Compensated1D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    compensated1D->clearOffsets();
+    log_info_to(out, "Cleared all 1D compensation offsets (auto-saved)");
+    return Error::Ok;
+}
+
+// 2D Compensation commands (Mill Z-from-XY)
+static Error showComp2D(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated2D == nullptr) {
+        log_error_to(out, "Compensated2D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    log_info_to(out, "2D Compensation (Z from X,Y):");
+    log_info_to(out, "  File: " << compensated2D->getFilename());
+    log_info_to(out, "  X range: " << compensated2D->getXMin() << " to " << compensated2D->getXMax() << " mm");
+    log_info_to(out, "  Y range: " << compensated2D->getYMin() << " to " << compensated2D->getYMax() << " mm");
+    log_info_to(out, "  Grid: " << compensated2D->getXCount() << " x " << compensated2D->getYCount() << " points");
+    
+    // Show grid
+    int x_count = compensated2D->getXCount();
+    int y_count = compensated2D->getYCount();
+    
+    // Header with X indices
+    {
+        LogStream ss(out, MsgLevelInfo, "[MSG:INFO: ");
+        ss << "     ";
+        for (int x = 0; x < x_count && x < 10; x++) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), " %6d", x);
+            ss << buf;
+        }
+        if (x_count > 10) {
+            ss << " ...";
+        }
+    }
+    
+    // Grid rows
+    for (int y = 0; y < y_count && y < 20; y++) {
+        LogStream ss(out, MsgLevelInfo, "[MSG:INFO: ");
+        char buf[16];
+        snprintf(buf, sizeof(buf), "Y%2d:", y);
+        ss << buf;
+        for (int x = 0; x < x_count && x < 10; x++) {
+            float val = compensated2D->getOffset(x, y);
+            snprintf(buf, sizeof(buf), " %6.3f", val);
+            ss << buf;
+        }
+        if (x_count > 10) {
+            ss << " ...";
+        }
+    }
+    
+    if (y_count > 20) {
+        log_info_to(out, "  ... (more rows not shown)");
+    }
+    
+    return Error::Ok;
+}
+
+static Error setComp2DPoint(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated2D == nullptr) {
+        log_error_to(out, "Compensated2D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    if (value == nullptr || *value == '\0') {
+        log_error_to(out, "Usage: $C2P=ix,iy,z_offset");
+        return Error::InvalidStatement;
+    }
+    
+    // Parse ix,iy,z_offset
+    int   ix, iy;
+    float z_offset;
+    if (sscanf(value, "%d,%d,%f", &ix, &iy, &z_offset) != 3) {
+        log_error_to(out, "Invalid format. Usage: $C2P=ix,iy,z_offset");
+        return Error::InvalidStatement;
+    }
+    
+    if (ix < 0 || ix >= compensated2D->getXCount() || iy < 0 || iy >= compensated2D->getYCount()) {
+        log_error_to(out, "Index out of range. X: 0-" << (compensated2D->getXCount() - 1) 
+                          << ", Y: 0-" << (compensated2D->getYCount() - 1));
+        return Error::InvalidStatement;
+    }
+    
+    compensated2D->setOffset(ix, iy, z_offset);
+    log_info_to(out, "Set compensation at [" << ix << "," << iy << "] to Z_offset=" << z_offset << " (auto-saved)");
+    return Error::Ok;
+}
+
+static Error clearComp2D(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (compensated2D == nullptr) {
+        log_error_to(out, "Compensated2D kinematic not active");
+        return Error::InvalidStatement;
+    }
+    
+    compensated2D->clearOffsets();
+    log_info_to(out, "Cleared all 2D compensation offsets (auto-saved)");
+    return Error::Ok;
+}
+
 // Commands use the same syntax as Settings, but instead of setting or
 // displaying a persistent value, a command causes some action to occur.
 // That action could be anything, from displaying a run-time parameter
@@ -1113,6 +1283,16 @@ void make_user_commands() {
     new UserCommand("TT", "ToolTable/Show", showToolTable, anyState);
     new UserCommand("TTL", "ToolTable/Load", reloadToolTable, anyState);
     new UserCommand("TTS", "ToolTable/Save", saveToolTable, anyState);
+
+    // 1D Compensation commands (Lathe X-from-Z)
+    new UserCommand("C1", "Comp1D/Show", showComp1D, anyState);
+    new UserCommand("C1P", "Comp1D/Set", setComp1DPoint, anyState);
+    new UserCommand("C1C", "Comp1D/Clear", clearComp1D, anyState);
+
+    // 2D Compensation commands (Mill Z-from-XY)
+    new UserCommand("C2", "Comp2D/Show", showComp2D, anyState);
+    new UserCommand("C2P", "Comp2D/Set", setComp2DPoint, anyState);
+    new UserCommand("C2C", "Comp2D/Clear", clearComp2D, anyState);
 
     new AsyncUserCommand("J", "Jog", doJog, notIdleOrJog);
     new AsyncUserCommand("G", "GCode/Modes", report_gcode, anyState);

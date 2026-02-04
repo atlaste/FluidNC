@@ -75,6 +75,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Kinematics/Midtbot.cpp
 							Kinematics/ParallelDelta.cpp
 							Kinematics/WallPlotter.cpp
+							Kinematics/Compensated1D.cpp
+							Kinematics/Compensated2D.cpp
 							Listeners/RGBLed.cpp
 							Machine/Axes.cpp
 							Machine/Axis.cpp
