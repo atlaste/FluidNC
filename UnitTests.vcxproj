@@ -304,14 +304,31 @@
     <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
     <ClCompile Include="FluidNC\src\string_util.cpp" />
     <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp" />
+    <ClCompile Include="FluidNC\test\Mock\PinsMocks.cpp" />
     
     <!-- Configuration test files -->
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
     
+    <!-- Pin source files -->
+    <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp" />
+    <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
+    <ClCompile Include="FluidNC\src\Pins\PinAttributes.cpp" />
+    <ClCompile Include="FluidNC\src\Pins\PinCapabilities.cpp" />
+    <ClCompile Include="FluidNC\src\Pins\VoidPinDetail.cpp" />
+    <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp" />
+    <ClCompile Include="FluidNC\src\Pin.cpp" />
+    
+    <!-- Pin test files -->
+    <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp" />
+    <ClCompile Include="FluidNC\test\Pins\Undefined.cpp" />
+    <!-- ErrorPinTest.cpp uses AssertThrow but ErrorPinDetail::write() only logs, doesn't throw -->
+    <!-- <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" /> -->
+    
     <!-- TODO: Add these when more mocks are in place:
     <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
+    <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
     -->
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,6 @@
 #include "TestFramework.h"
 
-#include <src/Pin.h>
+#include <Pin.h>
 
 namespace Pins {
     Test(Undefined, Pins) {
@@ -23,7 +23,7 @@ namespace Pins {
 
         Assert(unassigned.capabilities().has(Pin::Capabilities::Void));
         auto name = unassigned.name();
-        Assert(name.equals("NO_PIN"));
+        Assert(name == "NO_PIN", "Expected name 'NO_PIN'");
     }
 
     Test(Undefined, MultipleInstances) {
@@ -45,7 +45,7 @@ namespace Pins {
             Pin unassigned = Pin::create("void.2");
             Pin unassigned2;
 
-            Assert(unassigned != unassigned2, "Second void pin should match first");
+            Assert(unassigned != unassigned2, "Void pin should not match undefined");
         }
 
         {

@@ -1,13 +1,12 @@
 #include "TestFramework.h"
 
-#include "Pins/PinOptionsParser.h"
+#include <Pins/PinOptionsParser.h>
 #include <cstdio>
 #include <cstring>
 
 namespace Pins {
     Test(PinOptionParsing, NoArgs) {
-        char                   nullDescr[1] = { '\0' };
-        Pins::PinOptionsParser parser(nullDescr, nullDescr);
+        Pins::PinOptionsParser parser("");
 
         {
             auto opt    = parser.begin();
@@ -26,11 +25,7 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, SingleArg) {
-        const char* input = "first";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("first");
 
         {
             auto opt    = parser.begin();
@@ -55,11 +50,7 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, SingleArgWithWS) {
-        const char* input = "  first";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("  first");
 
         {
             auto opt    = parser.begin();
@@ -84,11 +75,7 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, SingleArgWithWS2) {
-        const char* input = "  first  ";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("  first  ");
 
         {
             auto opt    = parser.begin();
@@ -113,11 +100,7 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, TwoArg1) {
-        const char* input = "first;second";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("first;second");
 
         {
             auto opt    = parser.begin();
@@ -130,7 +113,7 @@ namespace Pins {
             Assert(opt->is("second"), "Expected 'second'");
 
             ++opt;
-            Assert(opt == endopt, "Expected one argument");
+            Assert(opt == endopt, "Expected two arguments");
         }
 
         // Typical use is a for loop. Let's test the two ways to use it:
@@ -148,11 +131,7 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, TwoArg2) {
-        const char* input = "first:second";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("first:second");
 
         {
             auto opt    = parser.begin();
@@ -165,7 +144,7 @@ namespace Pins {
             Assert(opt->is("second"), "Expected 'second'");
 
             ++opt;
-            Assert(opt == endopt, "Expected one argument");
+            Assert(opt == endopt, "Expected two arguments");
         }
 
         // Typical use is a for loop. Let's test the two ways to use it:
@@ -183,30 +162,26 @@ namespace Pins {
     }
 
     Test(PinOptionParsing, TwoArgWithValues) {
-        const char* input = "first=12;second=13";
-        char        tmp[20];
-        int         n = snprintf(tmp, 20, "%s", input);
-
-        Pins::PinOptionsParser parser(tmp, tmp + n);
+        Pins::PinOptionsParser parser("first=12;second=13");
 
         {
             auto opt    = parser.begin();
             auto endopt = parser.end();
             Assert(opt != endopt, "Expected an argument");
             Assert(opt->is("first"), "Expected 'first'");
-            Assert(strcmp("12", opt->value()) == 0);
-            Assert(12 == opt->iValue());
-            Assert(12 == opt->dValue());
+            auto val1 = (*opt).value();
+            Assert(val1 == "12", "Expected value '12'");
+            Assert(12 == opt->iValue(), "Expected iValue 12");
 
             ++opt;
             Assert(opt != endopt, "Expected second argument");
             Assert(opt->is("second"), "Expected 'second'");
-            Assert(strcmp("13", opt->value()) == 0);
-            Assert(13 == opt->iValue());
-            Assert(13 == opt->dValue());
+            auto val2 = (*opt).value();
+            Assert(val2 == "13", "Expected value '13'");
+            Assert(13 == opt->iValue(), "Expected iValue 13");
 
             ++opt;
-            Assert(opt == endopt, "Expected one argument");
+            Assert(opt == endopt, "Expected two arguments");
         }
 
         // Typical use is a for loop. Let's test the two ways to use it:

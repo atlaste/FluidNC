@@ -6,22 +6,6 @@
 #include "UartTypes.h"
 #include <string_view>
 
-// Static member for Pin - required by Pin class
-namespace Pins {
-    class PinDetail;
-}
-Pins::PinDetail* Pin::undefinedPin = nullptr;
-
-// Mock Pin::create - returns an undefined pin for testing
-Pin Pin::create(std::string_view str) {
-    return Pin();  // Return undefined pin
-}
-
-// Mock Pin destructor
-Pin::~Pin() {
-    // Mock - don't delete _detail since we're not allocating it
-}
-
 // Mock decodeUartMode - returns empty string (no error) for testing
 const char* decodeUartMode(std::string_view s, UartData& wordLength, UartParity& parity, UartStop& stopBits) {
     wordLength = UartData::Bits8;
@@ -29,3 +13,6 @@ const char* decodeUartMode(std::string_view s, UartData& wordLength, UartParity&
     stopBits = UartStop::Bits1;
     return "";  // No error
 }
+
+// Note: Platform-specific PinDetail mocks (GPIOPinDetail, I2SOPinDetail, 
+// ChannelPinDetail, ExtPinDetail) are in PinsMocks.cpp

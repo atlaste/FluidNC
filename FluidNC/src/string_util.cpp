@@ -19,6 +19,9 @@ namespace string_util {
 
     // cppcheck-suppress unusedFunction
     bool starts_with_ignore_case(std::string_view a, std::string_view b) {
+        if (a.size() < b.size()) {
+            return false;
+        }
         return std::equal(a.begin(), a.begin() + b.size(), b.begin(), b.end(), [](auto a, auto b) { return tolower(a) == tolower(b); });
     }
 

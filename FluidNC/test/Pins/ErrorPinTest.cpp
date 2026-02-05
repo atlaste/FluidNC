@@ -1,6 +1,6 @@
 #include "TestFramework.h"
 
-#include <src/Pin.h>
+#include <Pin.h>
 
 namespace Pins {
     Test(Error, Pins) {
