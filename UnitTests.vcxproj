@@ -48,7 +48,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\Extenders\Extenders.h" />
-    <ClInclude Include="FluidNC\src\Extenders\I2CExtender.h" />
+    <ClInclude Include="FluidNC\src\Extenders\I2CPinExtenderBase.h" />
+    <ClInclude Include="FluidNC\src\Extenders\PCA9539.h" />
+    <ClInclude Include="FluidNC\src\Extenders\PCA9535_9555.h" />
     <ClInclude Include="FluidNC\src\Extenders\PinExtender.h" />
     <ClInclude Include="FluidNC\src\Extenders\PinExtenderDriver.h" />
     <ClInclude Include="FluidNC\src\Machine\I2CBus.h" />
@@ -276,6 +278,7 @@
     
     <!-- Test Mocks -->
     <ClCompile Include="FluidNC\test\Mock\PlannerMocks.cpp" />
+    <ClCompile Include="FluidNC\test\Mock\esp_err.cpp" />
     
     <!-- Planner source files (pure math, minimal dependencies) -->
     <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp" />
@@ -339,6 +342,20 @@
     
     <!-- GPIO tests -->
     <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
+    
+    <!-- I2C mock infrastructure -->
+    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_i2c.cpp" />
+    
+    <!-- I2C Bus source -->
+    <ClCompile Include="FluidNC\src\Machine\I2CBus.cpp" />
+    
+    <!-- Extender source files -->
+    <ClCompile Include="FluidNC\src\Extenders\PinExtenderDriver.cpp" />
+    <ClCompile Include="FluidNC\src\Extenders\I2CPinExtenderBase.cpp" />
+    <ClCompile Include="FluidNC\src\Extenders\PCA9539.cpp" />
+    
+    <!-- I2C Extender tests -->
+    <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />

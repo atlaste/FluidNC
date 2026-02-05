@@ -5,6 +5,7 @@
 #if MAX_N_I2C
 #    include "I2CBus.h"
 #    include "Driver/fluidnc_i2c.h"
+#    include <esp_err.h>
 
 namespace Machine {
     I2CBus::I2CBus(objnum_t busNumber) : _busNumber(busNumber) {}

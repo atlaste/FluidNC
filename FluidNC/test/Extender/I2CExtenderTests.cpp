@@ -1,10 +1,10 @@
 #include "../TestFramework.h"
 
-#include <src/Pin.h>
-#include <src/PinMapper.h>
-#include <src/Machine/I2CBus.h>
-#include <src/Machine/MachineConfig.h>
-#include <src/Extenders/I2CExtenderBase.h>
+#include <Pin.h>
+#include <PinMapper.h>
+#include <Machine/I2CBus.h>
+#include <Machine/MachineConfig.h>
+#include <Extenders/PCA9539.h>
 #include <Wire.h>
 
 #include "Capture.h"
@@ -185,18 +185,18 @@ namespace {
 namespace Configuration {
     Test(I2CExtender, I2CBasics) {
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
 
         bus.validate();
         bus.init();
 
         Wire.Clear();
 
-        Assert(0 == bus.write(1, reinterpret_cast<const uint8_t*>("aap"), 3), "Bad write");
+        // Current API: write() returns number of bytes written on success, -1 on error
+        Assert(3 == bus.write(1, reinterpret_cast<const uint8_t*>("aap"), 3), "Bad write");
         auto data = Wire.Receive();
 
         Assert(data.size() == 3, "Expected 3 bytes");
@@ -205,6 +205,7 @@ namespace Configuration {
 
         uint8_t tmp[4];
         tmp[3] = 0;
+        // Current API: read() returns number of bytes read, 0 when no data available
         Assert(bus.read(1, tmp, 3) == 0, "Expected no data available for read");
 
         std::vector<uint8_t> tmp2;
@@ -229,59 +230,59 @@ namespace Configuration {
     public:
         FakeInitHandler(bool hasISR) : hasISR_(hasISR) {}
 
-        void item(const char* name, float& value, float minValue = -3e38, float maxValue = 3e38) override {}
+        void item(const char* name, Macro& value) override {}
+        void item(const char* name, bool& value) override {}
+        void item(const char* name, int32_t& value, const int32_t minValue = 0, const int32_t maxValue = INT32_MAX) override {
+            if (!strcmp(name, "busId")) {
+                value = 0;
+            }
+        }
+        void item(const char* name, uint32_t& value, const uint32_t minValue = 0, uint32_t const maxValue = UINT32_MAX) override {}
+        void item(const char* name, float& value, const float minValue = -3e38, const float maxValue = 3e38) override {}
         void item(const char* name, std::vector<speedEntry>& value) override {}
+        void item(const char* name, std::vector<float>& value) override {}
+        void item(const char* name, std::vector<int32_t>& value) override {}
         void item(const char* name, UartData& wordLength, UartParity& parity, UartStop& stopBits) override {}
+        void item(const char* name, EventPin& value) override {}
         void item(const char* name, Pin& value) override {
-            if (!strcmp(name, "interrupt") && hasISR_) {
+            // New API uses interrupt0, interrupt1, etc. for different device addresses
+            if (!strcmp(name, "interrupt0") && hasISR_) {
                 value = Pin::create("gpio.15");
             }
         }
         void item(const char* name, IPAddress& value) override {}
-        void item(const char* name, int& value, EnumItem* e) override {
-            if (!strcmp(name, "device")) {
-                value = int(Extenders::I2CExtenderDevice::PCA9539);
-            }
-        }
-
-        void item(const char* name, String& value, int minLength = 0, int maxLength = 255) override {}
+        void item(const char* name, uint32_t& value, const EnumItem* e) override {}
+        void item(const char* name, axis_t& value) override {}
+        void item(const char* name, std::string& value, const int minLength = 0, const int maxLength = 255) override {}
 
         HandlerType handlerType() override { return HandlerType::Parser; }
-
-        void item(const char* name, bool& value) override {}
-        void item(const char* name, int32_t& value, int32_t minValue = 0, int32_t maxValue = INT32_MAX) override {
-            if (!strcmp(name, "device_id")) {
-                value = 0;
-            }
-        }
     };
 
     Test(I2CExtender, InitDeinit) {
-        std::lock_guard<std::mutex> guard(single_thread);
+         std::lock_guard<std::mutex> guard(single_thread);
 
         PCA9539Emulator pca(-1);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(false);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(false);
         i2c.group(fakeInit);
-        i2c.validate();
+        // PCA9539 doesn't have a validate() method - just init
         i2c.init();
     }
 
@@ -290,26 +291,24 @@ namespace Configuration {
         PCA9539Emulator             pca(-1);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(false);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(false);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         i2c.claim(1);
@@ -332,26 +331,24 @@ namespace Configuration {
         PCA9539Emulator             pca(-1);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(false);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(false);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         {
@@ -487,26 +484,24 @@ namespace Configuration {
         PCA9539Emulator pca(15);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender with ISR on gpio.15
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(true);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(true);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         {
@@ -616,7 +611,7 @@ namespace Configuration {
         }
     }
 
-    void HandleInterrupt(void* data) { ++(*reinterpret_cast<uint32_t*>(data)); }
+    void HandleInterrupt(void* data, bool value) { ++(*reinterpret_cast<uint32_t*>(data)); }
 
     Test(I2CExtender, ISRTriggerWithInterrupt) {
         std::lock_guard<std::mutex> guard(single_thread);
@@ -624,26 +619,24 @@ namespace Configuration {
         PCA9539Emulator pca(15);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(true);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(true);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         {
@@ -720,26 +713,24 @@ namespace Configuration {
         PCA9539Emulator pca(15);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(false);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(false);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         {
@@ -813,8 +804,8 @@ namespace Configuration {
         }
     }
 
-    void ReadInISRHandler(void* data) {
-        auto i2c   = static_cast<Extenders::I2CExtender*>(data);
+    void ReadInISRHandler(void* data, bool isrValue) {
+        auto i2c   = static_cast<Extenders::PCA9539*>(data);
         auto value = i2c->readPin(9);
         Assert(value == true);
     }
@@ -825,26 +816,24 @@ namespace Configuration {
         PCA9539Emulator pca(15);
 
         // Initialize I2C bus
-        Machine::I2CBus bus;
+        Machine::I2CBus bus(0);
         bus._sda       = Pin::create("gpio.16");
         bus._scl       = Pin::create("gpio.17");
         bus._frequency = 100000;
-        bus._busNumber = 0;
         bus.init();
 
         // We need to set up the I2C config in the global 'config', or init of the extender will fail.
         Machine::MachineConfig mconfig;
-        mconfig._i2c = &bus;
-        config       = &mconfig;
+        mconfig._i2c[0] = &bus;
+        config          = &mconfig;
 
         Wire.Clear();
         Wire.SetResponseHandler(PCA9539Emulator::wireResponseHandler, &pca);
 
         // Setup the extender
-        Extenders::I2CExtender i2c;
-        FakeInitHandler        fakeInit(false);
+        Extenders::PCA9539 i2c("pca9539");
+        FakeInitHandler    fakeInit(false);
         i2c.group(fakeInit);
-        i2c.validate();
         i2c.init();
 
         {

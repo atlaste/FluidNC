@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "Config.h"
-#if MAX_N_I2c
+#if MAX_N_I2C
 #    include "Extenders.h"
 #    include "PCA9539.h"
 

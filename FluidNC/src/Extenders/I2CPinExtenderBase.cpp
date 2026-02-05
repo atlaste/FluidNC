@@ -74,9 +74,7 @@ namespace Extenders {
 
     void I2CPinExtenderBase::init() {
         Assert(_i2cBusId >= 0 && _i2cBusId < 2, "I2C bus ID out of range");
-#    if 0
         this->_i2cBus = config->_i2c[_i2cBusId];
-#    endif
 
         auto i2c = _i2cBus;
         Assert(i2c != nullptr, "I2C pin extender only works when I2C bus is configured");

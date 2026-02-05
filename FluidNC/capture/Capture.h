@@ -65,7 +65,7 @@ public:
         events.push_back(evt);
     }
 
-    uint32_t current() { return currentTime; }
+    uint32_t current() { return currentTime++; }
     void     wait(uint32_t delay) { currentTime += delay; }
     void     waitUntil(uint32_t value) {
         if (value > currentTime) {
