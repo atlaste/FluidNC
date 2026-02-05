@@ -15,5 +15,7 @@ public:
     
     AssertionFailed(const std::string& msg) : std::runtime_error(msg), stackTrace(msg) {}
     
+    // Overload for no-argument Assert(expr) calls
+    static std::runtime_error create();
     static std::runtime_error create(const char* msg, ...);
 };

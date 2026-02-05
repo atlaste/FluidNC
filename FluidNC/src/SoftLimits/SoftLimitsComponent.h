@@ -114,9 +114,9 @@ protected:
         return distSquared <= radiusSum * radiusSum;
     }
 
-    // Check if two Z ranges overlap
+    // Check if two Z ranges overlap (ranges touching at boundary are NOT considered overlapping)
     static bool zRangesOverlap(float z1Min, float z1Max, float z2Min, float z2Max) {
-        return !(z1Max < z2Min || z2Max < z1Min);
+        return !(z1Max <= z2Min || z2Max <= z1Min);
     }
 
     // Check if a point is inside an AABB (3D)

@@ -2,20 +2,21 @@
 
 #include <string>
 
-#include <src/Configuration/Tokenizer.h>
-#include <src/Configuration/Parser.h>
-#include <src/Configuration/ParserHandler.h>
-#include <src/Configuration/Configurable.h>
+#include <Configuration/Tokenizer.h>
+#include <Configuration/Parser.h>
+#include <Machine/Axes.h>
+#include <Configuration/ParserHandler.h>
+#include <Configuration/Configurable.h>
 
 namespace Configuration {
     class TestBasic : public Configurable {
     public:
-        String a;
-        String b;
-        String c;
+        std::string a;
+        std::string b;
+        std::string c;
 
-        void validate() const {}
-        void group(HandlerBase& handler) {
+        void validate() override {}
+        void group(HandlerBase& handler) override {
             handler.item("a", a);
             handler.item("b", b);
             handler.item("c", c);
@@ -24,11 +25,11 @@ namespace Configuration {
 
     class TestBasic2 : public Configurable {
     public:
-        String aap;
-        int    banaan;
+        std::string aap;
+        int         banaan = 0;
 
-        void validate() const {}
-        void group(HandlerBase& handler) {
+        void validate() override {}
+        void group(HandlerBase& handler) override {
             handler.item("aap", aap);
             handler.item("banaan", banaan);
         }
@@ -47,11 +48,11 @@ namespace Configuration {
 
     class TestBasicEnum : public Configurable {
     public:
-        int aap;
-        int value;
-        int banaan;
+        int      aap    = 0;
+        uint32_t value  = 0;
+        int      banaan = 0;
 
-        void validate() const {}
+        void validate() override {}
         void group(HandlerBase& handler) override {
             handler.item("aap", aap);
             handler.item("type", value, stepTypes);
@@ -65,7 +66,7 @@ namespace Configuration {
         TestBasic2* n2  = nullptr;
         int         foo = 0;
 
-        void validate() const {}
+        void validate() override {}
         void group(HandlerBase& handler) override {
             handler.section("n1", n1);
             handler.section("n2", n2);
@@ -76,14 +77,10 @@ namespace Configuration {
     struct Helper {
         template <typename T>
         static inline void Parse(const char* config, T& test) {
-            Parser        p(config, config + strlen(config));
+            Parser        p(config);
             ParserHandler handler(p);
 
             handler.enterSection("machine", &test);
-            // test.group(handler);
-            // for (; !p.Eof(); handler.moveNext()) {
-            //     test.group(handler);
-            // }
         }
     };
 
@@ -96,9 +93,9 @@ namespace Configuration {
         TestBasic test;
         Helper::Parse(config, test);
 
-        Assert(test.a == "aap");
-        Assert(test.b == "banaan");
-        Assert(test.c == "chocolade");
+        Assert(test.a == "aap", "a was '%s' not 'aap'", test.a.c_str());
+        Assert(test.b == "banaan", "b was '%s' not 'banaan'", test.b.c_str());
+        Assert(test.c == "chocolade", "c was '%s' not 'chocolade'", test.c.c_str());
     }
 
     Test(YamlTreeBuilder, BasicPropertiesInvert) {
@@ -137,7 +134,7 @@ namespace Configuration {
     }
 
     Test(YamlTreeBuilder, Hierarchical1) {
-        const char* config = "startup_line1:\n"
+        const char* config = "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"
@@ -169,7 +166,7 @@ namespace Configuration {
         const char* config = "n2:\n"
                              "  banaan: 2\n"
                              "  aap: aap\n"
-                             "startup_line1:\n"
+                             "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"
@@ -199,7 +196,7 @@ namespace Configuration {
                              "n2:\n"
                              "  banaan: 2\n"
                              "  aap: aap\n"
-                             "startup_line1:\n"
+                             "n1:\n"
                              "  a: aap\n"
                              "  b: banaan\n"
                              "  \n"

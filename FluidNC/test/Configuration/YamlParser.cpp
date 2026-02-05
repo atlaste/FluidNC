@@ -1,35 +1,38 @@
 #include "TestFramework.h"
 
-#include <src/Configuration/Tokenizer.h>
-#include <src/Configuration/Parser.h>
+#include <Configuration/Tokenizer.h>
+#include <Configuration/Parser.h>
 
 namespace Configuration {
+    // Helper to check if parser is at EOF
+    inline bool isEof(const Parser& p) { return p._token._state == TokenState::Eof; }
+
     Test(YamlParser, BasicProperties) {
         const char* config = "a: aap\n"
                              "b: banaan\n"
                              "\n"
                              "c: chocolade\n";
 
-        Parser p(config, config + strlen(config));
+        Parser p(config);
         p.Tokenize();
         {
-            Assert(p.key().equals("a"), "Expected 'a'");
-            Assert(p.stringValue().equals("aap"), "Expected 'aap'");
+            Assert(p.key() == "a", "Expected 'a'");
+            Assert(p.stringValue() == "aap", "Expected 'aap'");
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("b"), "Expected 'b'");
-            Assert(p.stringValue().equals("banaan"), "Expected 'banaan'");
+            Assert(p.key() == "b", "Expected 'b'");
+            Assert(p.stringValue() == "banaan", "Expected 'banaan'");
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("c"), "Expected 'c'");
-            Assert(p.stringValue().equals("chocolade"), "Expected 'chocolade'");
+            Assert(p.key() == "c", "Expected 'c'");
+            Assert(p.stringValue() == "chocolade", "Expected 'chocolade'");
         }
         p.Tokenize();
-        Assert(p.Eof(), "EOF failed");
+        Assert(isEof(p), "EOF failed");
     }
 
     Test(YamlParser, SimpleSection) {
@@ -39,30 +42,30 @@ namespace Configuration {
                              "\n"
                              "c: chocolade\n";
 
-        Parser p(config, config + strlen(config));
+        Parser p(config);
         p.Tokenize();
         {
-            Assert(p.key().equals("a"), "Expected 'a'");
-            Assert(p.stringValue().equals("aap"), "Expected 'aap'");
+            Assert(p.key() == "a", "Expected 'a'");
+            Assert(p.stringValue() == "aap", "Expected 'aap'");
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("s"), "Expected 's'");
+            Assert(p.key() == "s", "Expected 's'");
             {
                 p.Tokenize();
-                Assert(p.key().equals("b"), "Expected 'b'");
-                Assert(p.stringValue().equals("banaan"), "Expected 'banaan'");
+                Assert(p.key() == "b", "Expected 'b'");
+                Assert(p.stringValue() == "banaan", "Expected 'banaan'");
             }
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("c"), "Expected 'c'");
-            Assert(p.stringValue().equals("chocolade"), "Expected 'chocolade'");
+            Assert(p.key() == "c", "Expected 'c'");
+            Assert(p.stringValue() == "chocolade", "Expected 'chocolade'");
         }
         p.Tokenize();
-        Assert(p.Eof(), "EOF failed");
+        Assert(isEof(p), "EOF failed");
     }
 
     Test(YamlParser, TwoSequentialSections) {
@@ -74,40 +77,40 @@ namespace Configuration {
                              "\n"
                              "w: wipwap\n";
 
-        Parser p(config, config + strlen(config));
+        Parser p(config);
         p.Tokenize();
         {
-            Assert(p.key().equals("a"), "Expected 'a'");
-            Assert(p.stringValue().equals("aap"), "Expected 'aap'");
+            Assert(p.key() == "a", "Expected 'a'");
+            Assert(p.stringValue() == "aap", "Expected 'aap'");
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("s"), "Expected 's'");
+            Assert(p.key() == "s", "Expected 's'");
             p.Tokenize();
             {
-                Assert(p.key().equals("b"), "Expected 'b'");
-                Assert(p.stringValue().equals("banaan"), "Expected 'banaan'");
+                Assert(p.key() == "b", "Expected 'b'");
+                Assert(p.stringValue() == "banaan", "Expected 'banaan'");
             }
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("t"), "Expected 't'");
+            Assert(p.key() == "t", "Expected 't'");
             p.Tokenize();
             {
-                Assert(p.key().equals("c"), "Expected 'c'");
-                Assert(p.stringValue().equals("chocolade"), "Expected 'chocolade'");
+                Assert(p.key() == "c", "Expected 'c'");
+                Assert(p.stringValue() == "chocolade", "Expected 'chocolade'");
             }
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("w"), "Expected 'w'");
-            Assert(p.stringValue().equals("wipwap"), "Expected 'wipwap'");
+            Assert(p.key() == "w", "Expected 'w'");
+            Assert(p.stringValue() == "wipwap", "Expected 'wipwap'");
         }
         p.Tokenize();
-        Assert(p.Eof(), "EOF failed");
+        Assert(isEof(p), "EOF failed");
     }
 
     Test(YamlParser, TwoSequentialSectionsInASection) {
@@ -122,54 +125,54 @@ namespace Configuration {
                              "\n"
                              "w: wipwap\n";
 
-        Parser p(config, config + strlen(config));
+        Parser p(config);
         p.Tokenize();
         {
-            Assert(p.key().equals("a"), "Expected 'a'");
-            Assert(p.stringValue().equals("aap"), "Expected 'aap'");
+            Assert(p.key() == "a", "Expected 'a'");
+            Assert(p.stringValue() == "aap", "Expected 'aap'");
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("r"), "Expected 'r'");
+            Assert(p.key() == "r", "Expected 'r'");
             p.Tokenize();
 
             {
-                Assert(p.key().equals("s"), "Expected 's'");
+                Assert(p.key() == "s", "Expected 's'");
                 p.Tokenize();
                 {
-                    Assert(p.key().equals("b"), "Expected 'b'");
-                    Assert(p.stringValue().equals("banaan"), "Expected 'banaan'");
+                    Assert(p.key() == "b", "Expected 'b'");
+                    Assert(p.stringValue() == "banaan", "Expected 'banaan'");
                 }
                 p.Tokenize();
                 {
-                    Assert(p.key().equals("d"), "Expected 'd'");
-                    Assert(p.stringValue().equals("dinges"), "Expected 'dinges'");
+                    Assert(p.key() == "d", "Expected 'd'");
+                    Assert(p.stringValue() == "dinges", "Expected 'dinges'");
                 }
             }
 
             p.Tokenize();
             {
-                Assert(p.key().equals("t"), "Expected 't'");
+                Assert(p.key() == "t", "Expected 't'");
                 p.Tokenize();
                 {
-                    Assert(p.key().equals("c"), "Expected 'c'");
-                    Assert(p.stringValue().equals("chocolade"), "Expected 'chocolade'");
+                    Assert(p.key() == "c", "Expected 'c'");
+                    Assert(p.stringValue() == "chocolade", "Expected 'chocolade'");
                 }
                 p.Tokenize();
                 {
-                    Assert(p.key().equals("e"), "Expected 'e'");
-                    Assert(p.stringValue().equals("eventjes"), "Expected 'eventjes'");
+                    Assert(p.key() == "e", "Expected 'e'");
+                    Assert(p.stringValue() == "eventjes", "Expected 'eventjes'");
                 }
             }
         }
 
         p.Tokenize();
         {
-            Assert(p.key().equals("w"), "Expected 'w'");
-            Assert(p.stringValue().equals("wipwap"), "Expected 'wipwap'");
+            Assert(p.key() == "w", "Expected 'w'");
+            Assert(p.stringValue() == "wipwap", "Expected 'wipwap'");
         }
         p.Tokenize();
-        Assert(p.Eof(), "EOF failed");
+        Assert(isEof(p), "EOF failed");
     }
 }

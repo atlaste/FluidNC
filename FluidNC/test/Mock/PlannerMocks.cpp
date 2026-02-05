@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <string>
+#include <string_view>
 
 // Include MachineConfig and related headers
 #include "Machine/MachineConfig.h"
@@ -180,5 +181,19 @@ namespace Machine {
         if (mask & 0x10) result += "B";
         if (mask & 0x20) result += "C";
         return result;
+    }
+    
+    axis_t Axes::axisNum(std::string_view axis_name) {
+        // Mock - simple axis name lookup
+        if (axis_name.length() == 1) {
+            char c = axis_name[0];
+            if (c == 'X' || c == 'x') return X_AXIS;
+            if (c == 'Y' || c == 'y') return Y_AXIS;
+            if (c == 'Z' || c == 'z') return Z_AXIS;
+            if (c == 'A' || c == 'a') return A_AXIS;
+            if (c == 'B' || c == 'b') return B_AXIS;
+            if (c == 'C' || c == 'c') return C_AXIS;
+        }
+        return INVALID_AXIS;
     }
 }

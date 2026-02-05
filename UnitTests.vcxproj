@@ -290,9 +290,28 @@
     <ClCompile Include="FluidNC\test\Planner\TrapezoidPlannerTests.cpp" />
     <ClCompile Include="FluidNC\test\Planner\SCurvePlannerTests.cpp" />
     
+    <!-- SoftLimits source files -->
+    <ClCompile Include="FluidNC\src\SoftLimits\LimitsChecker.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\FixedBoundingBox.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\FixedCylinder.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\MovingBoundingBox.cpp" />
+    
+    <!-- SoftLimits test files -->
+    <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp" />
+    
+    <!-- Configuration source files -->
+    <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp" />
+    <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
+    <ClCompile Include="FluidNC\src\string_util.cpp" />
+    <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp" />
+    
+    <!-- Configuration test files -->
+    <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
+    <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
+    <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
+    
     <!-- TODO: Add these when more mocks are in place:
     <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
-    <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp" />
     -->
   </ItemGroup>
   <ItemGroup>

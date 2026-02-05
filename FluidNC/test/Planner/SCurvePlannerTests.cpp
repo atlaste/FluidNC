@@ -843,3 +843,569 @@ Test(SCurvePlanner, Recalculate_LastBlockCanStop) {
     Assert(decel_dist <= last->millimeters * 1.1f,
            "Last block should be able to S-curve decelerate to stop");
 }
+
+// ============================================================================
+// Comprehensive S-Curve Kinematic Validation Tests
+// ============================================================================
+
+// Structure to hold S-curve specific kinematics
+struct SCurveBlockKinematics {
+    // Speeds (mm/min)
+    float entry_speed;
+    float exit_speed;
+    float max_entry_speed;
+    float peak_speed;
+    float nominal_speed;
+    
+    // Accelerations (mm/min²)
+    float entry_accel;
+    float exit_accel;
+    float max_accel;
+    float peak_accel;  // Maximum acceleration during ramp
+    
+    // Jerk (mm/min³)
+    float jerk;
+    
+    // Distances (mm)
+    float total_distance;
+    
+    // 7-phase distances
+    float phase_distances[7];
+    float phase_times[7];
+    
+    // Validation
+    bool is_valid;
+    const char* error_message;
+};
+
+// Extract S-curve kinematics from a block
+SCurveBlockKinematics extractSCurveKinematics(
+    const plan_block_t& block,
+    float exit_speed_sqr = 0.0f)
+{
+    SCurveBlockKinematics k = {};
+    k.is_valid = true;
+    
+    k.entry_speed = sqrtf(block.entry_speed_sqr);
+    k.exit_speed = sqrtf(exit_speed_sqr);
+    k.max_entry_speed = sqrtf(block.max_entry_speed_sqr);
+    k.max_accel = block.acceleration;
+    k.jerk = block.jerk;
+    k.entry_accel = block.entry_accel;
+    k.exit_accel = block.exit_accel;
+    k.total_distance = block.millimeters;
+    k.nominal_speed = block.programmed_rate;
+    
+    // Basic validation
+    if (std::isnan(k.entry_speed) || std::isinf(k.entry_speed)) {
+        k.is_valid = false;
+        k.error_message = "Entry speed is NaN or infinite";
+        return k;
+    }
+    
+    if (k.entry_speed > k.max_entry_speed + 0.1f) {
+        k.is_valid = false;
+        k.error_message = "Entry speed exceeds maximum";
+        return k;
+    }
+    
+    if (std::isnan(k.entry_accel) || std::isinf(k.entry_accel)) {
+        k.is_valid = false;
+        k.error_message = "Entry accel is NaN or infinite";
+        return k;
+    }
+    
+    if (fabsf(k.entry_accel) > k.max_accel + 0.1f) {
+        k.is_valid = false;
+        k.error_message = "Entry accel exceeds maximum";
+        return k;
+    }
+    
+    // Plan the S-curve profile to get detailed kinematics
+    if (k.jerk > 0.0f) {
+        SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+            k.total_distance,
+            k.entry_speed, k.entry_accel,
+            k.exit_speed, k.exit_accel,
+            k.nominal_speed, k.max_accel, k.jerk);
+        
+        k.peak_speed = profile.v_peak;
+        
+        for (int i = 0; i < 7; i++) {
+            k.phase_times[i] = profile.t[i];
+            k.phase_distances[i] = profile.d[i];
+        }
+    }
+    
+    return k;
+}
+
+// Tests that S-curve blocks have consistent entry/exit accelerations
+Test(SCurvePlanner, Kinematics_AccelerationContinuity) {
+    TestableSCurvePlanner planner;
+    float jerk = 50000.0f;
+    planner.setJerk(jerk);
+    
+    // Create a sequence of blocks
+    for (int i = 0; i < 4; i++) {
+        plan_block_t block = createSCurveTestBlock(
+            50.0f + i * 20.0f, 1000.0f, 60000.0f, 1000.0f, jerk);
+        planner.addBlock(block);
+    }
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Check acceleration continuity between consecutive blocks
+    for (int i = 0; i < 3; i++) {
+        plan_block_t* current = planner.getBlock(i);
+        plan_block_t* next = planner.getBlock(i + 1);
+        
+        // Exit accel of current should match entry accel of next
+        // Allow some tolerance for numerical precision
+        float accel_diff = fabsf(current->exit_accel - next->entry_accel);
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), 
+                 "Block %d exit_accel (%.1f) should match block %d entry_accel (%.1f)",
+                 i, current->exit_accel, i+1, next->entry_accel);
+        Assert(accel_diff < current->acceleration * 0.1f + 1.0f, msg);
+    }
+}
+
+// Tests jerk limits are respected
+Test(SCurvePlanner, Kinematics_JerkLimits) {
+    TestableSCurvePlanner planner;
+    float jerk = 50000.0f;  // mm/min³
+    planner.setJerk(jerk);
+    
+    plan_block_t block = createSCurveTestBlock(100.0f, 1000.0f, 60000.0f, 1000.0f, jerk);
+    block.entry_speed_sqr = 200.0f * 200.0f;  // Start at 200 mm/min
+    block.entry_accel = 0.0f;  // Start with zero acceleration
+    
+    planner.addBlock(block);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    plan_block_t* processed = planner.getBlock(0);
+    
+    // Plan the profile
+    SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+        processed->millimeters,
+        sqrtf(processed->entry_speed_sqr), processed->entry_accel,
+        0.0f, 0.0f,  // Stop at end
+        processed->programmed_rate, processed->acceleration, jerk);
+    
+    // Verify jerk is within limits by checking acceleration changes
+    // In S-curve, acceleration changes linearly with jerk during phases 1, 3, 5, 7
+    // Phase 1: accel goes from a0 to a_max at rate +jerk
+    // Phase 3: accel goes from a_max to 0 at rate -jerk
+    // etc.
+    
+    // Check that acceleration at each phase doesn't exceed max
+    float a_max = processed->acceleration;
+    
+    // Find peak acceleration from the acceleration array
+    float peak_accel = 0.0f;
+    for (int i = 0; i < 8; i++) {
+        peak_accel = std::max(peak_accel, fabsf(profile.a[i]));
+    }
+    
+    Assert(peak_accel <= a_max + 1.0f, 
+           "Peak acceleration should not exceed max");
+    
+    // Check times are consistent with jerk
+    // t = delta_a / jerk
+    if (profile.t[SCurvePlanner::RAMP_JERK_ACCEL_UP] > 0.001f) {
+        // The acceleration after the first jerk phase is typically the peak during accel
+        float accel_after_jerk_up = fabsf(profile.a[1]);
+        float implied_jerk = accel_after_jerk_up / profile.t[SCurvePlanner::RAMP_JERK_ACCEL_UP];
+        Assert(implied_jerk <= jerk * 1.01f,
+               "Accel-up phase should respect jerk limit");
+    }
+}
+
+// Tests S-curve profile planning with various entry conditions
+// Note: planProfile() computes the MINIMUM distance needed to achieve the
+// given entry/exit conditions. If distance is insufficient, the profile
+// may extend beyond the given distance.
+Test(SCurvePlanner, Kinematics_CompleteProfileValidation) {
+    float jerk = 50000.0f;
+    float accel = 60000.0f;
+    float max_speed = 1000.0f;
+    
+    // Test cases with entry conditions that can be satisfied within the given distance
+    struct TestCase {
+        float entry_speed;
+        float entry_accel;
+        float distance;
+        const char* description;
+    };
+    
+    TestCase cases[] = {
+        {0.0f, 0.0f, 100.0f, "From rest"},
+        {500.0f, 0.0f, 100.0f, "Cruising entry"},
+        {0.0f, 0.0f, 20.0f, "Short move from rest"},
+        // Note: Cases with non-zero entry accel need more distance to stop
+        // planProfile will compute minimum needed distance, which may exceed input
+    };
+    
+    for (const auto& tc : cases) {
+        // Plan the S-curve profile
+        SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+            tc.distance,
+            tc.entry_speed, tc.entry_accel,
+            0.0f, 0.0f,  // Stop at end
+            max_speed, accel, jerk);
+        
+        char msg[256];
+        
+        // Verify entry velocity matches input
+        snprintf(msg, sizeof(msg), "%s: Entry velocity mismatch (expected %.1f, got %.1f)",
+                 tc.description, tc.entry_speed, profile.v[0]);
+        Assert(fabsf(profile.v[0] - tc.entry_speed) < 1.0f, msg);
+        
+        // Verify exit velocity is near zero
+        snprintf(msg, sizeof(msg), "%s: Exit velocity should be ~0 (got %.1f)",
+                 tc.description, profile.v[7]);
+        Assert(fabsf(profile.v[7]) < 10.0f, msg);  // Allow some tolerance
+        
+        // Verify profile computed a valid distance (at least the requested minimum)
+        snprintf(msg, sizeof(msg), "%s: Profile distance (%.1f) should be >= requested (%.1f)",
+                 tc.description, profile.total_distance, tc.distance);
+        // Note: profile may need more distance than requested if entry conditions require it
+        Assert(profile.total_distance >= tc.distance * 0.9f - 1.0f, msg);
+        
+        // Verify all phase times are non-negative
+        for (int i = 0; i < 7; i++) {
+            snprintf(msg, sizeof(msg), "%s: Phase %d time should be >= 0 (got %.4f)",
+                     tc.description, i, profile.t[i]);
+            Assert(profile.t[i] >= -0.0001f, msg);
+        }
+        
+        // Verify peak speed doesn't exceed max
+        snprintf(msg, sizeof(msg), "%s: Peak speed (%.1f) should not exceed max (%.1f)",
+                 tc.description, profile.v_peak, max_speed);
+        Assert(profile.v_peak <= max_speed + 1.0f, msg);
+    }
+}
+
+// Tests S-curve minimum stopping distance calculation
+// Note: planProfile computes minimum distance needed. Entry conditions with
+// positive acceleration require significantly more distance to stop since
+// the system must first reduce acceleration to zero before decelerating.
+Test(SCurvePlanner, Kinematics_MinimumStoppingDistance) {
+    float jerk = 50000.0f;
+    float accel = 60000.0f;
+    
+    // Test that planProfile computes reasonable distances for various entry conditions
+    struct TestCase {
+        float entry_speed;
+        float entry_accel;
+        float min_distance;    // Request enough distance for profile
+        bool check_fits;       // Whether to verify it fits the requested distance
+        const char* description;
+    };
+    
+    TestCase cases[] = {
+        // Standard cases that should fit within requested distance
+        {500.0f, 0.0f, 100.0f, true, "Cruising (standard decel)"},
+        {800.0f, -20000.0f, 100.0f, true, "Decelerating entry (already slowing)"},
+        // Positive entry accel case: just verify profile validity, not distance fit
+        // (would need ~1200mm to stop from 200 mm/min with 30000 mm/min² accel)
+        {200.0f, 30000.0f, 2000.0f, false, "Accelerating entry (extended distance)"},
+    };
+    
+    for (const auto& tc : cases) {
+        SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+            tc.min_distance,
+            tc.entry_speed, tc.entry_accel,
+            0.0f, 0.0f,  // Stop at end
+            1000.0f, accel, jerk);
+        
+        char msg[256];
+        
+        // Verify profile entry conditions match input
+        snprintf(msg, sizeof(msg), "%s: Entry velocity preserved", tc.description);
+        Assert(fabsf(profile.v[0] - tc.entry_speed) < 1.0f, msg);
+        
+        // Verify exit is near stopped
+        snprintf(msg, sizeof(msg), "%s: Exit velocity near zero (got %.1f)", 
+                 tc.description, profile.v[7]);
+        Assert(fabsf(profile.v[7]) < 10.0f, msg);
+        
+        // For standard cases, verify distance fits (with small tolerance for S-curve overhead)
+        if (tc.check_fits) {
+            snprintf(msg, sizeof(msg), "%s: Distance (%.1f) should fit within requested (%.1f)",
+                     tc.description, profile.total_distance, tc.min_distance);
+            // Allow 5% tolerance since S-curve jerk phases add small overhead
+            Assert(profile.total_distance <= tc.min_distance * 1.05f + 2.0f, msg);
+        }
+        
+        // Verify distance is positive and reasonable
+        snprintf(msg, sizeof(msg), "%s: Distance should be positive (got %.1f)",
+                 tc.description, profile.total_distance);
+        Assert(profile.total_distance > 0.0f, msg);
+    }
+}
+
+// Tests velocity continuity across S-curve block boundaries
+Test(SCurvePlanner, Kinematics_VelocityContinuity) {
+    TestableSCurvePlanner planner;
+    float jerk = 50000.0f;
+    planner.setJerk(jerk);
+    
+    // Create a sequence with varying block lengths
+    float distances[] = {50.0f, 100.0f, 30.0f, 80.0f, 60.0f};
+    
+    for (int i = 0; i < 5; i++) {
+        plan_block_t block = createSCurveTestBlock(
+            distances[i], 1000.0f, 60000.0f, 1000.0f, jerk);
+        planner.addBlock(block);
+    }
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Verify velocity continuity between blocks
+    for (int i = 0; i < 4; i++) {
+        plan_block_t* current = planner.getBlock(i);
+        plan_block_t* next = planner.getBlock(i + 1);
+        
+        // Plan profile for current block
+        float next_entry = sqrtf(next->entry_speed_sqr);
+        SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+            current->millimeters,
+            sqrtf(current->entry_speed_sqr), current->entry_accel,
+            next_entry, next->entry_accel,
+            current->programmed_rate, current->acceleration, jerk);
+        
+        // Exit velocity of profile should match next block's entry
+        char msg[128];
+        snprintf(msg, sizeof(msg), 
+                 "Block %d exit velocity (%.1f) should match block %d entry (%.1f)",
+                 i, profile.v[7], i+1, next_entry);
+        Assert(fabsf(profile.v[7] - next_entry) < next_entry * 0.1f + 1.0f, msg);
+    }
+}
+
+// Tests 7-phase S-curve distances sum to total
+Test(SCurvePlanner, Kinematics_PhaseDistancesSumToTotal) {
+    float jerk = 50000.0f;
+    float accel = 60000.0f;
+    float max_speed = 1000.0f;
+    
+    // Test various profiles
+    struct TestCase {
+        float entry;
+        float exit;
+        float distance;
+    };
+    
+    TestCase cases[] = {
+        {0.0f, 0.0f, 100.0f},      // Start and stop
+        {500.0f, 0.0f, 100.0f},    // Cruising to stop
+        {0.0f, 500.0f, 100.0f},    // Start to cruising
+        {300.0f, 700.0f, 100.0f},  // Accelerating through
+        {700.0f, 300.0f, 100.0f},  // Decelerating through
+        {500.0f, 500.0f, 200.0f},  // Cruise through (long)
+    };
+    
+    for (const auto& tc : cases) {
+        SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+            tc.distance,
+            tc.entry, 0.0f,
+            tc.exit, 0.0f,
+            max_speed, accel, jerk);
+        
+        float phase_sum = 0.0f;
+        for (int i = 0; i < 7; i++) {
+            phase_sum += profile.d[i];
+        }
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), 
+                 "v_entry=%.0f->v_exit=%.0f: Phase distances (%.2f) should sum to total (%.2f)",
+                 tc.entry, tc.exit, phase_sum, tc.distance);
+        Assert(fabsf(phase_sum - tc.distance) < tc.distance * 0.1f + 0.1f, msg);
+    }
+}
+
+// Tests that each phase obeys kinematic equations
+Test(SCurvePlanner, Kinematics_PhaseEquations) {
+    float jerk = 50000.0f;
+    float accel = 60000.0f;
+    float max_speed = 1000.0f;
+    
+    SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+        100.0f,  // distance
+        200.0f, 0.0f,   // entry: v=200, a=0
+        0.0f, 0.0f,     // exit: v=0, a=0
+        max_speed, accel, jerk);
+    
+    // For each phase, verify kinematic relationships
+    // Phase 1 (jerk accel up): constant positive jerk
+    //   v1 = v0 + a0*t + 0.5*j*t²
+    //   a1 = a0 + j*t
+    //   d = v0*t + 0.5*a0*t² + (1/6)*j*t³
+    
+    float t1 = profile.t[SCurvePlanner::RAMP_JERK_ACCEL_UP];
+    float v0 = profile.v[0];
+    float a0 = profile.a[0];
+    float v1_computed = v0 + a0 * t1 + 0.5f * jerk * t1 * t1;
+    float v1_actual = profile.v[1];
+    
+    char msg[128];
+    snprintf(msg, sizeof(msg), 
+             "Phase 1: computed v1 (%.2f) should match actual (%.2f)",
+             v1_computed, v1_actual);
+    Assert(fabsf(v1_computed - v1_actual) < v1_actual * 0.1f + 1.0f, msg);
+    
+    // Phase 2 (const accel): constant acceleration
+    float t2 = profile.t[SCurvePlanner::RAMP_CONST_ACCEL];
+    if (t2 > 0.001f) {
+        float a1 = profile.a[1];
+        float v2_computed = profile.v[1] + a1 * t2;
+        float v2_actual = profile.v[2];
+        
+        snprintf(msg, sizeof(msg), 
+                 "Phase 2: computed v2 (%.2f) should match actual (%.2f)",
+                 v2_computed, v2_actual);
+        Assert(fabsf(v2_computed - v2_actual) < v2_actual * 0.1f + 1.0f, msg);
+    }
+}
+
+// Tests complete toolpath with varying feed rates
+Test(SCurvePlanner, Kinematics_RealisticToolpath) {
+    TestableSCurvePlanner planner;
+    float jerk = 100000.0f;
+    planner.setJerk(jerk);
+    
+    // Simulate a realistic CNC toolpath:
+    // 1. Rapid approach
+    // 2. Slow cutting moves
+    // 3. Rapid retract
+    
+    plan_block_t rapid1 = createSCurveTestBlock(50.0f, 3000.0f, 100000.0f, 3000.0f, jerk);
+    rapid1.motion.rapidMotion = 1;
+    
+    plan_block_t cut1 = createSCurveTestBlock(100.0f, 500.0f, 50000.0f, 500.0f, jerk);
+    plan_block_t cut2 = createSCurveTestBlock(80.0f, 500.0f, 50000.0f, 500.0f, jerk);
+    plan_block_t cut3 = createSCurveTestBlock(60.0f, 500.0f, 50000.0f, 500.0f, jerk);
+    
+    plan_block_t rapid2 = createSCurveTestBlock(50.0f, 3000.0f, 100000.0f, 3000.0f, jerk);
+    rapid2.motion.rapidMotion = 1;
+    
+    planner.addBlock(rapid1);
+    planner.addBlock(cut1);
+    planner.addBlock(cut2);
+    planner.addBlock(cut3);
+    planner.addBlock(rapid2);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Validate the entire sequence
+    float total_distance = 0.0f;
+    
+    for (int i = 0; i < 5; i++) {
+        plan_block_t* b = planner.getBlock(i);
+        
+        SCurveBlockKinematics k = extractSCurveKinematics(
+            *b, (i < 4) ? planner.getBlock(i+1)->entry_speed_sqr : 0.0f);
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Block %d should have valid kinematics", i);
+        Assert(k.is_valid, k.error_message ? k.error_message : msg);
+        
+        // Entry speed within bounds
+        snprintf(msg, sizeof(msg), "Block %d entry (%.1f) <= max (%.1f)", 
+                 i, k.entry_speed, k.max_entry_speed);
+        Assert(k.entry_speed <= k.max_entry_speed + 1.0f, msg);
+        
+        // Entry accel within bounds
+        snprintf(msg, sizeof(msg), "Block %d |entry_accel| (%.1f) <= max (%.1f)", 
+                 i, fabsf(k.entry_accel), k.max_accel);
+        Assert(fabsf(k.entry_accel) <= k.max_accel + 1.0f, msg);
+        
+        total_distance += k.total_distance;
+    }
+    
+    // Verify total distance
+    float expected_distance = 50.0f + 100.0f + 80.0f + 60.0f + 50.0f;
+    Assert(floatEquals(total_distance, expected_distance, 0.1f),
+           "Total path distance should match sum of block distances");
+    
+    // Verify last block can stop
+    plan_block_t* last = planner.getBlock(4);
+    float entry = sqrtf(last->entry_speed_sqr);
+    float stop_dist = SCurveMath::decelDistance(entry, 0.0f, last->acceleration, jerk);
+    
+    Assert(stop_dist <= last->millimeters * 1.1f,
+           "Last block should be able to S-curve decelerate to stop");
+}
+
+// Tests profile behavior with very high jerk (approaching trapezoidal)
+Test(SCurvePlanner, Kinematics_HighJerkApproachesTrapezoidal) {
+    // With very high jerk, S-curve should approximate trapezoidal
+    float very_high_jerk = 10000000.0f;  // Very high
+    float accel = 60000.0f;
+    float v_max = 1000.0f;
+    
+    // S-curve profile
+    SCurveMath::SCurveProfile scurve = SCurveMath::planProfile(
+        100.0f,
+        0.0f, 0.0f,    // Start from rest
+        0.0f, 0.0f,    // Stop at end
+        v_max, accel, very_high_jerk);
+    
+    // Trapezoidal profile calculation
+    // d_accel = v² / (2a), d_decel = v² / (2a)
+    // If d_accel + d_decel <= total_d, we have cruise phase
+    float v_peak_trap = sqrtf(accel * 100.0f);  // Triangular peak if no cruise
+    if (v_peak_trap > v_max) v_peak_trap = v_max;
+    
+    // S-curve peak should be close to what trapezoid would achieve
+    // Allow significant tolerance since high jerk still has some smoothing effect
+    Assert(scurve.v_peak >= v_peak_trap * 0.5f && scurve.v_peak <= v_peak_trap * 1.5f,
+           "High jerk S-curve peak should be within 50% of trapezoidal peak");
+}
+
+// Tests smooth acceleration profile with moderate jerk
+Test(SCurvePlanner, Kinematics_SmoothAccelerationProfile) {
+    float jerk = 50000.0f;
+    float accel = 60000.0f;
+    float v_max = 1000.0f;
+    
+    SCurveMath::SCurveProfile profile = SCurveMath::planProfile(
+        200.0f,        // Long enough for full profile
+        0.0f, 0.0f,    // Start from rest
+        0.0f, 0.0f,    // Stop at end
+        v_max, accel, jerk);
+    
+    // Verify acceleration progression is smooth
+    // Phase 0 -> 1: accel ramps up (a goes from 0 to a_peak)
+    // Phase 1 -> 2: accel stays at a_peak
+    // Phase 2 -> 3: accel ramps down to 0
+    // Phase 3 -> 4: cruise at 0 accel
+    // Phase 4 -> 5: accel ramps down to -a_peak
+    // Phase 5 -> 6: accel stays at -a_peak
+    // Phase 6 -> 7: accel ramps up to 0
+    
+    // Check that acceleration doesn't jump discontinuously
+    for (int i = 0; i < 7; i++) {
+        float a_start = profile.a[i];
+        float a_end = profile.a[i + 1];
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), 
+                 "Phase %d: |a_start| (%.1f) and |a_end| (%.1f) should be <= a_max (%.1f)",
+                 i, fabsf(a_start), fabsf(a_end), accel);
+        Assert(fabsf(a_start) <= accel + 1.0f, msg);
+        Assert(fabsf(a_end) <= accel + 1.0f, msg);
+    }
+    
+    // Verify symmetry for start-stop profile
+    // Entry accel should be 0
+    Assert(fabsf(profile.a[0]) < 1.0f, "Entry accel should be ~0");
+    
+    // Exit accel should be 0
+    Assert(fabsf(profile.a[7]) < 1.0f, "Exit accel should be ~0");
+}

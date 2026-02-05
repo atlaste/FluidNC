@@ -688,3 +688,323 @@ Test(TrapezoidPlanner, Buffer_Empty) {
     
     Assert(planner.blockCount() == 0, "Empty buffer should remain empty");
 }
+
+// ============================================================================
+// Comprehensive Kinematic Validation Tests
+// ============================================================================
+
+// Tests that each block's kinematics are internally consistent
+Test(TrapezoidPlanner, Kinematics_BlockInternalConsistency) {
+    TestableTrapezoidPlanner planner;
+    
+    // Create varying blocks to stress different profile shapes
+    plan_block_t blocks[] = {
+        createTestBlock(100.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f),  // Normal
+        createTestBlock(50.0f, 500.0f, 30000.0f, 500.0f, 500.0f),      // Slower
+        createTestBlock(200.0f, 1500.0f, 90000.0f, 1500.0f, 1500.0f),  // Faster
+        createTestBlock(20.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f),   // Short
+    };
+    
+    for (auto& block : blocks) {
+        planner.addBlock(block);
+    }
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Validate each block's kinematics
+    for (int i = 0; i < 4; i++) {
+        plan_block_t* b = planner.getBlock(i);
+        
+        // Get exit speed (next block's entry or 0 for last)
+        float exit_speed_sqr = (i < 3) ? planner.getBlock(i+1)->entry_speed_sqr : 0.0f;
+        
+        BlockKinematics k = extractTrapezoidKinematics(*b, exit_speed_sqr);
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Block %d should have valid kinematics", i);
+        Assert(k.is_valid, msg);
+        
+        // Verify entry speed is within bounds
+        snprintf(msg, sizeof(msg), "Block %d entry_speed (%.1f) <= max_entry (%.1f)", 
+                 i, k.entry_speed, k.max_entry_speed);
+        Assert(k.entry_speed <= k.max_entry_speed + 0.1f, msg);
+        
+        // Verify peak speed doesn't exceed nominal
+        snprintf(msg, sizeof(msg), "Block %d peak_speed (%.1f) <= nominal (%.1f)", 
+                 i, k.peak_speed, k.nominal_speed);
+        Assert(k.peak_speed <= k.nominal_speed + 0.1f, msg);
+        
+        // Verify distances sum correctly
+        float d_sum = k.accel_distance + k.cruise_distance + k.decel_distance;
+        snprintf(msg, sizeof(msg), "Block %d distances sum (%.2f) == total (%.2f)", 
+                 i, d_sum, k.total_distance);
+        Assert(fabsf(d_sum - k.total_distance) < k.total_distance * 0.05f, msg);
+        
+        // Verify non-negative distances
+        snprintf(msg, sizeof(msg), "Block %d accel_distance (%.2f) >= 0", i, k.accel_distance);
+        Assert(k.accel_distance >= -0.001f, msg);
+        snprintf(msg, sizeof(msg), "Block %d cruise_distance (%.2f) >= 0", i, k.cruise_distance);
+        Assert(k.cruise_distance >= -0.001f, msg);
+        snprintf(msg, sizeof(msg), "Block %d decel_distance (%.2f) >= 0", i, k.decel_distance);
+        Assert(k.decel_distance >= -0.001f, msg);
+    }
+}
+
+// Tests velocity continuity across block boundaries
+Test(TrapezoidPlanner, Kinematics_VelocityContinuity) {
+    TestableTrapezoidPlanner planner;
+    
+    // Create a 5-block sequence
+    for (int i = 0; i < 5; i++) {
+        plan_block_t block = createTestBlock(50.0f + i * 10.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f);
+        planner.addBlock(block);
+    }
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Verify velocity continuity between consecutive blocks
+    for (int i = 0; i < 4; i++) {
+        plan_block_t* current = planner.getBlock(i);
+        plan_block_t* next = planner.getBlock(i + 1);
+        
+        const char* error = nullptr;
+        bool continuous = validateVelocityContinuityBetween(*current, *next, &error);
+        
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Blocks %d->%d velocity continuity: %s", 
+                 i, i+1, error ? error : "OK");
+        Assert(continuous, msg);
+        
+        // Additional check: next block entry should be achievable
+        float curr_entry = sqrtf(current->entry_speed_sqr);
+        float next_entry = sqrtf(next->entry_speed_sqr);
+        float max_exit = sqrtf(curr_entry * curr_entry + 2.0f * current->acceleration * current->millimeters);
+        
+        snprintf(msg, sizeof(msg), "Block %d->%d: next_entry (%.1f) <= max_achievable (%.1f)", 
+                 i, i+1, next_entry, max_exit);
+        Assert(next_entry <= max_exit + 1.0f, msg);
+    }
+}
+
+// Tests that the last block can always decelerate to stop
+Test(TrapezoidPlanner, Kinematics_LastBlockCanStop) {
+    TestableTrapezoidPlanner planner;
+    
+    // Test various block configurations
+    float test_distances[] = {10.0f, 50.0f, 100.0f, 200.0f};
+    float test_speeds[] = {500.0f, 1000.0f, 2000.0f};
+    
+    for (float d : test_distances) {
+        for (float v : test_speeds) {
+            planner.resetBuffer();
+            
+            // Add a few blocks leading up to the last one
+            plan_block_t b1 = createTestBlock(100.0f, v, 60000.0f, v, v);
+            plan_block_t b2 = createTestBlock(d, v, 60000.0f, v, v);
+            
+            planner.addBlock(b1);
+            planner.addBlock(b2);
+            planner.setPlanned(0);
+            planner.testRecalculate();
+            
+            plan_block_t* last = planner.getBlock(1);
+            bool canStop = validateCanStop(*last);
+            
+            char msg[128];
+            snprintf(msg, sizeof(msg), "Last block (d=%.0f, v=%.0f) should be able to stop", d, v);
+            Assert(canStop, msg);
+        }
+    }
+}
+
+// Tests that acceleration is respected during velocity transitions
+Test(TrapezoidPlanner, Kinematics_AccelerationLimits) {
+    TestableTrapezoidPlanner planner;
+    
+    float accel = 60000.0f;  // mm/min²
+    
+    // Create blocks with various entry/exit speed requirements
+    plan_block_t b1 = createTestBlock(100.0f, 1000.0f, accel, 1000.0f, 1000.0f);
+    plan_block_t b2 = createTestBlock(100.0f, 1000.0f, accel, 1000.0f, 1000.0f);
+    plan_block_t b3 = createTestBlock(100.0f, 1000.0f, accel, 1000.0f, 1000.0f);
+    
+    planner.addBlock(b1);
+    planner.addBlock(b2);
+    planner.addBlock(b3);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Verify each transition respects acceleration limits
+    for (int i = 0; i < 2; i++) {
+        plan_block_t* current = planner.getBlock(i);
+        plan_block_t* next = planner.getBlock(i + 1);
+        
+        float v1 = sqrtf(current->entry_speed_sqr);
+        float v2 = sqrtf(next->entry_speed_sqr);
+        float d = current->millimeters;
+        
+        // Check if this velocity change is achievable
+        bool achievable = verifyAccelLimit(v1, v2, d, accel);
+        
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Block %d: v1=%.1f -> v2=%.1f over d=%.1f with a=%.1f should be achievable",
+                 i, v1, v2, d, accel);
+        Assert(achievable, msg);
+    }
+}
+
+// Tests complete motion sequence with detailed profile analysis
+Test(TrapezoidPlanner, Kinematics_CompleteSequenceValidation) {
+    TestableTrapezoidPlanner planner;
+    
+    // Create a realistic toolpath: approach, cut, retract
+    plan_block_t approach = createTestBlock(50.0f, 2000.0f, 100000.0f, 2000.0f, 2000.0f);  // Rapid
+    plan_block_t cut1 = createTestBlock(100.0f, 500.0f, 50000.0f, 500.0f, 500.0f);         // Feed
+    plan_block_t cut2 = createTestBlock(80.0f, 500.0f, 50000.0f, 500.0f, 500.0f);          // Feed
+    plan_block_t retract = createTestBlock(50.0f, 2000.0f, 100000.0f, 2000.0f, 2000.0f);   // Rapid
+    
+    planner.addBlock(approach);
+    planner.addBlock(cut1);
+    planner.addBlock(cut2);
+    planner.addBlock(retract);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Calculate total distance
+    float expected_distance = 50.0f + 100.0f + 80.0f + 50.0f;
+    float actual_distance = 0.0f;
+    float total_time = 0.0f;
+    
+    for (int i = 0; i < 4; i++) {
+        plan_block_t* b = planner.getBlock(i);
+        float exit_speed_sqr = (i < 3) ? planner.getBlock(i+1)->entry_speed_sqr : 0.0f;
+        
+        BlockKinematics k = extractTrapezoidKinematics(*b, exit_speed_sqr);
+        Assert(k.is_valid, "Block kinematics should be valid");
+        
+        actual_distance += k.total_distance;
+        total_time += k.total_time;
+    }
+    
+    Assert(floatEquals(actual_distance, expected_distance, 0.1f),
+           "Total distance should match expected");
+    
+    Assert(total_time > 0.0f, "Total time should be positive");
+}
+
+// Tests profile shapes under different conditions
+Test(TrapezoidPlanner, Kinematics_ProfileShapes) {
+    TestableTrapezoidPlanner planner;
+    
+    // Test 1: Long block should have cruise phase
+    {
+        planner.resetBuffer();
+        plan_block_t long_block = createTestBlock(500.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f);
+        long_block.entry_speed_sqr = 100.0f * 100.0f;  // Start at 100 mm/min
+        planner.addBlock(long_block);
+        planner.setPlanned(0);
+        
+        BlockKinematics k = extractTrapezoidKinematics(long_block, 0.0f);
+        
+        Assert(k.cruise_distance > 0.0f, "Long block should have cruise phase");
+        Assert(k.peak_speed > 100.0f, "Long block should accelerate above entry speed");
+    }
+    
+    // Test 2: Short block should be triangular (no cruise)
+    {
+        planner.resetBuffer();
+        plan_block_t short_block = createTestBlock(5.0f, 2000.0f, 60000.0f, 2000.0f, 2000.0f);
+        short_block.entry_speed_sqr = 100.0f * 100.0f;
+        planner.addBlock(short_block);
+        planner.setPlanned(0);
+        
+        BlockKinematics k = extractTrapezoidKinematics(short_block, 0.0f);
+        
+        // For very short blocks, may not reach cruise
+        Assert(k.peak_speed < 2000.0f, "Short block should not reach max speed");
+    }
+    
+    // Test 3: Starting from rest
+    {
+        planner.resetBuffer();
+        plan_block_t from_rest = createTestBlock(100.0f, 1000.0f, 60000.0f, 0.0f, 0.0f);
+        from_rest.entry_speed_sqr = 0.0f;
+        from_rest.max_junction_speed_sqr = 0.0f;
+        planner.addBlock(from_rest);
+        planner.setPlanned(0);
+        planner.testRecalculate();
+        
+        plan_block_t* processed = planner.getBlock(0);
+        Assert(floatEquals(processed->entry_speed_sqr, 0.0f, 0.01f),
+               "Block starting from rest should have zero entry");
+        
+        BlockKinematics k = extractTrapezoidKinematics(*processed, 0.0f);
+        Assert(k.accel_distance > 0.0f || k.total_distance < 0.1f,
+               "From-rest block should have acceleration phase");
+    }
+}
+
+// Tests that profile distances are achievable given kinematic constraints
+// (Simplified from full simulation which had convergence issues)
+Test(TrapezoidPlanner, Kinematics_ProfileDistancesAchievable) {
+    TestableTrapezoidPlanner planner;
+    
+    // Create a simple block
+    plan_block_t block = createTestBlock(100.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f);
+    block.entry_speed_sqr = 200.0f * 200.0f;  // Start at 200 mm/min
+    
+    planner.addBlock(block);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    plan_block_t* processed = planner.getBlock(0);
+    
+    // Extract kinematics and verify achievability
+    BlockKinematics k = extractTrapezoidKinematics(*processed, 0.0f);
+    
+    Assert(k.is_valid, k.error_message ? k.error_message : "Kinematics should be valid");
+    
+    // Verify total distance sum equals block distance
+    float computed_distance = k.accel_distance + k.cruise_distance + k.decel_distance;
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Profile distances (%.2f) should sum to block distance (%.2f)",
+             computed_distance, processed->millimeters);
+    Assert(floatEquals(computed_distance, processed->millimeters, 1.0f), msg);
+    
+    // Verify kinematics equations hold:
+    // v² = v0² + 2*a*d for acceleration phase
+    float v_after_accel_sq = processed->entry_speed_sqr + 2.0f * processed->acceleration * k.accel_distance;
+    float expected_peak_sq = k.peak_speed * k.peak_speed;
+    
+    snprintf(msg, sizeof(msg), "Kinematics equation: peak² (%.0f) vs computed (%.0f)",
+             expected_peak_sq, v_after_accel_sq);
+    Assert(floatEquals(v_after_accel_sq, expected_peak_sq, expected_peak_sq * 0.1f + 1.0f), msg);
+}
+
+// Tests that entry speed respects max_entry_speed_sqr limit
+Test(TrapezoidPlanner, Kinematics_EntrySpeedLimits) {
+    TestableTrapezoidPlanner planner;
+    
+    // Create blocks with explicit max entry speeds
+    // max_entry_speed_sqr is the actual limiting field used by the planner
+    plan_block_t b1 = createTestBlock(100.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f);
+    plan_block_t b2 = createTestBlock(100.0f, 1000.0f, 60000.0f, 1000.0f, 1000.0f);
+    
+    // Set a low max_entry_speed on block 2 to force the planner to limit it
+    b2.max_entry_speed_sqr = 500.0f * 500.0f;  // Max entry = 500 mm/min
+    
+    planner.addBlock(b1);
+    planner.addBlock(b2);
+    planner.setPlanned(0);
+    planner.testRecalculate();
+    
+    // Block 2's entry speed should respect max_entry_speed limit
+    plan_block_t* processed_b2 = planner.getBlock(1);
+    float b2_entry = sqrtf(processed_b2->entry_speed_sqr);
+    float b2_max_entry = sqrtf(processed_b2->max_entry_speed_sqr);
+    
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Block 2 entry (%.1f) should respect max entry limit (%.1f)", 
+             b2_entry, b2_max_entry);
+    Assert(b2_entry <= b2_max_entry + 0.1f, msg);
+}

@@ -7,5 +7,7 @@
 
 class AssertionFailed {
 public:
+    // Overload for no-argument Assert(expr) calls
+    static std::runtime_error create();
     static std::runtime_error create(const char* msg, ...);
 };

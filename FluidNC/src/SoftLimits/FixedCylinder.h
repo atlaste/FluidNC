@@ -35,7 +35,7 @@ public:
     bool TestLimit(const float* from, const float* to) override;
     const char* componentName() const override { return name(); }
 
-private:
+protected:
     axis_t _axis = axis_t::Z_AXIS;
     float _centerX = 0.0f;
     float _centerY = 0.0f;

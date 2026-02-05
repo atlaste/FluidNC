@@ -43,7 +43,7 @@ public:
     bool TestLimit(const float* from, const float* to) override;
     const char* componentName() const override { return name(); }
 
-private:
+protected:
     // Box dimensions at origin
     float _minX = 0.0f;
     float _minY = 0.0f;

@@ -95,20 +95,36 @@ StringAppender& operator+(const StringAppender& lhs, double num) {
 
 #ifdef _MSC_VER
 
+// Standard strcasecmp returns:
+//   0 if strings are equal (case-insensitive)
+//   negative if lhs < rhs
+//   positive if lhs > rhs
 int strcasecmp(const char* lhs, const char* rhs) {
-    while (*lhs && *rhs && tolower(*lhs) == tolower(*rhs)) {
+    while (*lhs && *rhs) {
+        int diff = tolower((unsigned char)*lhs) - tolower((unsigned char)*rhs);
+        if (diff != 0) {
+            return diff;
+        }
         ++lhs;
         ++rhs;
     }
-    return (*lhs) == '\0' && (*rhs) == '\0';
+    return tolower((unsigned char)*lhs) - tolower((unsigned char)*rhs);
 }
+
 int strncasecmp(const char* lhs, const char* rhs, size_t count) {
-    while (*lhs && *rhs && tolower(*lhs) == tolower(*rhs) && count > 0) {
+    while (count > 0 && *lhs && *rhs) {
+        int diff = tolower((unsigned char)*lhs) - tolower((unsigned char)*rhs);
+        if (diff != 0) {
+            return diff;
+        }
         ++lhs;
         ++rhs;
         --count;
     }
-    return count == 0 || ((*lhs) == '\0' && (*rhs) == '\0');
+    if (count == 0) {
+        return 0;  // Compared 'count' characters, all equal
+    }
+    return tolower((unsigned char)*lhs) - tolower((unsigned char)*rhs);
 }
 
 #endif

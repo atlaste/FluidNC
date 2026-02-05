@@ -71,6 +71,8 @@ bool MovingBoundingBox::TestLimit(const float* from, const float* to) {
     return false;
 }
 
+#ifndef _MSC_VER
 namespace {
     ConfigurableModuleFactory::InstanceBuilder<MovingBoundingBox> __attribute__((init_priority(111))) moving_box_registration("moving_box");
 }
+#endif

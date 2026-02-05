@@ -40,17 +40,17 @@ void FixedCylinder::init() {
 
 void FixedCylinder::getAxisIndices(int& axisIdx, int& perpIdx1, int& perpIdx2) const {
     switch (_axis) {
-        case 'X':
+        case axis_t::X_AXIS:
             axisIdx = 0;
             perpIdx1 = 1;
             perpIdx2 = 2;
             break;
-        case 'Y':
+        case axis_t::Y_AXIS:
             axisIdx = 1;
             perpIdx1 = 0;
             perpIdx2 = 2;
             break;
-        case 'Z':
+        case axis_t::Z_AXIS:
         default:
             axisIdx = 2;
             perpIdx1 = 0;
@@ -68,9 +68,9 @@ bool FixedCylinder::TestLimit(const float* from, const float* to) {
     getAxisIndices(axisIdx, perpIdx1, perpIdx2);
 
     float axisStart = _startPos;
-    float axisEnd = _startPos - _length;
-    if (axisEnd > axisStart) {
-        std::swap(axisStart, axisEnd);
+    float axisEnd = _startPos + _length;  // length can be positive or negative
+    if (axisEnd < axisStart) {
+        std::swap(axisStart, axisEnd);  // Ensure axisStart <= axisEnd
     }
 
     float centerPerp1, centerPerp2;
@@ -93,7 +93,10 @@ bool FixedCylinder::TestLimit(const float* from, const float* to) {
     float segAxisMin = std::min(fromAxis, toAxis);
     float segAxisMax = std::max(fromAxis, toAxis);
 
-    if (segAxisMax < axisEnd || segAxisMin > axisStart) {
+    // Motion is completely outside cylinder's axis range if:
+    // - motion ends before cylinder starts (segAxisMax < axisStart), OR
+    // - motion starts after cylinder ends (segAxisMin > axisEnd)
+    if (segAxisMax < axisStart || segAxisMin > axisEnd) {
         return false;
     }
 
@@ -111,6 +114,8 @@ bool FixedCylinder::TestLimit(const float* from, const float* to) {
     return false;
 }
 
+#ifndef _MSC_VER
 namespace {
     ConfigurableModuleFactory::InstanceBuilder<FixedCylinder> __attribute__((init_priority(111))) fixed_cylinder_registration("fixed_cylinder");
 }
+#endif

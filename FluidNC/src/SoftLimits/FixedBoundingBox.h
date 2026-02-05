@@ -34,7 +34,7 @@ public:
     bool TestLimit(const float* from, const float* to) override;
     const char* componentName() const override { return name(); }
 
-private:
+protected:
     // Bounding box corners in machine coordinates
     float _minX = 0.0f;
     float _minY = 0.0f;

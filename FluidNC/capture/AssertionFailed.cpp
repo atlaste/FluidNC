@@ -6,6 +6,10 @@
 #include <cstdarg>
 #include <cstring>
 
+std::runtime_error AssertionFailed::create() {
+    return std::runtime_error("Assertion failed");
+}
+
 std::runtime_error AssertionFailed::create(const char* msg, ...) {
     char    buffer[512];
     va_list args;

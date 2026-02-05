@@ -52,6 +52,8 @@ bool FixedBoundingBox::TestLimit(const float* from, const float* to) {
     return false;
 }
 
+#ifndef _MSC_VER
 namespace {
     ConfigurableModuleFactory::InstanceBuilder<FixedBoundingBox> __attribute__((init_priority(111))) fixed_box_registration("fixed_box");
 }
+#endif

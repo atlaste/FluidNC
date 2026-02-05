@@ -509,7 +509,7 @@ Test(LimitsChecker, DuplicateRegistration) {
 // Helper class to test FixedBoundingBox without full configuration
 class TestableFixedBoundingBox : public FixedBoundingBox {
 public:
-    TestableFixedBoundingBox() {
+    TestableFixedBoundingBox() : FixedBoundingBox("TestBox") {
         _enabled = true;
         _minX = -10.0f;
         _minY = -10.0f;
@@ -590,9 +590,9 @@ Test(FixedBoundingBox, TestLimit_ZeroLengthInside) {
 // Helper class to test FixedCylinder without full configuration
 class TestableFixedCylinder : public FixedCylinder {
 public:
-    TestableFixedCylinder() {
+    TestableFixedCylinder() : FixedCylinder("TestCylinder") {
         _enabled = true;
-        _axis = 'Z';
+        _axis = axis_t::Z_AXIS;
         _centerX = 0.0f;
         _centerY = 0.0f;
         _startPos = 10.0f;
@@ -600,7 +600,7 @@ public:
         _radius = 5.0f;
     }
     
-    void setCylinder(char axis, float centerX, float centerY, float start, float length, float radius) {
+    void setCylinder(axis_t axis, float centerX, float centerY, float start, float length, float radius) {
         _axis = axis;
         _centerX = centerX;
         _centerY = centerY;
@@ -615,7 +615,7 @@ public:
 // Tests motion through Z-axis cylinder
 Test(FixedCylinder, TestLimit_ThroughZCylinder) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Z cylinder from 0 to -20
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Z cylinder from 0 to -20
     
     float from[3] = {-10.0f, 0.0f, -10.0f};  // Start left of cylinder
     float to[3] = {10.0f, 0.0f, -10.0f};     // End right of cylinder
@@ -626,7 +626,7 @@ Test(FixedCylinder, TestLimit_ThroughZCylinder) {
 // Tests motion outside Z-axis cylinder
 Test(FixedCylinder, TestLimit_OutsideZCylinder) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);
     
     float from[3] = {20.0f, 0.0f, -10.0f};  // Outside radius
     float to[3] = {30.0f, 0.0f, -10.0f};
@@ -637,7 +637,7 @@ Test(FixedCylinder, TestLimit_OutsideZCylinder) {
 // Tests motion above Z-axis cylinder (outside Z range)
 Test(FixedCylinder, TestLimit_AboveZCylinder) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Cylinder from 0 to -20
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Cylinder from 0 to -20
     
     float from[3] = {-10.0f, 0.0f, 10.0f};  // Above cylinder
     float to[3] = {10.0f, 0.0f, 10.0f};
@@ -648,7 +648,7 @@ Test(FixedCylinder, TestLimit_AboveZCylinder) {
 // Tests disabled cylinder
 Test(FixedCylinder, TestLimit_Disabled) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);
     cyl.setEnabled(false);
     
     float from[3] = {-10.0f, 0.0f, -10.0f};
@@ -660,7 +660,7 @@ Test(FixedCylinder, TestLimit_Disabled) {
 // Tests cylinder with zero radius
 Test(FixedCylinder, TestLimit_ZeroRadius) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, -20.0f, 0.0f);  // Zero radius
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 0.0f);  // Zero radius
     
     float from[3] = {-10.0f, 0.0f, -10.0f};
     float to[3] = {10.0f, 0.0f, -10.0f};
@@ -671,7 +671,7 @@ Test(FixedCylinder, TestLimit_ZeroRadius) {
 // Tests cylinder with zero length
 Test(FixedCylinder, TestLimit_ZeroLength) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Z', 0.0f, 0.0f, 0.0f, 0.0f, 5.0f);  // Zero length
+    cyl.setCylinder(axis_t::Z_AXIS, 0.0f, 0.0f, 0.0f, 0.0f, 5.0f);  // Zero length
     
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
@@ -682,7 +682,7 @@ Test(FixedCylinder, TestLimit_ZeroLength) {
 // Tests X-axis cylinder
 Test(FixedCylinder, TestLimit_XAxisCylinder) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('X', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // X-axis cylinder
+    cyl.setCylinder(axis_t::X_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // X-axis cylinder
     
     // Motion in YZ plane through cylinder
     float from[3] = {-10.0f, -10.0f, 0.0f};
@@ -695,7 +695,7 @@ Test(FixedCylinder, TestLimit_XAxisCylinder) {
 // Tests Y-axis cylinder
 Test(FixedCylinder, TestLimit_YAxisCylinder) {
     TestableFixedCylinder cyl;
-    cyl.setCylinder('Y', 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Y-axis cylinder
+    cyl.setCylinder(axis_t::Y_AXIS, 0.0f, 0.0f, 0.0f, -20.0f, 5.0f);  // Y-axis cylinder
     
     // Motion in XZ plane through cylinder
     float from[3] = {-10.0f, -10.0f, 0.0f};
@@ -711,7 +711,7 @@ Test(FixedCylinder, TestLimit_YAxisCylinder) {
 // Helper class to test MovingBoundingBox without full configuration
 class TestableMovingBoundingBox : public MovingBoundingBox {
 public:
-    TestableMovingBoundingBox() {
+    TestableMovingBoundingBox() : MovingBoundingBox("TestMovingBox") {
         _enabled = true;
         _minX = -5.0f;
         _minY = -5.0f;

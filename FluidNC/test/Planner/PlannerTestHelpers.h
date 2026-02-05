@@ -485,4 +485,459 @@ inline bool validateAgainstExpected(const plan_block_t& block,
     return true;
 }
 
+// ============================================================================
+// Comprehensive Block Validation
+// ============================================================================
+
+// Structure to hold computed kinematic properties of a processed block
+struct BlockKinematics {
+    // Speeds (mm/min)
+    float entry_speed;          // Speed at start of block
+    float exit_speed;           // Speed at end of block (computed from next block or 0 for last)
+    float max_entry_speed;      // Maximum allowed entry speed
+    float peak_speed;           // Maximum speed reached during block
+    float nominal_speed;        // Target cruise speed
+    
+    // Accelerations (mm/min²)
+    float entry_accel;          // Acceleration at start (for S-curve)
+    float exit_accel;           // Acceleration at end (for S-curve)
+    float max_accel;            // Maximum acceleration
+    
+    // Jerk (mm/min³)
+    float jerk;                 // Jerk limit (for S-curve)
+    
+    // Distances (mm)
+    float total_distance;       // Total block distance
+    float accel_distance;       // Distance in acceleration phase
+    float cruise_distance;      // Distance at cruise speed
+    float decel_distance;       // Distance in deceleration phase
+    
+    // Times (minutes)
+    float total_time;           // Total block time
+    float accel_time;           // Time in acceleration
+    float cruise_time;          // Time at cruise
+    float decel_time;           // Time in deceleration
+    
+    // Validation flags
+    bool is_valid;
+    const char* error_message;
+};
+
+// Extract kinematics from a processed block (trapezoidal planner)
+inline BlockKinematics extractTrapezoidKinematics(
+    const plan_block_t& block, 
+    float exit_speed_sqr = 0.0f)  // 0 for last block
+{
+    BlockKinematics k = {};
+    k.is_valid = true;
+    k.error_message = nullptr;
+    
+    k.entry_speed = sqrtf(block.entry_speed_sqr);
+    k.exit_speed = sqrtf(exit_speed_sqr);
+    k.max_entry_speed = sqrtf(block.max_entry_speed_sqr);
+    k.max_accel = block.acceleration;
+    k.total_distance = block.millimeters;
+    k.nominal_speed = block.programmed_rate;
+    
+    // Check basic validity
+    if (std::isnan(k.entry_speed) || std::isinf(k.entry_speed)) {
+        k.is_valid = false;
+        k.error_message = "Entry speed is NaN or infinite";
+        return k;
+    }
+    
+    if (k.entry_speed < 0.0f) {
+        k.is_valid = false;
+        k.error_message = "Negative entry speed";
+        return k;
+    }
+    
+    if (k.entry_speed > k.max_entry_speed + 0.1f) {
+        k.is_valid = false;
+        k.error_message = "Entry speed exceeds maximum";
+        return k;
+    }
+    
+    // Calculate peak speed (limited by what can be achieved)
+    // v_peak² = v_entry² + 2*a*d_accel = v_exit² + 2*a*d_decel
+    float v_entry_sq = block.entry_speed_sqr;
+    float v_exit_sq = exit_speed_sqr;
+    float a = block.acceleration;
+    float d = block.millimeters;
+    
+    // Compute intersection of accel and decel curves
+    // v_peak² = v_entry² + 2*a*d_accel
+    // v_peak² = v_exit² + 2*a*(d - d_accel)
+    // Solving: d_accel = (v_exit² - v_entry² + 2*a*d) / (4*a)
+    if (a > 0.001f) {
+        k.accel_distance = (v_exit_sq - v_entry_sq + 2.0f * a * d) / (4.0f * a);
+        
+        if (k.accel_distance < 0.0f) {
+            k.accel_distance = 0.0f;  // Pure deceleration
+            k.peak_speed = k.entry_speed;
+        } else if (k.accel_distance > d) {
+            k.accel_distance = d;  // Pure acceleration
+            k.peak_speed = sqrtf(v_entry_sq + 2.0f * a * d);
+        } else {
+            // Triangular or trapezoidal
+            float v_peak_sq = v_entry_sq + 2.0f * a * k.accel_distance;
+            k.peak_speed = sqrtf(v_peak_sq);
+        }
+        
+        // Limit peak speed to nominal
+        if (k.peak_speed > k.nominal_speed) {
+            k.peak_speed = k.nominal_speed;
+            // Recalculate accel distance
+            k.accel_distance = (k.peak_speed * k.peak_speed - v_entry_sq) / (2.0f * a);
+            if (k.accel_distance < 0.0f) k.accel_distance = 0.0f;
+        }
+        
+        k.decel_distance = (k.peak_speed * k.peak_speed - v_exit_sq) / (2.0f * a);
+        if (k.decel_distance < 0.0f) k.decel_distance = 0.0f;
+        
+        k.cruise_distance = d - k.accel_distance - k.decel_distance;
+        if (k.cruise_distance < 0.0f) k.cruise_distance = 0.0f;
+        
+        // Calculate times
+        if (k.accel_distance > 0.001f && a > 0.001f) {
+            k.accel_time = (k.peak_speed - k.entry_speed) / a;
+        }
+        if (k.cruise_distance > 0.001f && k.peak_speed > 0.001f) {
+            k.cruise_time = k.cruise_distance / k.peak_speed;
+        }
+        if (k.decel_distance > 0.001f && a > 0.001f) {
+            k.decel_time = (k.peak_speed - k.exit_speed) / a;
+        }
+        k.total_time = k.accel_time + k.cruise_time + k.decel_time;
+    }
+    
+    return k;
+}
+
+// Validate that a block can stop within its distance (for last block)
+inline bool validateCanStop(const plan_block_t& block) {
+    float entry_speed = sqrtf(block.entry_speed_sqr);
+    float a = block.acceleration;
+    float d = block.millimeters;
+    
+    if (a <= 0.001f) return true;  // Can't accelerate anyway
+    
+    // Distance needed to stop: d = v²/(2a)
+    float d_needed = (entry_speed * entry_speed) / (2.0f * a);
+    return d_needed <= d * 1.01f;  // 1% tolerance
+}
+
+// Validate velocity continuity between consecutive blocks
+inline bool validateVelocityContinuityBetween(
+    const plan_block_t& block1, 
+    const plan_block_t& block2,
+    const char** error_msg = nullptr)
+{
+    // block1's exit speed must be achievable from its entry speed over its distance
+    // block2's entry speed is what the planner computed
+    
+    float b1_entry = sqrtf(block1.entry_speed_sqr);
+    float b2_entry = sqrtf(block2.entry_speed_sqr);
+    float b2_max_entry = sqrtf(block2.max_entry_speed_sqr);
+    
+    // block2's entry speed should not exceed its max
+    if (b2_entry > b2_max_entry + 0.1f) {
+        if (error_msg) *error_msg = "Block entry speed exceeds max_entry_speed";
+        return false;
+    }
+    
+    // block2's entry speed should be achievable from block1
+    // v2² = v1² + 2*a*d  (for accel) or v2² = v1² - 2*a*d (for decel)
+    float max_achievable = sqrtf(b1_entry * b1_entry + 2.0f * block1.acceleration * block1.millimeters);
+    if (b2_entry > max_achievable + 0.1f) {
+        if (error_msg) *error_msg = "Entry speed not achievable by accelerating over previous block";
+        return false;
+    }
+    
+    return true;
+}
+
+// Validate acceleration continuity for S-curve planners
+inline bool validateAccelContinuityBetween(
+    const plan_block_t& block1,
+    const plan_block_t& block2, 
+    float jerk,
+    const char** error_msg = nullptr)
+{
+    // For S-curve, exit accel of block1 should match entry accel of block2
+    // or the transition should be achievable within jerk limits
+    
+    float a1_exit = block1.exit_accel;
+    float a2_entry = block2.entry_accel;
+    
+    // Allow some tolerance for numerical precision
+    if (fabsf(a1_exit - a2_entry) > block1.acceleration * 0.1f) {
+        if (error_msg) *error_msg = "Acceleration discontinuity at junction";
+        return false;
+    }
+    
+    return true;
+}
+
+// Comprehensive validation of a planned block sequence
+struct SequenceValidationResult {
+    bool is_valid;
+    int first_invalid_block;
+    const char* error_message;
+    
+    // Summary statistics
+    float total_distance;
+    float total_time;
+    float max_speed_achieved;
+    float max_accel_achieved;
+};
+
+template<typename PlannerType>
+inline SequenceValidationResult validatePlannedSequence(
+    PlannerType& planner,
+    int block_count,
+    bool is_scurve = false)
+{
+    SequenceValidationResult result = {};
+    result.is_valid = true;
+    result.first_invalid_block = -1;
+    
+    for (int i = 0; i < block_count; i++) {
+        plan_block_t* block = planner.getBlock(i);
+        if (!block) {
+            result.is_valid = false;
+            result.first_invalid_block = i;
+            result.error_message = "Null block pointer";
+            return result;
+        }
+        
+        // Get exit speed (from next block or 0 for last)
+        float exit_speed_sqr = 0.0f;
+        if (i < block_count - 1) {
+            plan_block_t* next = planner.getBlock(i + 1);
+            if (next) {
+                exit_speed_sqr = next->entry_speed_sqr;
+            }
+        }
+        
+        // Extract and validate kinematics
+        BlockKinematics k = extractTrapezoidKinematics(*block, exit_speed_sqr);
+        if (!k.is_valid) {
+            result.is_valid = false;
+            result.first_invalid_block = i;
+            result.error_message = k.error_message;
+            return result;
+        }
+        
+        // Accumulate statistics
+        result.total_distance += k.total_distance;
+        result.total_time += k.total_time;
+        if (k.peak_speed > result.max_speed_achieved) {
+            result.max_speed_achieved = k.peak_speed;
+        }
+        if (k.max_accel > result.max_accel_achieved) {
+            result.max_accel_achieved = k.max_accel;
+        }
+        
+        // Validate velocity continuity with next block
+        if (i < block_count - 1) {
+            plan_block_t* next = planner.getBlock(i + 1);
+            const char* cont_error = nullptr;
+            if (!validateVelocityContinuityBetween(*block, *next, &cont_error)) {
+                result.is_valid = false;
+                result.first_invalid_block = i;
+                result.error_message = cont_error;
+                return result;
+            }
+            
+            // For S-curve, also check acceleration continuity
+            if (is_scurve) {
+                const char* accel_error = nullptr;
+                if (!validateAccelContinuityBetween(*block, *next, block->jerk, &accel_error)) {
+                    result.is_valid = false;
+                    result.first_invalid_block = i;
+                    result.error_message = accel_error;
+                    return result;
+                }
+            }
+        }
+        
+        // For last block, verify it can stop
+        if (i == block_count - 1) {
+            if (!validateCanStop(*block)) {
+                result.is_valid = false;
+                result.first_invalid_block = i;
+                result.error_message = "Last block cannot decelerate to stop";
+                return result;
+            }
+        }
+    }
+    
+    return result;
+}
+
+// ============================================================================
+// Kinematic simulation - step through a profile to verify actual motion
+// ============================================================================
+
+// State during profile simulation
+struct SimulationState {
+    float position;     // mm from block start
+    float velocity;     // mm/min
+    float acceleration; // mm/min²
+    float time;         // minutes elapsed
+};
+
+// Simulate a single time step of trapezoidal motion
+inline SimulationState simulateTrapezoidStep(
+    const SimulationState& state,
+    float dt,  // time step in minutes
+    float target_accel,
+    float max_speed)
+{
+    SimulationState next = state;
+    
+    // Apply acceleration
+    next.velocity += target_accel * dt;
+    
+    // Clamp velocity
+    if (next.velocity > max_speed) next.velocity = max_speed;
+    if (next.velocity < 0.0f) next.velocity = 0.0f;
+    
+    // Average velocity for distance (trapezoidal integration)
+    float avg_vel = (state.velocity + next.velocity) / 2.0f;
+    next.position += avg_vel * dt;
+    
+    next.acceleration = target_accel;
+    next.time += dt;
+    
+    return next;
+}
+
+// Simulate complete execution of a trapezoidal block and verify
+struct SimulationResult {
+    bool success;
+    const char* error;
+    float final_position;
+    float final_velocity;
+    float total_time;
+    float max_velocity_achieved;
+    float max_velocity_error;  // Max deviation from expected
+};
+
+inline SimulationResult simulateTrapezoidBlock(
+    const plan_block_t& block,
+    float exit_speed,
+    float time_step = 0.0001f)  // 0.0001 min = 6ms
+{
+    SimulationResult result = {};
+    result.success = true;
+    
+    float entry_speed = sqrtf(block.entry_speed_sqr);
+    float a = block.acceleration;
+    float d = block.millimeters;
+    float v_nominal = block.programmed_rate;
+    
+    // Calculate profile phases
+    BlockKinematics k = extractTrapezoidKinematics(block, exit_speed * exit_speed);
+    if (!k.is_valid) {
+        result.success = false;
+        result.error = k.error_message;
+        return result;
+    }
+    
+    SimulationState state = {0.0f, entry_speed, 0.0f, 0.0f};
+    
+    // Safety limit: prevent infinite loops
+    int max_iterations = 1000000;
+    int iter = 0;
+    
+    while (state.position < d && iter++ < max_iterations) {
+        float target_accel = 0.0f;
+        float remaining = d - state.position;
+        
+        // Determine which phase we're in
+        if (state.position < k.accel_distance && state.velocity < k.peak_speed - 0.1f) {
+            // Acceleration phase
+            target_accel = a;
+        } else if (remaining < k.decel_distance + 0.1f || state.velocity > k.peak_speed + 0.1f) {
+            // Deceleration phase
+            target_accel = -a;
+        } else {
+            // Cruise phase
+            target_accel = 0.0f;
+        }
+        
+        state = simulateTrapezoidStep(state, time_step, target_accel, v_nominal);
+        
+        if (state.velocity > result.max_velocity_achieved) {
+            result.max_velocity_achieved = state.velocity;
+        }
+        
+        // Check velocity error
+        float expected_vel = k.peak_speed;  // Simplified
+        float vel_error = fabsf(state.velocity - expected_vel);
+        if (vel_error > result.max_velocity_error) {
+            result.max_velocity_error = vel_error;
+        }
+    }
+    
+    if (iter >= max_iterations) {
+        result.success = false;
+        result.error = "Simulation timeout";
+        return result;
+    }
+    
+    result.final_position = state.position;
+    result.final_velocity = state.velocity;
+    result.total_time = state.time;
+    
+    // Verify final state
+    if (fabsf(result.final_position - d) > d * 0.01f) {
+        result.success = false;
+        result.error = "Final position error";
+    }
+    
+    if (fabsf(result.final_velocity - exit_speed) > exit_speed * 0.1f + 0.1f) {
+        result.success = false;
+        result.error = "Final velocity error";
+    }
+    
+    return result;
+}
+
+// ============================================================================
+// Test assertions with detailed error messages
+// ============================================================================
+
+// Macro-like function for detailed kinematic assertions
+inline void assertKinematicsValid(
+    const BlockKinematics& k,
+    const char* block_name,
+    void (*assert_fn)(bool, const char*))
+{
+    char msg[256];
+    
+    snprintf(msg, sizeof(msg), "%s: entry_speed should be non-negative (got %.2f)", 
+             block_name, k.entry_speed);
+    assert_fn(k.entry_speed >= -0.001f, msg);
+    
+    snprintf(msg, sizeof(msg), "%s: entry_speed should not exceed max (%.2f > %.2f)", 
+             block_name, k.entry_speed, k.max_entry_speed);
+    assert_fn(k.entry_speed <= k.max_entry_speed + 0.1f, msg);
+    
+    snprintf(msg, sizeof(msg), "%s: peak_speed should be >= entry_speed (%.2f < %.2f)", 
+             block_name, k.peak_speed, k.entry_speed);
+    assert_fn(k.peak_speed >= k.entry_speed - 0.1f, msg);
+    
+    snprintf(msg, sizeof(msg), "%s: peak_speed should not exceed nominal (%.2f > %.2f)", 
+             block_name, k.peak_speed, k.nominal_speed);
+    assert_fn(k.peak_speed <= k.nominal_speed + 0.1f, msg);
+    
+    snprintf(msg, sizeof(msg), "%s: distances should sum to total (%.2f + %.2f + %.2f != %.2f)", 
+             block_name, k.accel_distance, k.cruise_distance, k.decel_distance, k.total_distance);
+    float d_sum = k.accel_distance + k.cruise_distance + k.decel_distance;
+    assert_fn(fabsf(d_sum - k.total_distance) < k.total_distance * 0.05f, msg);
+}
+
 } // namespace PlannerTestHelpers

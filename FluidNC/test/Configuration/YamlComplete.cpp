@@ -1,9 +1,12 @@
 #include "TestFramework.h"
 
-#include <src/Configuration/Tokenizer.h>
-#include <src/Configuration/Parser.h>
+#include <Configuration/Tokenizer.h>
+#include <Configuration/Parser.h>
 
 namespace Configuration {
+    // Helper to check if parser is at EOF
+    inline bool isEof(const Parser& p) { return p._token._state == TokenState::Eof; }
+
     Test(YamlComplete, Test) {
         const char* config = "name: \"ESP32 Dev Controller V4\"\n"
                              "board: \"ESP32 Dev Controller V4\"\n"
@@ -43,114 +46,114 @@ namespace Configuration {
                              "    pin: gpio.32:high:pu\n"
                              "\n";
 
-        Parser p(config, config + strlen(config));
+        Parser p(config);
         p.Tokenize();
         {
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("name"), "Expected 'name'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "name", "Expected 'name'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("board"), "Expected 'board'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "board", "Expected 'board'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("yaml_wiki"), "Expected 'yaml_wiki'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "yaml_wiki", "Expected 'yaml_wiki'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("idle_time"), "Expected 'idle_time'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "idle_time", "Expected 'idle_time'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("engine"), "Expected 'engine'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "engine", "Expected 'engine'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("dir_delay_microseconds"), "Expected 'dir_delay_microseconds'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "dir_delay_microseconds", "Expected 'dir_delay_microseconds'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("pulse_microseconds"), "Expected 'pulse_microseconds'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "pulse_microseconds", "Expected 'pulse_microseconds'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("disable_delay_us"), "Expected 'disable_delay_us'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "disable_delay_us", "Expected 'disable_delay_us'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("homing_init_lock"), "Expected 'homing_init_lock'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "homing_init_lock", "Expected 'homing_init_lock'");
             p.Tokenize();
 
-            Assert(!p.Eof(), "No EOF expected");
-            Assert(p.key().equals("axes"), "Expected 'axes'");
+            Assert(!isEof(p), "No EOF expected");
+            Assert(p.key() == "axes", "Expected 'axes'");
             {
                 p.Tokenize();
 
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("number_axis"), "Expected 'number_axis'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "number_axis", "Expected 'number_axis'");
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("shared_stepper_disable"), "Expected 'shared_stepper_disable'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "shared_stepper_disable_pin", "Expected 'shared_stepper_disable_pin'");
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("x"), "Expected 'x'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "x", "Expected 'x'");
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("y"), "Expected 'y'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "y", "Expected 'y'");
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("z"), "Expected 'z'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "z", "Expected 'z'");
             }
-            Assert(!p.Eof(), "No EOF expected");
+            Assert(!isEof(p), "No EOF expected");
             p.Tokenize();
 
-            Assert(p.key().equals("coolant"), "Expected 'coolant'");
+            Assert(p.key() == "coolant", "Expected 'coolant'");
             {
                 p.Tokenize();
 
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("flood"), "Expected 'flood'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "flood", "Expected 'flood'");
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("mist"), "Expected 'mist'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "mist", "Expected 'mist'");
             }
-            Assert(!p.Eof(), "No EOF expected");
+            Assert(!isEof(p), "No EOF expected");
             p.Tokenize();
 
-            Assert(p.key().equals("comms"), "Expected 'comms'");
+            Assert(p.key() == "comms", "Expected 'comms'");
             {
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("wifi_sta"), "Expected 'wifi_sta'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "wifi_sta", "Expected 'wifi_sta'");
                 {
                     p.Tokenize();
-                    Assert(!p.Eof(), "No EOF expected");
-                    Assert(p.key().equals("ssid"), "Expected 'ssid'");
+                    Assert(!isEof(p), "No EOF expected");
+                    Assert(p.key() == "ssid", "Expected 'ssid'");
                 }
-                Assert(!p.Eof(), "No EOF expected");
+                Assert(!isEof(p), "No EOF expected");
                 p.Tokenize();
-                Assert(p.key().equals("wifi_ap"), "Expected 'wifi_ap'");
+                Assert(p.key() == "wifi_ap", "Expected 'wifi_ap'");
                 {
                     p.Tokenize();
-                    Assert(!p.Eof(), "No EOF expected");
-                    Assert(p.key().equals("ip_address"), "Expected 'ip_address'");
+                    Assert(!isEof(p), "No EOF expected");
+                    Assert(p.key() == "ip_address", "Expected 'ip_address'");
                     p.Tokenize();
-                    Assert(!p.Eof(), "No EOF expected");
-                    Assert(p.key().equals("ssid"), "Expected 'ssid'");
+                    Assert(!isEof(p), "No EOF expected");
+                    Assert(p.key() == "ssid", "Expected 'ssid'");
                 }
             }
-            Assert(!p.Eof(), "No EOF expected");
+            Assert(!isEof(p), "No EOF expected");
             p.Tokenize();
 
-            Assert(p.key().equals("probe"), "Expected 'probe'");
+            Assert(p.key() == "probe", "Expected 'probe'");
             {
                 p.Tokenize();
-                Assert(!p.Eof(), "No EOF expected");
-                Assert(p.key().equals("pin"), "Expected 'pin'");
+                Assert(!isEof(p), "No EOF expected");
+                Assert(p.key() == "pin", "Expected 'pin'");
             }
             p.Tokenize();
-            Assert(p.Eof(), "No EOF expected");
+            Assert(isEof(p), "EOF expected");
         }
     }
 }
