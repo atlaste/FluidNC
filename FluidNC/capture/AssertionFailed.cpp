@@ -2,12 +2,16 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "AssertionFailed.h"
+#include "ExceptionHelper.h"
 
 #include <cstdarg>
 #include <cstring>
+#include <sstream>
 
 std::runtime_error AssertionFailed::create() {
-    return std::runtime_error("Assertion failed");
+    std::ostringstream oss;
+    oss << "Assertion failed\n" << GetStackTrace();
+    return std::runtime_error(oss.str());
 }
 
 std::runtime_error AssertionFailed::create(const char* msg, ...) {
@@ -16,5 +20,8 @@ std::runtime_error AssertionFailed::create(const char* msg, ...) {
     va_start(args, msg);
     vsnprintf(buffer, sizeof(buffer), msg, args);
     va_end(args);
-    return std::runtime_error(buffer);
+
+    std::ostringstream oss;
+    oss << buffer << "\n" << GetStackTrace();
+    return std::runtime_error(oss.str());
 }

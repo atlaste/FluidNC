@@ -1,3 +1,8 @@
+// Copyright (c) 2021 -  Stefan de Bruijn
+// Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
+
+#include "ExceptionHelper.h"
+
 #if (defined _WIN32) || (defined _WIN64)
 
 // Based on: https://stackoverflow.com/questions/6205981/windows-c-stack-trace-from-a-running-app
@@ -190,32 +195,23 @@ void DumpStackTrace(std::ostringstream& builder) {
 
 // ... till here.
 
-std::exception CreateException(const char* condition, const char* msg) {
-    static std::string container;  // Exception data _must_ be stored in a static string!
+std::string GetStackTrace() {
     std::ostringstream oss;
-    oss << std::endl;
-    oss << "Error: " << condition << " failed: " << msg << " at: " << std::endl;
     DumpStackTrace(oss);
-
-    container = oss.str();
-
-#    ifdef _MSC_VER
-    throw std::exception(container.c_str()); /* this is usually where you want a breakpoint. */
-#    else
-    throw std::exception(); /* this is usually where you want a breakpoint. */
-#    endif
+    return oss.str();
 }
 
 #else
 
-std::exception CreateException(const char* condition, const char* msg) {
-    static std::string container;  // Exception data _must_ be stored in a static string!
-    std::ostringstream oss;
-    oss << std::endl;
-    oss << "Error: " << condition << " failed: " << msg << " at: " << std::endl;
+// Non-Windows: no-op for stack trace
+void DumpStackTrace(std::ostringstream& builder) {
+    builder << "(Stack trace not available on this platform)" << std::endl;
+}
 
-    container = oss.str();
-    return std::exception(container.c_str()); /* this is usually where you want a breakpoint. */
+std::string GetStackTrace() {
+    std::ostringstream oss;
+    DumpStackTrace(oss);
+    return oss.str();
 }
 
 #endif

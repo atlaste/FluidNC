@@ -26,10 +26,11 @@ namespace Extenders {
     }
 
     uint8_t I2CPinExtenderBase::I2CGetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg) {
-        auto err = bus->write(address, &reg, 1);
+        // write() returns number of bytes written on success, negative on error
+        auto written = bus->write(address, &reg, 1);
 
-        if (err) {
-            log_info("Error writing to i2c bus. Code: " << err);
+        if (written != 1) {
+            log_info("Error writing to i2c bus. Code: " << written);
             return 0;
         }
 
@@ -43,12 +44,13 @@ namespace Extenders {
 
     void I2CPinExtenderBase::I2CSetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg, uint8_t value) {
         uint8_t data[2];
-        data[0]  = reg;
-        data[1]  = uint8_t(value);
-        auto err = bus->write(address, data, 2);
+        data[0] = reg;
+        data[1] = uint8_t(value);
+        // write() returns number of bytes written on success, negative on error
+        auto written = bus->write(address, data, 2);
 
-        if (err) {
-            log_error("Error writing to i2c bus; I2C pin extender failed. Code: " << err);
+        if (written != 2) {
+            log_error("Error writing to i2c bus; I2C pin extender failed. Code: " << written);
         }
     }
 
@@ -62,9 +64,9 @@ namespace Extenders {
 
     void I2CPinExtenderBase::isrTaskLoop(void* arg) {
         auto inst = static_cast<I2CPinExtenderBase*>(arg);
-        while (true) {
+        while (inst->_isrQueue) {
             void* ptr;
-            if (xQueueReceive(inst->_isrQueue, &ptr, portMAX_DELAY)) {
+            if (inst->_isrQueue && xQueueReceive(inst->_isrQueue, &ptr, portMAX_DELAY)) {
                 ISRData* valuePtr = static_cast<ISRData*>(ptr);
                 // log_info("I2C pin extender state change ISR");
                 valuePtr->updateValueFromDevice();
@@ -124,7 +126,14 @@ namespace Extenders {
         auto     r2       = I2CGetValue(i2cBus, _address, InputReg + 1);
         uint16_t oldValue = *_valueBase;
         uint16_t value    = (uint16_t(r2) << 8) | uint16_t(r1);
-        *_valueBase       = value;
+
+        // Apply the invert mask for this device (same as non-ISR path does)
+        // Calculate device index from valueBase offset
+        int      deviceIndex = static_cast<int>(_valueBase - reinterpret_cast<volatile uint16_t*>(&_container->_value));
+        uint16_t invertMask  = uint16_t(_container->_invert >> (deviceIndex * 16));
+        value ^= invertMask;
+
+        *_valueBase = value;
 
         // log_info("New I2C pin extender state: "; for (int i = 0; i < 16; ++i) { ss << (((value & (1 << i)) != 0) ? "x" : " "); });
 
@@ -273,6 +282,13 @@ namespace Extenders {
 #    endif
             }
         }
+
+#    if _WIN32
+        _isrQueue = nullptr;
+        for (int i = 0; i < 20; ++i) {
+            std::this_thread::yield();
+        }
+#    endif
     }
 }
 #endif
