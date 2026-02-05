@@ -92,5 +92,9 @@ namespace Scheduler {
 
         static void delayMicros(int64_t micros);
         static void delayMillis(int64_t millis);
+
+#ifdef FLUIDNC_UNIT_TEST
+        static void setDeltaForTest(int64_t d) { delta_ = d; }
+#endif
     };
 }

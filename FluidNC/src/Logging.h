@@ -62,6 +62,16 @@ private:
     MsgLevel     _level;
 };
 
+/** No-op log stream for use in tests; same constructor signatures as LogStream but does nothing. */
+class NullLogStream : public Print {
+public:
+    NullLogStream(Channel&, MsgLevel) {}
+    NullLogStream(Channel&, const char*) {}
+    NullLogStream(Channel&, MsgLevel, const char*) {}
+    NullLogStream(MsgLevel, const char*) {}
+    size_t write(uint8_t) override { return 1; }
+};
+
 extern bool atMsgLevel(MsgLevel level);
 
 // clang-format off

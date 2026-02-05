@@ -58,6 +58,12 @@
     <Filter Include="test\StringUtil">
       <UniqueIdentifier>{b2c3d4e5-f6a7-5b6c-9d0e-1f2a3b4c5d6e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="test\Scheduler">
+      <UniqueIdentifier>{c3d4e5f6-a7b8-6c7d-0e1f-2a3b4c5d6e7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Scheduler">
+      <UniqueIdentifier>{d4e5f6a7-b8c9-7d8e-1f2a-3b4c5d6e7f8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\SettingsDefinitions.h">
@@ -1064,6 +1070,27 @@
     </ClCompile>
     <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp">
       <Filter>test\Extender</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Scheduler\Timer.cpp">
+      <Filter>src\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Scheduler\SlowEventScheduler.cpp">
+      <Filter>src\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Scheduler\TimepointTimespanTests.cpp">
+      <Filter>test\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Scheduler\EventSchedulerTests.cpp">
+      <Filter>test\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Scheduler\SlowEventSchedulerTests.cpp">
+      <Filter>test\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Scheduler\TimerTests.cpp">
+      <Filter>test\Scheduler</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Scheduler\CoroutineTests.cpp">
+      <Filter>test\Scheduler</Filter>
     </ClCompile>
     <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp" />
     <ClCompile Include="FluidNC\src\Planner\BasePlanner.cpp" />

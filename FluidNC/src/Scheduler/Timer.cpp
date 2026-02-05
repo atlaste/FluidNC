@@ -63,7 +63,7 @@ namespace Scheduler {
         static LONGLONG frequency = Frequency();
         LARGE_INTEGER   StartingTime;
         QueryPerformanceCounter(&StartingTime);
-        return StartingTime.QuadPart / frequency;
+        return StartingTime.QuadPart / frequency + delta_;
     }
 }
 

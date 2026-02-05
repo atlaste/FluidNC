@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "Types.h"
-#include "Logging.h"
+#include "Mock/TestLogging.h"
 #include "EnumItem.h"
 #include "System.h"
 #include "Channel.h"
@@ -84,19 +84,14 @@ bool state_is(State s) {
     return sys.state() == s;
 }
 
-LogStream::LogStream(Channel& channel, MsgLevel level) : _channel(channel), _level(level), _line(new std::string()) {}
-LogStream::LogStream(Channel& channel, const char* name) : _channel(channel), _level(MsgLevelNone), _line(new std::string()) {}
-LogStream::LogStream(Channel& channel, MsgLevel level, const char* name) : _channel(channel), _level(level), _line(new std::string()) {}
-LogStream::LogStream(MsgLevel level, const char* name) : _channel(*static_cast<Channel*>(nullptr)), _level(level), _line(new std::string()) {}
-size_t LogStream::write(uint8_t c) {
-    if (_line) {
-        _line->push_back(static_cast<char>(c));
-    }
-    return 1;
-}
-LogStream::~LogStream() {
-    delete _line;
-}
+// No-op LogStream stub for test build (src/ code still expands macros to LogStream).
+// Destructor intentionally does not call _channel.sendLine(); _channel is never used.
+LogStream::LogStream(Channel& channel, MsgLevel level) : _channel(channel), _level(level), _line(nullptr) {}
+LogStream::LogStream(Channel& channel, const char* name) : _channel(channel), _level(MsgLevelNone), _line(nullptr) {}
+LogStream::LogStream(Channel& channel, MsgLevel level, const char* name) : _channel(channel), _level(level), _line(nullptr) {}
+LogStream::LogStream(MsgLevel level, const char* name) : _channel(*static_cast<Channel*>(nullptr)), _level(level), _line(nullptr) {}
+size_t LogStream::write(uint8_t) { return 1; }
+LogStream::~LogStream() {}
 
 const EnumItem messageLevels2[] = {
     { MsgLevelNone, "None" },

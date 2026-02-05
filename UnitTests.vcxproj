@@ -364,6 +364,17 @@
     
     <!-- I2C Extender tests -->
     <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp" />
+
+    <!-- Scheduler source files (no SchedulerTask - ESP32-only, would leave thread alive) -->
+    <ClCompile Include="FluidNC\src\Scheduler\Timer.cpp" />
+    <ClCompile Include="FluidNC\src\Scheduler\SlowEventScheduler.cpp" />
+
+    <!-- Scheduler test files -->
+    <ClCompile Include="FluidNC\test\Scheduler\TimepointTimespanTests.cpp" />
+    <ClCompile Include="FluidNC\test\Scheduler\EventSchedulerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Scheduler\SlowEventSchedulerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Scheduler\TimerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Scheduler\CoroutineTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
@@ -387,7 +398,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FLUIDNC_UNIT_TEST;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
@@ -405,7 +416,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>X64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
+      <PreprocessorDefinitions>X64;_DEBUG;_CONSOLE;FLUIDNC_UNIT_TEST;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
@@ -422,7 +433,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FLUIDNC_UNIT_TEST;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -441,7 +452,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PreprocessorDefinitions>X64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
+      <PreprocessorDefinitions>X64;NDEBUG;_CONSOLE;FLUIDNC_UNIT_TEST;%(PreprocessorDefinitions) -DGIT_REV=UnitTests -DGIT_TAG=0.0</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
