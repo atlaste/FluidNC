@@ -28,7 +28,7 @@ struct MotionSegment {
 };
 
 // Result of simulated motion execution
-struct SimulationResult {
+struct IntegrationSimResult {
     float total_time;          // min
     float total_distance;      // mm
     float max_achieved_speed;  // mm/min
@@ -42,7 +42,7 @@ class SimulatedTrapezoidPlanner : public TrapezoidPlanner {
 public:
     static constexpr int BUFFER_SIZE = TEST_PLANNER_BLOCKS;
     
-    SimulatedTrapezoidPlanner() : TrapezoidPlanner() {
+    SimulatedTrapezoidPlanner() : TrapezoidPlanner("SimulatedTrapezoid") {
         _block_buffer = new plan_block_t[BUFFER_SIZE];
         memset(_block_buffer, 0, sizeof(plan_block_t) * BUFFER_SIZE);
         resetBuffer();
@@ -93,8 +93,8 @@ public:
         recalculate();
     }
     
-    SimulationResult simulate() {
-        SimulationResult result = {};
+    IntegrationSimResult simulate() {
+        IntegrationSimResult result = {};
         
         uint8_t idx = _block_buffer_tail;
         float prev_exit_speed = 0.0f;
@@ -166,7 +166,7 @@ class SimulatedSCurvePlanner : public SCurvePlanner {
 public:
     static constexpr int BUFFER_SIZE = TEST_PLANNER_BLOCKS;
     
-    SimulatedSCurvePlanner() : SCurvePlanner() {
+    SimulatedSCurvePlanner() : SCurvePlanner("SimulatedSCurve") {
         _block_buffer = new plan_block_t[BUFFER_SIZE];
         memset(_block_buffer, 0, sizeof(plan_block_t) * BUFFER_SIZE);
         resetBuffer();
@@ -214,8 +214,8 @@ public:
         recalculate();
     }
     
-    SimulationResult simulate() {
-        SimulationResult result = {};
+    IntegrationSimResult simulate() {
+        IntegrationSimResult result = {};
         
         uint8_t idx = _block_buffer_tail;
         
@@ -742,12 +742,15 @@ Test(PlannerIntegration, RealWorld_PocketMilling) {
 }
 
 // Tests pattern similar to engraving (many very short moves)
+// Uses S-curve planner because jerk limits are what truly constrain speed on tiny segments.
+// Trapezoidal planners with high acceleration can reach significant speeds even on short moves.
 Test(PlannerIntegration, RealWorld_Engraving) {
-    SimulatedTrapezoidPlanner planner;
+    SimulatedSCurvePlanner planner;
+    planner.setJerk(10000.0f);  // Low jerk to demonstrate speed limiting
     
     // Many tiny segments like engraving text
     for (int i = 0; i < 10; i++) {
-        MotionSegment seg = {0.5f + (i % 3) * 0.2f, 300.0f, 60000.0f, 0.0f, false};
+        MotionSegment seg = {0.5f + (i % 3) * 0.2f, 300.0f, 60000.0f, 10000.0f, false};
         planner.addSegment(seg);
     }
     
@@ -755,6 +758,6 @@ Test(PlannerIntegration, RealWorld_Engraving) {
     auto result = planner.simulate();
     
     Assert(result.completed_successfully, "Engraving pattern should complete");
-    // Speed will be limited due to many short segments
-    Assert(result.max_achieved_speed < 300.0f, "Speed should be limited for tiny segments");
+    // Speed will be limited due to jerk constraints on short segments
+    Assert(result.max_achieved_speed < 300.0f, "S-curve should limit speed for tiny segments");
 }

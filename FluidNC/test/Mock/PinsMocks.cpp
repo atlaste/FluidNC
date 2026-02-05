@@ -1,8 +1,11 @@
 // PinsMocks.cpp - Mock implementations for Pin testing on Windows
 // These provide stub implementations for platform-specific PinDetail types
-// that are not available on Windows (GPIO, I2SO, UART Channel, Extender pins)
+// that are not available on Windows (I2SO, UART Channel, Extender pins)
+//
+// NOTE: GPIOPinDetail uses the REAL implementation from FluidNC/src/Pins/GPIOPinDetail.cpp
+// which calls the mocked fluidnc_gpio functions that forward to SoftwareGPIO.
+// This gives us real code coverage while still allowing testability.
 
-#include "Pins/GPIOPinDetail.h"
 #include "Pins/ChannelPinDetail.h"
 #include "Pins/ExtPinDetail.h"
 
@@ -13,61 +16,6 @@
 #endif
 
 namespace Pins {
-
-// ============================================================================
-// GPIOPinDetail mock implementation
-// ============================================================================
-
-// Static member initialization
-std::vector<bool> GPIOPinDetail::_claimed(64, false);
-
-GPIOPinDetail::GPIOPinDetail(pinnum_t index, PinOptionsParser options) : 
-    PinDetail(index), 
-    _capabilities(PinCapabilities::None),
-    _attributes(PinAttributes::None),
-    _pwm(nullptr) {
-    // Mock - don't actually claim GPIO pins on Windows
-}
-
-PinCapabilities GPIOPinDetail::capabilities() const {
-    return _capabilities;
-}
-
-void GPIOPinDetail::write(bool high) {
-    _lastWrittenValue = high;
-}
-
-bool GPIOPinDetail::read() {
-    return _lastWrittenValue;
-}
-
-void GPIOPinDetail::setAttr(PinAttributes value, uint32_t frequency) {
-    _attributes = value;
-}
-
-PinAttributes GPIOPinDetail::getAttr() const {
-    return _attributes;
-}
-
-void GPIOPinDetail::setDuty(uint32_t duty) {
-    // Mock - no PWM on Windows
-}
-
-void GPIOPinDetail::registerEvent(InputPin* obj) {
-    // Mock - no ISR on Windows
-}
-
-void GPIOPinDetail::setDriveStrength(uint8_t n, PinAttributes attr) {
-    // Mock - no drive strength on Windows
-}
-
-PinCapabilities GPIOPinDetail::GetDefaultCapabilities(pinnum_t index) {
-    return PinCapabilities::Input | PinCapabilities::Output;
-}
-
-std::string GPIOPinDetail::toString() {
-    return "gpio." + std::to_string(_index);
-}
 
 // ============================================================================
 // I2SOPinDetail mock implementation (if enabled)

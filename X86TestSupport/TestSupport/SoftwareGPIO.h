@@ -117,9 +117,12 @@ public:
     }
 
     void writeOutput(int index, bool value) {
-        auto oldValue = pins[index].padValue;
+        // Always store the driver value - this is what the pin would output when in OUTPUT mode.
+        // This mimics real hardware where the output register can be written before enabling output.
+        pins[index].driverValue = value;
 
         if ((pins[index].pinMode & OUTPUT) == OUTPUT) {
+            // Pin is already in OUTPUT mode - propagate through circuit immediately
             if (virtualCircuit != nullptr) {
                 virtualCircuit(pins, index, value);
             } else if (circuitHandlesHystesis) {
@@ -127,9 +130,9 @@ public:
             } else {
                 pins[index].handlePadChangeWithHystesis(value);
             }
-        } else {
-            pins[index].handlePadChange(value);
         }
+        // If not in OUTPUT mode, the driverValue is stored and will be used when
+        // setMode transitions to OUTPUT mode (mimics real GPIO behavior)
     }
 
     bool read(int index) const { return pins[index].padValue; }

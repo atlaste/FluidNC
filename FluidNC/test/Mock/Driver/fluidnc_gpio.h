@@ -12,20 +12,20 @@ extern "C" {
 typedef int8_t pinnum_t;
 #define INVALID_PINNUM -1
 
-// GPIO interface - mocked stubs
+// GPIO interface - declarations (implementations in fluidnc_gpio.cpp)
 
-inline void gpio_write(pinnum_t pin, bool value) {}
-inline bool gpio_read(pinnum_t pin) { return false; }
-inline void gpio_mode(pinnum_t pin, bool input, bool output, bool pullup, bool pulldown, bool opendrain) {}
-inline void gpio_drive_strength(pinnum_t pin, uint8_t strength) {}
-inline void gpio_set_interrupt_type(pinnum_t pin, uint8_t mode) {}
-inline void gpio_add_interrupt(pinnum_t pin, int8_t mode, void (*callback)(void*), void* arg) {}
-inline void gpio_remove_interrupt(pinnum_t pin) {}
-inline void gpio_route(pinnum_t pin, uint32_t signal) {}
+void gpio_write(pinnum_t pin, bool value);
+bool gpio_read(pinnum_t pin);
+void gpio_mode(pinnum_t pin, bool input, bool output, bool pullup, bool pulldown, bool opendrain);
+void gpio_drive_strength(pinnum_t pin, uint8_t strength);
+void gpio_set_interrupt_type(pinnum_t pin, uint8_t mode);
+void gpio_add_interrupt(pinnum_t pin, int8_t mode, void (*callback)(void*), void* arg);
+void gpio_remove_interrupt(pinnum_t pin);
+void gpio_route(pinnum_t pin, uint32_t signal);
 
-inline void gpio_set_event(int32_t gpio_num, void* arg, bool invert) {}
-inline void gpio_clear_event(int32_t gpio_num) {}
-inline void poll_gpios() {}
+void gpio_set_event(int32_t gpio_num, void* arg, bool invert);
+void gpio_clear_event(int32_t gpio_num);
+void poll_gpios();
 
 #ifdef __cplusplus
 }

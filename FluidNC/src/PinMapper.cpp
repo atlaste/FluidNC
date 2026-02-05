@@ -3,6 +3,10 @@
 #include "Pins/GPIOPinDetail.h"
 #include "Driver/fluidnc_gpio.h"
 
+// Include Arduino-style GPIO definitions for INPUT, OUTPUT, etc.
+// This ensures consistency with code that uses these constants.
+#include <esp32-hal-gpio.h>
+
 // Pin mapping lets you use non-GPIO pins as though they were GPIOs by
 // storing Pin object references in an array indexed by a small
 // integer.  An offset is added to the index to push the number beyond
@@ -18,15 +22,6 @@
 // and digitalRead() overloads encounter a real GPIO number, they pass
 // the operation through to the lower level gpio_mode(),
 // gpio_read() and gpio_write() routines.
-
-#ifndef OPEN_DRAIN
-// Bit mask values compatible with Arduino pinMode()
-#    define INPUT 0x01
-#    define OUTPUT 0x03
-#    define PULLUP 0x04
-#    define PULLDOWN 0x08
-#    define OPEN_DRAIN 0x10
-#endif
 
 namespace {
     class PinMap {

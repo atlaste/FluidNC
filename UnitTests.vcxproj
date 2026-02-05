@@ -306,6 +306,11 @@
     <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp" />
     <ClCompile Include="FluidNC\test\Mock\PinsMocks.cpp" />
     
+    <!-- Real GPIOPinDetail - uses mocked fluidnc_gpio which forwards to SoftwareGPIO -->
+    <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp" />
+    <ClCompile Include="FluidNC\test\Mock\GPIOCapabilities.cpp" />
+    <ClCompile Include="FluidNC\capture\PwmPin.cpp" />
+    
     <!-- Configuration test files -->
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
@@ -323,13 +328,17 @@
     <!-- Pin test files -->
     <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp" />
     <ClCompile Include="FluidNC\test\Pins\Undefined.cpp" />
-    <!-- ErrorPinTest.cpp uses AssertThrow but ErrorPinDetail::write() only logs, doesn't throw -->
-    <!-- <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" /> -->
+    <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" />
     
-    <!-- TODO: Add these when more mocks are in place:
+    <!-- Planner integration tests -->
     <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
+    
+    <!-- GPIO mock infrastructure -->
+    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_gpio.cpp" />
+    <ClCompile Include="FluidNC\src\PinMapper.cpp" />
+    
+    <!-- GPIO tests -->
     <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
-    -->
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />

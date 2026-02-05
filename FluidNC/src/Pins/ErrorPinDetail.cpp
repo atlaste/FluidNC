@@ -3,6 +3,8 @@
 
 #include "ErrorPinDetail.h"
 #include "Config.h"
+#include <stdexcept>
+
 namespace Pins {
     ErrorPinDetail::ErrorPinDetail(std::string_view descr) : PinDetail(0), _description(descr) {}
 
@@ -11,13 +13,18 @@ namespace Pins {
     }
 
     void IRAM_ATTR ErrorPinDetail::write(bool high) {
-        log_error("Cannot write to pin " << _description.c_str() << ". The config is incorrect.");
+        std::string msg = "Cannot write to pin " + _description + ". The config is incorrect.";
+        log_error(msg.c_str());
+        throw std::runtime_error(msg);
     }
     bool ErrorPinDetail::read() {
-        log_error("Cannot read from pin " << _description.c_str() << ". The config is incorrect.");
-        return false;
+        std::string msg = "Cannot read from pin " + _description + ". The config is incorrect.";
+        log_error(msg.c_str());
+        throw std::runtime_error(msg);
     }
     void ErrorPinDetail::setAttr(PinAttributes value, uint32_t frequency) {
+        // setAttr doesn't throw - it's needed to configure the pin before use
+        // The actual error happens on read/write
         log_error("Cannot set mode on pin " << _description.c_str() << ". The config is incorrect.");
     }
 
