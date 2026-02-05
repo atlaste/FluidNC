@@ -96,7 +96,20 @@ in the env section in PIO, it *must* be supported on both esp32 and native.
 
 ## Test code
 
-Unit tests can be found in the `Tests` folder.
+Unit tests can be found in the `test` folder (and, for PlatformIO, `tests` if configured via `test_dir` in platformio.ini). Test subfolders include:
+
+- **Configuration/** — YAML parsing (YamlParser, YamlTreeBuilder, YamlComplete) and machine config shape (MachineConfigParsing)
+- **UTF8/** — UTF-8 encode/decode (UTF8Tests)
+- **StringUtil/** — string helpers: trim, case-insensitive compare, from_hex, from_decimal, from_float, split (StringUtilTests)
+- **Pins/** — pin options parsing, GPIO, error pins
+- **Planner/** — S-curve, trapezoid, integration
+- **Extender/** — I2C extender
+- **SoftLimits/** — soft limits
+- **Mock/** — mocks and stubs for Configuration, Pins, Planner, etc.
+
+### MachineConfig testing
+
+MachineConfig is not exercised via full `load_yaml()` in unit tests (that would require stubbing FileStream, Stepper, spindle, toolTable, and many other subsystems). Instead, the **machine config parsing shape** is tested in `Configuration/MachineConfigParsing.cpp` using a test-only Configurable that mirrors the top-level keys and the `start` section. Other tests can rely on this to ensure the same YAML shape and parsing path work. Full `load_yaml()` integration testing is deferred (e.g. with more mocks or on-device tests).
 
 # Compiler details
 

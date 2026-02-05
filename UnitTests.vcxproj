@@ -306,6 +306,7 @@
     <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
     <ClCompile Include="FluidNC\src\string_util.cpp" />
+    <ClCompile Include="FluidNC\src\UTF8.cpp" />
     <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp" />
     <ClCompile Include="FluidNC\test\Mock\PinsMocks.cpp" />
     
@@ -318,7 +319,14 @@
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
-    
+    <ClCompile Include="FluidNC\test\Configuration\MachineConfigParsing.cpp" />
+
+    <!-- UTF8 test files -->
+    <ClCompile Include="FluidNC\test\UTF8\UTF8Tests.cpp" />
+
+    <!-- StringUtil test files -->
+    <ClCompile Include="FluidNC\test\StringUtil\StringUtilTests.cpp" />
+
     <!-- Pin source files -->
     <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
