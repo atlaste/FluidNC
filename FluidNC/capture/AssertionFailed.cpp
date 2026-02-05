@@ -7,16 +7,10 @@
 #include <cstring>
 
 std::runtime_error AssertionFailed::create(const char* msg, ...) {
-    char    tmp[255];
-    va_list arg;
-    va_start(arg, msg);
-    vsnprintf(tmp, 255, msg, arg);
-    va_end(arg);
-    tmp[254] = 0;
-
-#ifdef _MSC_VER
-    return std::exception(tmp);
-#else
-    return std::runtime_error(tmp);
-#endif
+    char    buffer[512];
+    va_list args;
+    va_start(args, msg);
+    vsnprintf(buffer, sizeof(buffer), msg, args);
+    va_end(args);
+    return std::runtime_error(buffer);
 }

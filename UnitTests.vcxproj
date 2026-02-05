@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemDefinitionGroup>
-<ClCompile>
-<LanguageStandard>stdcpp20</LanguageStandard>
-</ClCompile>
-</ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{33ece513-60d1-4949-a4a9-c95d353c2cf0}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
@@ -37,6 +37,15 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <!-- Force enable Google Test for v143 toolset -->
+    <Force-Enable-Microsoft-googletest-v140-windesktop-msvcstl-static-rt-dyn>true</Force-Enable-Microsoft-googletest-v140-windesktop-msvcstl-static-rt-dyn>
+    <!-- Disable gtest_main since we provide our own main -->
+    <Microsoft-googletest-v140-windesktop-msvcstl-static-rt-dyn-Disable-gtest_main>true</Microsoft-googletest-v140-windesktop-msvcstl-static-rt-dyn-Disable-gtest_main>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);FluidNC/src;FluidNC/test/Mock;FluidNC/capture</IncludePath>
+  </PropertyGroup>
   <ItemGroup>
     <ClInclude Include="FluidNC\src\Extenders\Extenders.h" />
     <ClInclude Include="FluidNC\src\Extenders\I2CExtender.h" />
@@ -87,6 +96,9 @@
     <ClInclude Include="FluidNC\src\Configuration\HandlerType.h" />
     <ClInclude Include="FluidNC\src\Kinematics\CoreXY.h" />
     <ClInclude Include="FluidNC\src\Spindles\PWMSpindle.h" />
+    <ClInclude Include="FluidNC\test\Mock\Driver\delay_usecs.h" />
+    <ClInclude Include="FluidNC\test\Mock\Driver\fluidnc_gpio.h" />
+    <ClInclude Include="FluidNC\test\Mock\Platform.h" />
     <ClInclude Include="FluidNC\test\TestFactory.h" />
     <ClInclude Include="FluidNC\test\TestFramework.h" />
     <ClInclude Include="X86TestSupport\TestSupport\Arduino.h" />
@@ -221,153 +233,67 @@
     <ClInclude Include="X86TestSupport\TestSupport\Wire.h" />
     <ClInclude Include="X86TestSupport\TestSupport\WString.h" />
     <ClInclude Include="X86TestSupport\TestSupport\xtensa\core-macros.h" />
+    <!-- Planner headers -->
+    <ClInclude Include="FluidNC\src\Planner\SCurveMath.h" />
+    <ClInclude Include="FluidNC\src\Planner\BasePlanner.h" />
+    <ClInclude Include="FluidNC\src\Planner\TrapezoidPlanner.h" />
+    <ClInclude Include="FluidNC\src\Planner\SCurvePlanner.h" />
+    <!-- SoftLimits headers -->
+    <ClInclude Include="FluidNC\src\SoftLimits\SoftLimitsComponent.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\LimitsChecker.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\FixedBoundingBox.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\FixedCylinder.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\MovingBoundingBox.h" />
+    <!-- Test helpers -->
+    <ClInclude Include="FluidNC\test\Planner\PlannerTestHelpers.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FluidNC\src\Extenders\Extenders.cpp" />
-    <ClCompile Include="FluidNC\src\Extenders\I2CExtender.cpp" />
-    <ClCompile Include="FluidNC\src\Extenders\PinExtenderDriver.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\I2CBus.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\ExtPinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\StartupLog.cpp" />
-    <ClCompile Include="FluidNC\src\System.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\BESCSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\SettingsDefinitions.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\Axes.cpp" />
-    <ClCompile Include="FluidNC\src\FileStream.cpp" />
-    <ClCompile Include="FluidNC\src\ControlPin.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\Axis.cpp" />
-    <ClCompile Include="FluidNC\src\Settings.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\JsonGenerator.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\Motor.cpp" />
-    <ClCompile Include="FluidNC\src\MotionControl.cpp" />
-    <ClCompile Include="FluidNC\src\ProcessSettings.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\Servo.cpp" />
-    <ClCompile Include="FluidNC\src\version.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\WifiServices.cpp" />
-    <ClCompile Include="FluidNC\src\Regex.cpp" />
-    <ClCompile Include="FluidNC\src\InputFile.cpp" />
-    <ClCompile Include="FluidNC\src\Custom\oled_basic.cpp" />
-    <ClCompile Include="FluidNC\src\Kinematics\Kinematics.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Stepping.cpp" />
-    <ClCompile Include="FluidNC\src\Kinematics\CoreXY.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\DacSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\HuanyangSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Report.cpp" />
-    <ClCompile Include="FluidNC\src\NutsBolts.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\WebClient.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\H2ASpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\Dynamixel2.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\RuntimeSetting.cpp" />
-    <ClCompile Include="FluidNC\src\StackTrace\AssertionFailed.cpp" />
-    <ClCompile Include="FluidNC\src\PinMapper.cpp" />
-    <ClCompile Include="FluidNC\src\Uart.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\RcServo.cpp" />
-    <ClCompile Include="FluidNC\src\Error.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\I2SOPinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\Validator.cpp" />
-    <ClCompile Include="FluidNC\src\Stepper.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\UserOutputs.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\WifiConfig.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\PinAttributes.cpp" />
-    <ClCompile Include="FluidNC\src\Channel.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\UnipolarMotor.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\I2SOBus.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\Authentication.cpp" />
-    <ClCompile Include="FluidNC\src\CoolantControl.cpp" />
-    <ClCompile Include="FluidNC\src\GCode.cpp" />
-    <ClCompile Include="FluidNC\src\StackTrace\debug_helpers.cpp" />
-    <ClCompile Include="FluidNC\src\Pin.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\NotificationsService.cpp" />
-    <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
-    <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
-    <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
-    <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp" />
-    <ClCompile Include="FluidNC\test\Pins\BasicGPIO.cpp" />
-    <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" />
-    <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
-    <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp" />
-    <ClCompile Include="FluidNC\test\Pins\Undefined.cpp" />
-    <ClCompile Include="FluidNC\test\TestFactory.cpp" />
-    <ClCompile Include="FluidNC\test\TestFrameworkTest.cpp" />
-    <ClCompile Include="FluidNC\test\test_main.cpp" />
+    <!-- Test framework and main -->
+    <ClCompile Include="FluidNC\test\test_main_win.cpp" />
+    
+    <!-- Capture mocks (excludes main.cpp - that's the simulator entry point) -->
+    <ClCompile Include="FluidNC\capture\AssertionFailed.cpp" />
+    <ClCompile Include="FluidNC\capture\ExceptionHelper.cpp" />
+    <ClCompile Include="FluidNC\capture\Print.cpp" />
+    <ClCompile Include="FluidNC\capture\Stream.cpp" />
+    <ClCompile Include="FluidNC\capture\WString.cpp" />
+    <ClCompile Include="FluidNC\capture\timing.cpp" />
+    <ClCompile Include="FluidNC\capture\freertos\Queue.cpp" />
+    <ClCompile Include="FluidNC\capture\freertos\Task.cpp" />
+    
+    <!-- X86TestSupport mocks -->
     <ClCompile Include="X86TestSupport\TestSupport\Arduino.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp" />
-    <ClCompile Include="FluidNC\src\PinUsers\PwmPin.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\Commands.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\Homing.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\PWMSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\InputBuffer.cpp" />
-    <ClCompile Include="FluidNC\src\Kinematics\Midtbot.cpp" />
-    <ClCompile Include="FluidNC\src\Kinematics\WallPlotter.cpp" />
-    <ClCompile Include="FluidNC\src\Kinematics\Cartesian.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
-    <ClCompile Include="FluidNC\src\lineedit.cpp" />
-    <ClCompile Include="FluidNC\src\Protocol.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\PinCapabilities.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\BTConfig.cpp" />
-    <ClCompile Include="FluidNC\src\Limits.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\VoidPinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Main.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\JSONEncoder.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\MachineConfig.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\WebSettings.cpp" />
-    <ClCompile Include="FluidNC\src\Planner.cpp" />
-    <ClCompile Include="FluidNC\src\Jog.cpp" />
-    <ClCompile Include="FluidNC\src\Logging.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\driver\ledc.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\Generator.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\Laser.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\TelnetServer.cpp" />
-    <ClCompile Include="FluidNC\src\Probe.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\driver\dac.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\LimitPin.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\driver\rmt.cpp" />
-    <ClCompile Include="FluidNC\src\Control.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\LegacySettingRegistry.cpp" />
-    <ClCompile Include="FluidNC\src\Serial.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\WebServer.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\YL620Spindle.cpp" />
-    <ClCompile Include="FluidNC\src\SDCard.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\RelaySpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\10vSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\VFDSpindle.cpp" />
-    <ClCompile Include="FluidNC\src\WebUI\Serial2Socket.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp" />
-    <ClCompile Include="FluidNC\src\CustomCode.cpp" />
-    <ClCompile Include="FluidNC\src\Custom\oled_tiny.cpp" />
-    <ClCompile Include="FluidNC\src\Custom\oled_io.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\AfterParse.cpp" />
-    <ClCompile Include="FluidNC\src\Configuration\Completer.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\DebugPinDetail.cpp" />
-    <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp" />
-    <ClCompile Include="FluidNC\src\xmodem.cpp" />
-    <ClCompile Include="FluidNC\src\Machine\SPIBus.cpp" />
-    <ClCompile Include="FluidNC\src\Motors\StepStick.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\LedcPin.cpp" />
-    <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\esp32-hal-timer.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\ExceptionHelper.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\freertos\Queue.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\freertos\Task.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\FS.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\I2SO.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\nvs.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\Print.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\SDFS.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\soc\ledc_struct.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\SPI.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\SPIFFS.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\Stream.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\Wire.cpp" />
-    <ClCompile Include="X86TestSupport\TestSupport\WString.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\esp32-hal-timer.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\driver\dac.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\driver\ledc.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\driver\rmt.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp" />
+    <ClCompile Include="X86TestSupport\TestSupport\soc\ledc_struct.cpp" />
+    
+    <!-- Test Mocks -->
+    <ClCompile Include="FluidNC\test\Mock\PlannerMocks.cpp" />
+    
+    <!-- Planner source files (pure math, minimal dependencies) -->
+    <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp" />
+    
+    <!-- Planner test files -->
+    <ClCompile Include="FluidNC\test\Planner\SCurveMathTests.cpp" />
+    
+    <!-- Planner source files with dependencies - adding incrementally -->
+    <ClCompile Include="FluidNC\src\Planner\BasePlanner.cpp" />
+    <ClCompile Include="FluidNC\src\Planner\TrapezoidPlanner.cpp" />
+    <ClCompile Include="FluidNC\src\Planner\SCurvePlanner.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\TrapezoidPlannerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\SCurvePlannerTests.cpp" />
+    
+    <!-- TODO: Add these when more mocks are in place:
+    <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
+    <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp" />
+    -->
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
@@ -379,14 +305,13 @@
     <None Include="FluidNC\src\Stepper.md" />
     <None Include="FluidNC\src\Configuration\GenericFactory.md" />
     <None Include="FluidNC\test\UnitTests.md" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="X86TestSupport\TestSupport\TODO.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.1.8.1.3\build\native\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.targets" Condition="Exists('packages\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.1.8.1.3\build\native\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.targets')" />
-  </ImportGroup>
+  <Import Project="packages\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.1.8.1.3\build\native\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.targets" Condition="Exists('packages\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.1.8.1.3\build\native\Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.targets')" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -397,8 +322,8 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)X86TestSupport\TestSupport;$(MSBuildThisFileDirectory)FluidNC;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>-D_CRT_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)FluidNC\test\Mock;$(MSBuildThisFileDirectory)FluidNC\capture;$(MSBuildThisFileDirectory)X86TestSupport\TestSupport;$(MSBuildThisFileDirectory)FluidNC\src;$(MSBuildThisFileDirectory)FluidNC\test;$(MSBuildThisFileDirectory)FluidNC\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>-D_CRT_SECURE_NO_WARNINGS -DGIT_TAG=\"UnitTests\" -DGIT_REV=\"0.0\" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -415,7 +340,7 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)X86TestSupport;$(MSBuildThisFileDirectory)GRBL_Esp32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)FluidNC\test\Mock;$(MSBuildThisFileDirectory)FluidNC\capture;$(MSBuildThisFileDirectory)X86TestSupport\TestSupport;$(MSBuildThisFileDirectory)FluidNC\src;$(MSBuildThisFileDirectory)FluidNC\test;$(MSBuildThisFileDirectory)FluidNC\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_CRT_SECURE_NO_WARNINGS -DGIT_TAG=\"UnitTests\" -DGIT_REV=\"0.0\" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -431,7 +356,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)X86TestSupport;$(MSBuildThisFileDirectory)GRBL_Esp32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)FluidNC\test\Mock;$(MSBuildThisFileDirectory)FluidNC\capture;$(MSBuildThisFileDirectory)X86TestSupport\TestSupport;$(MSBuildThisFileDirectory)FluidNC\src;$(MSBuildThisFileDirectory)FluidNC\test;$(MSBuildThisFileDirectory)FluidNC\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>-D_CRT_SECURE_NO_WARNINGS -DGIT_TAG=\"UnitTests\" -DGIT_REV=\"0.0\" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -450,7 +375,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)X86TestSupport;$(MSBuildThisFileDirectory)GRBL_Esp32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)FluidNC\test\Mock;$(MSBuildThisFileDirectory)FluidNC\capture;$(MSBuildThisFileDirectory)X86TestSupport\TestSupport;$(MSBuildThisFileDirectory)FluidNC\src;$(MSBuildThisFileDirectory)FluidNC\test;$(MSBuildThisFileDirectory)FluidNC\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>-D_CRT_SECURE_NO_WARNINGS -DGIT_TAG=\"UnitTests\" -DGIT_REV=\"0.0\" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>

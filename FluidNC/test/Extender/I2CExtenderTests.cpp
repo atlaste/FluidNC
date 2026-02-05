@@ -4,7 +4,7 @@
 #include <src/PinMapper.h>
 #include <src/Machine/I2CBus.h>
 #include <src/Machine/MachineConfig.h>
-#include <src/Extenders/I2CExtender.h>
+#include <src/Extenders/I2CExtenderBase.h>
 #include <Wire.h>
 
 #include "Capture.h"

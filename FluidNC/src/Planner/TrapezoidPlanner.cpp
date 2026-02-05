@@ -85,11 +85,10 @@ void TrapezoidPlanner::recalculate() {
 // Reverse Pass: Coarsely maximize all possible deceleration curves back-planning from the last
 // block in buffer. Cease planning when the last optimal planned or tail pointer is reached.
 // NOTE: Forward pass will later refine and correct the reverse pass to create an optimal plan.
+// Reverse Pass: Coarsely maximize all possible deceleration curves back-planning from the last
+// block in buffer. Cease planning when the last optimal planned or tail pointer is reached.
+// NOTE: Forward pass will later refine and correct the reverse pass to create an optimal plan.
 void TrapezoidPlanner::recalculateBackward() {
-    if (_block_buffer_head == _block_buffer_tail) {
-        return;  // Nothing to do; planner buffer is empty.
-    }
-
     // Initialize block index to the last block in the planner buffer.
     uint8_t block_index = prevBlockIndex(_block_buffer_head);
     
@@ -113,30 +112,29 @@ void TrapezoidPlanner::recalculateBackward() {
         if (block_index == _block_buffer_tail) {
             Stepper::update_plan_block_parameters();
         }
-        return;
-    }
-
-    // Three or more plan-able blocks
-    plan_block_t* next;
-    while (block_index != _block_buffer_planned) {
-        next = current;
-        current = &_block_buffer[block_index];
-        block_index = prevBlockIndex(block_index);
-
-        // Check if next block is the tail block(=planned block). If so, update current stepper parameters.
-        if (block_index == _block_buffer_tail) {
-            Stepper::update_plan_block_parameters();
-        }
-
-        // Compute maximum entry speed decelerating over the current block from its exit speed.
-        // The exit_speed of current block = entry_speed of next block
-        if (current->entry_speed_sqr != current->max_entry_speed_sqr) {
-            // v₀² = v² + 2ad (solving backward: what entry speed allows decel to exit speed?)
-            float entry_speed_sqr = next->entry_speed_sqr + 2.0f * current->acceleration * current->millimeters;
-            if (entry_speed_sqr < current->max_entry_speed_sqr) {
-                current->entry_speed_sqr = entry_speed_sqr;
-            } else {
-                current->entry_speed_sqr = current->max_entry_speed_sqr;
+    } else {
+        // Three or more plan-able blocks
+        plan_block_t* next;
+        while (block_index != _block_buffer_planned) {
+            next = current;
+            current = &_block_buffer[block_index];
+            block_index = prevBlockIndex(block_index);
+            
+            // Check if next block is the tail block(=planned block). If so, update current stepper parameters.
+            if (block_index == _block_buffer_tail) {
+                Stepper::update_plan_block_parameters();
+            }
+            
+            // Compute maximum entry speed decelerating over the current block from its exit speed.
+            // The exit_speed of current block = entry_speed of next block
+            if (current->entry_speed_sqr != current->max_entry_speed_sqr) {
+                // v₀² = v² + 2ad (solving backward: what entry speed allows decel to exit speed?)
+                float entry_speed_sqr = next->entry_speed_sqr + 2.0f * current->acceleration * current->millimeters;
+                if (entry_speed_sqr < current->max_entry_speed_sqr) {
+                    current->entry_speed_sqr = entry_speed_sqr;
+                } else {
+                    current->entry_speed_sqr = current->max_entry_speed_sqr;
+                }
             }
         }
     }

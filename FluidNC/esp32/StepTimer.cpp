@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "hal/timer_ll.h"
+#include "hal/timer_types.h"
 #include "esp_intr_alloc.h"
 
 #include <esp_idf_version.h>

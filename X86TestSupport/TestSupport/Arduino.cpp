@@ -13,7 +13,7 @@ int64_t esp_timer_get_time() {
 void attachInterrupt(uint8_t pin, void (*callback)(void), int mode) {
     attachInterruptArg(
         pin,
-        [](void* arg) {
+        [](void* arg, bool) {
             auto callback = reinterpret_cast<void (*)()>(arg);
             callback();
         },

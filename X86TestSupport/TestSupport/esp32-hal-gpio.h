@@ -74,7 +74,7 @@ typedef enum {
 // #define OUTPUT_OPEN_DRAIN 0x12
 
 void attachInterrupt(uint8_t pin, void (*)(void), int mode);
-void attachInterruptArg(uint8_t pin, void (*)(void*), void* arg, int mode);
+void attachInterruptArg(uint8_t pin, void (*)(void*, bool), void* arg, int mode);
 void detachInterrupt(uint8_t pin);
 
 extern "C" int  __digitalRead(uint8_t pin);

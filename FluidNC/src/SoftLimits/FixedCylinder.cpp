@@ -24,8 +24,6 @@ void FixedCylinder::group(Configuration::HandlerBase& handler) {
 }
 
 void FixedCylinder::afterParse() {
-    _axis = std::toupper(static_cast<unsigned char>(_axis));
-
     if (_enabled && _radius > 0 && _length != 0) {
         log_info("SoftLimits: Configured cylinder '" << name() << "' axis=" << _axis
                  << " center=[" << _centerX << "," << _centerY << "]"
@@ -76,15 +74,18 @@ bool FixedCylinder::TestLimit(const float* from, const float* to) {
     }
 
     float centerPerp1, centerPerp2;
-    if (_axis == 'Z') {
+    if (_axis == axis_t::Z_AXIS) {
         centerPerp1 = _centerX;
         centerPerp2 = _centerY;
-    } else if (_axis == 'X') {
+    } else if (_axis == axis_t::X_AXIS) {
         centerPerp1 = _centerX;
         centerPerp2 = _centerY;
-    } else {
+    } else if (_axis == axis_t::Y_AXIS) {
         centerPerp1 = _centerX;
         centerPerp2 = _centerY;
+    }
+    else {
+        return false;
     }
 
     float fromAxis = from[axisIdx];

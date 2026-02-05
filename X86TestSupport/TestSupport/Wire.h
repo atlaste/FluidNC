@@ -6,7 +6,7 @@
 
 #include "esp32-hal-i2c.h"
 #include "Stream.h"
-#include "../FluidNC/test/TestFramework.h"
+#include "TestFramework.h"
 
 class TwoWire : public Stream {
     bool                 inTransmission = false;

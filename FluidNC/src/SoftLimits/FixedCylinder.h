@@ -36,7 +36,7 @@ public:
     const char* componentName() const override { return name(); }
 
 private:
-    char _axis = 'Z';
+    axis_t _axis = axis_t::Z_AXIS;
     float _centerX = 0.0f;
     float _centerY = 0.0f;
     float _startPos = 0.0f;

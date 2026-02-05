@@ -114,11 +114,10 @@ float accelDistanceWithAccel(float v_entry, float a_entry,
     float d1 = jerkDistance(v_entry, a_entry, jerk, t1);
     
     // Velocity at start of phase 3 (before jerk-)
-    // v3_start needs to be computed from v_exit working backward
-    float v3_end = v_exit;
-    float v3_start = jerkVelocity(v3_end, a_exit, jerk, t3);  // Working forward from what v3_start would give v_exit
-    // Actually, working backward: v3_start = v_exit - (a_exit*t3 + 0.5*(-jerk)*t3²)
-    v3_start = v_exit - a_exit * t3 + 0.5f * jerk * t3 * t3;
+    // During phase 3: v(t) = v3_start + a_max*t - 0.5*jerk*t^2
+    // At t=t3: v_exit = v3_start + a_max*t3 - 0.5*jerk*t3^2
+    // Therefore: v3_start = v_exit - a_max*t3 + 0.5*jerk*t3^2
+    float v3_start = v_exit - a_max * t3 + 0.5f * jerk * t3 * t3;
     
     // Distance during phase 3 (jerk-)
     float d3 = jerkDistance(v3_start, a_max, -jerk, t3);
@@ -126,13 +125,17 @@ float accelDistanceWithAccel(float v_entry, float a_entry,
     // Check if we need constant accel phase
     if (v1_end >= v3_start) {
         // Triangular - no constant accel phase needed
-        // Need to solve for the intersection
+        // For symmetric triangle: delta_v = jerk * t^2, so t = sqrt(delta_v / jerk)
         float delta_v = v_exit - v_entry;
         if (delta_v <= 0.0f) return 0.0f;
         
-        // Simplified triangular calculation
-        float t = safeSqrt(2.0f * delta_v / jerk);
-        return v_entry * t + (1.0f / 6.0f) * jerk * t * t * t;
+        // Same triangular calculation as accelDistance
+        float t = safeSqrt(delta_v / jerk);
+        float d1 = jerkDistance(v_entry, a_entry, jerk, t);
+        float v_mid = jerkVelocity(v_entry, a_entry, jerk, t);
+        float a_mid = jerkAccel(a_entry, jerk, t);
+        float d2 = jerkDistance(v_mid, a_mid, -jerk, t);
+        return d1 + d2;
     }
     
     // Phase 2: constant acceleration at a_max
@@ -153,7 +156,7 @@ float decelDistanceWithAccel(float v_entry, float a_entry,
     if (t1 < 0.0f) t1 = 0.0f;
     
     // Time to ramp from -a_max to a_exit
-    float t3 = (-a_max - a_exit) / (-jerk);  // = (a_max + a_exit) / jerk
+    float t3 = (a_max + a_exit) / jerk;
     if (t3 < 0.0f) t3 = 0.0f;
     
     // Phase 1: jerk- (decreasing acceleration toward -a_max)
@@ -161,17 +164,26 @@ float decelDistanceWithAccel(float v_entry, float a_entry,
     float d1 = jerkDistance(v_entry, a_entry, -jerk, t1);
     
     // Phase 3: jerk+ (increasing acceleration from -a_max toward a_exit)
-    float v3_start = v_exit + 0.5f * jerk * t3 * t3 + a_exit * t3;  // Working backward
+    // During phase 3: v(t) = v3_start - a_max*t + 0.5*jerk*t^2
+    // At t=t3: v_exit = v3_start - a_max*t3 + 0.5*jerk*t3^2
+    // Therefore: v3_start = v_exit + a_max*t3 - 0.5*jerk*t3^2
+    float v3_start = v_exit + a_max * t3 - 0.5f * jerk * t3 * t3;
     float d3 = jerkDistance(v3_start, -a_max, jerk, t3);
     
     // Check if triangular
     if (v1_end <= v3_start) {
         // Triangular profile
+        // For symmetric triangle: delta_v = jerk * t^2, so t = sqrt(delta_v / jerk)
         float delta_v = v_entry - v_exit;
         if (delta_v <= 0.0f) return 0.0f;
         
-        float t = safeSqrt(2.0f * delta_v / jerk);
-        return v_entry * t - (1.0f / 6.0f) * jerk * t * t * t;
+        // Same triangular calculation as decelDistance
+        float t = safeSqrt(delta_v / jerk);
+        float d1 = jerkDistance(v_entry, a_entry, -jerk, t);
+        float v_mid = jerkVelocity(v_entry, a_entry, -jerk, t);
+        float a_mid = jerkAccel(a_entry, -jerk, t);
+        float d2 = jerkDistance(v_mid, a_mid, jerk, t);
+        return d1 + d2;
     }
     
     // Phase 2: constant deceleration at -a_max
@@ -301,47 +313,67 @@ SCurveProfile planProfile(float distance, float v_entry, float a_entry,
     // Compute achievable peak velocity
     profile.v_peak = computePeakVelocity(distance, v_entry, v_exit, v_max, a_max, jerk);
     
-    // Time for each jerk phase
-    float t_jerk = a_max / jerk;
+    // Maximum time for jerk phases (time to reach a_max from 0)
+    float t_jerk_max = a_max / jerk;
+    
+    // Velocity change possible in one full jerk phase
+    float v_jerk_max = 0.5f * jerk * t_jerk_max * t_jerk_max;
+    
+    // Check if this is a triangular acceleration profile (can't reach a_max)
+    float delta_v_accel = profile.v_peak - v_entry;
+    bool triangular_accel = (delta_v_accel <= 2.0f * v_jerk_max) && (delta_v_accel > 0.0f);
+    
+    // Check if this is a triangular deceleration profile
+    float delta_v_decel = profile.v_peak - v_exit;
+    bool triangular_decel = (delta_v_decel <= 2.0f * v_jerk_max) && (delta_v_decel > 0.0f);
     
     // === Acceleration phases (0, 1, 2) ===
     
-    // Phase 0: Jerk from a_entry to a_max
-    float t0 = (a_max - a_entry) / jerk;
-    if (t0 < 0.0f) t0 = 0.0f;
-    profile.t[0] = t0;
-    profile.v[1] = jerkVelocity(v_entry, a_entry, jerk, t0);
-    profile.a[1] = a_max;
-    profile.d[0] = jerkDistance(v_entry, a_entry, jerk, t0);
-    
-    // Check if we're already at or past peak velocity
-    if (profile.v[1] >= profile.v_peak) {
-        // Skip to deceleration
-        profile.t[0] = 0.0f;
-        profile.t[1] = 0.0f;
-        profile.t[2] = 0.0f;
-        profile.v[1] = v_entry;
-        profile.v[2] = v_entry;
-        profile.v[3] = v_entry;
-        profile.a[1] = a_entry;
-        profile.a[2] = a_entry;
-        profile.a[3] = a_entry;
-        profile.d[0] = 0.0f;
-        profile.d[1] = 0.0f;
-        profile.d[2] = 0.0f;
-    } else {
-        // Phase 2: Jerk from a_max to 0 (end of acceleration)
-        float t2 = t_jerk;
-        float v2_end_target = profile.v_peak;
-        float v2_start = v2_end_target - 0.5f * jerk * t2 * t2;  // Working backward
+    if (delta_v_accel <= 0.0f) {
+        // No acceleration needed
+        profile.t[0] = profile.t[1] = profile.t[2] = 0.0f;
+        profile.d[0] = profile.d[1] = profile.d[2] = 0.0f;
+        profile.v[1] = profile.v[2] = profile.v[3] = v_entry;
+        profile.a[1] = profile.a[2] = profile.a[3] = a_entry;
+    } else if (triangular_accel) {
+        // Triangular acceleration: phase 0 (jerk+) and phase 2 (jerk-), no phase 1
+        float t_accel = safeSqrt(delta_v_accel / jerk);
         
-        // Phase 1: Constant accel from v[1] to v2_start
+        profile.t[0] = t_accel;
+        profile.t[1] = 0.0f;
+        profile.t[2] = t_accel;
+        
+        profile.v[1] = jerkVelocity(v_entry, a_entry, jerk, t_accel);
+        profile.a[1] = jerkAccel(a_entry, jerk, t_accel);
+        profile.d[0] = jerkDistance(v_entry, a_entry, jerk, t_accel);
+        
+        profile.v[2] = profile.v[1];
+        profile.a[2] = profile.a[1];
+        profile.d[1] = 0.0f;
+        
+        profile.v[3] = jerkVelocity(profile.v[2], profile.a[2], -jerk, t_accel);
+        profile.a[3] = jerkAccel(profile.a[2], -jerk, t_accel);
+        profile.d[2] = jerkDistance(profile.v[2], profile.a[2], -jerk, t_accel);
+        
+        profile.degenerate = true;
+    } else {
+        // Full trapezoidal acceleration: phase 0, phase 1 (const), phase 2
+        float t0 = (a_max - a_entry) / jerk;
+        if (t0 < 0.0f) t0 = 0.0f;
+        
+        profile.t[0] = t0;
+        profile.v[1] = jerkVelocity(v_entry, a_entry, jerk, t0);
+        profile.a[1] = a_max;
+        profile.d[0] = jerkDistance(v_entry, a_entry, jerk, t0);
+        
+        float t2 = t_jerk_max;
+        float v2_start = profile.v_peak - 0.5f * jerk * t2 * t2;  // Working backward
+        
         if (v2_start > profile.v[1]) {
             profile.t[1] = (v2_start - profile.v[1]) / a_max;
             profile.d[1] = profile.t[1] * (profile.v[1] + v2_start) / 2.0f;
             profile.v[2] = v2_start;
         } else {
-            // No constant accel phase needed
             profile.t[1] = 0.0f;
             profile.d[1] = 0.0f;
             profile.v[2] = profile.v[1];
@@ -356,12 +388,11 @@ SCurveProfile planProfile(float distance, float v_entry, float a_entry,
     
     // === Cruise phase (3) ===
     
-    // Calculate remaining distance for cruise and deceleration
     float d_accel = profile.d[0] + profile.d[1] + profile.d[2];
     float d_decel = decelDistance(profile.v_peak, v_exit, a_max, jerk);
     float d_cruise = distance - d_accel - d_decel;
     
-    if (d_cruise > 0.0f) {
+    if (d_cruise > 0.0f && profile.v_peak > 0.0f) {
         profile.t[3] = d_cruise / profile.v_peak;
         profile.d[3] = d_cruise;
         profile.v[4] = profile.v_peak;
@@ -376,34 +407,60 @@ SCurveProfile planProfile(float distance, float v_entry, float a_entry,
     
     // === Deceleration phases (4, 5, 6) ===
     
-    // Phase 4: Jerk from 0 to -a_max
-    float t4 = t_jerk;
-    profile.t[4] = t4;
-    profile.v[5] = jerkVelocity(profile.v[4], 0.0f, -jerk, t4);
-    profile.a[5] = -a_max;
-    profile.d[4] = jerkDistance(profile.v[4], 0.0f, -jerk, t4);
-    
-    // Phase 6: Jerk from -a_max to a_exit
-    float t6 = (-a_max - a_exit) / (-jerk);
-    if (t6 < 0.0f) t6 = 0.0f;
-    profile.t[6] = t6;
-    
-    // Phase 5: Constant decel
-    float v5_end = v_exit + 0.5f * jerk * t6 * t6;  // Working backward from v_exit
-    if (v5_end < profile.v[5]) {
-        profile.t[5] = (profile.v[5] - v5_end) / a_max;
-        profile.d[5] = profile.t[5] * (profile.v[5] + v5_end) / 2.0f;
-        profile.v[6] = v5_end;
-    } else {
+    if (delta_v_decel <= 0.0f) {
+        // No deceleration needed
+        profile.t[4] = profile.t[5] = profile.t[6] = 0.0f;
+        profile.d[4] = profile.d[5] = profile.d[6] = 0.0f;
+        profile.v[5] = profile.v[6] = profile.v[7] = profile.v[4];
+        profile.a[5] = profile.a[6] = profile.a[7] = 0.0f;
+    } else if (triangular_decel) {
+        // Triangular deceleration: phase 4 (jerk-) and phase 6 (jerk+), no phase 5
+        float t_decel = safeSqrt(delta_v_decel / jerk);
+        
+        profile.t[4] = t_decel;
         profile.t[5] = 0.0f;
-        profile.d[5] = 0.0f;
+        profile.t[6] = t_decel;
+        
+        profile.v[5] = jerkVelocity(profile.v[4], 0.0f, -jerk, t_decel);
+        profile.a[5] = jerkAccel(0.0f, -jerk, t_decel);
+        profile.d[4] = jerkDistance(profile.v[4], 0.0f, -jerk, t_decel);
+        
         profile.v[6] = profile.v[5];
+        profile.a[6] = profile.a[5];
+        profile.d[5] = 0.0f;
+        
+        profile.v[7] = jerkVelocity(profile.v[6], profile.a[6], jerk, t_decel);
+        profile.a[7] = jerkAccel(profile.a[6], jerk, t_decel);
+        profile.d[6] = jerkDistance(profile.v[6], profile.a[6], jerk, t_decel);
+    } else {
+        // Full trapezoidal deceleration: phase 4, phase 5 (const), phase 6
+        float t4 = t_jerk_max;
+        profile.t[4] = t4;
+        profile.v[5] = jerkVelocity(profile.v[4], 0.0f, -jerk, t4);
+        profile.a[5] = -a_max;
+        profile.d[4] = jerkDistance(profile.v[4], 0.0f, -jerk, t4);
+        
+        float t6 = (a_max + a_exit) / jerk;
+        if (t6 < 0.0f) t6 = 0.0f;
+        profile.t[6] = t6;
+        
+        // v[6] = v_exit + a_max*t6 - 0.5*jerk*t6^2 (working backward)
+        float v5_end = v_exit + a_max * t6 - 0.5f * jerk * t6 * t6;
+        if (v5_end < profile.v[5]) {
+            profile.t[5] = (profile.v[5] - v5_end) / a_max;
+            profile.d[5] = profile.t[5] * (profile.v[5] + v5_end) / 2.0f;
+            profile.v[6] = v5_end;
+        } else {
+            profile.t[5] = 0.0f;
+            profile.d[5] = 0.0f;
+            profile.v[6] = profile.v[5];
+        }
+        profile.a[6] = -a_max;
+        
+        profile.v[7] = v_exit;
+        profile.a[7] = a_exit;
+        profile.d[6] = jerkDistance(profile.v[6], -a_max, jerk, t6);
     }
-    profile.a[6] = -a_max;
-    
-    profile.v[7] = v_exit;
-    profile.a[7] = a_exit;
-    profile.d[6] = jerkDistance(profile.v[6], -a_max, jerk, t6);
     
     // Calculate totals
     profile.total_distance = 0.0f;

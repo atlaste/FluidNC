@@ -5,8 +5,8 @@
 
 #include <cstdint>
 #include "EnumItem.h"
-#include <freertos/FreeRTOS.h>
-#include <freertos/queue.h>
+// #include <freertos/FreeRTOS.h>
+// #include <freertos/queue.h>
 #include "State.h"
 
 class Channel;
@@ -27,9 +27,8 @@ struct LogMessage {
     bool     isString;
 };
 
-extern TaskHandle_t outputTask;
-
-extern QueueHandle_t message_queue;
+// extern TaskHandle_t outputTask;
+// extern QueueHandle_t message_queue;
 
 extern const EnumItem messageLevels2[];
 

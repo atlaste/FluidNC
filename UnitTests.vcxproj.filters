@@ -603,6 +603,16 @@
     <ClInclude Include="FluidNC\src\Extenders\I2CExtender.h">
       <Filter>src\Extenders</Filter>
     </ClInclude>
+    <ClInclude Include="FluidNC\src\Planner\SCurveMath.h" />
+    <ClInclude Include="FluidNC\src\Planner\BasePlanner.h" />
+    <ClInclude Include="FluidNC\src\Planner\TrapezoidPlanner.h" />
+    <ClInclude Include="FluidNC\src\Planner\SCurvePlanner.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\SoftLimitsComponent.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\LimitsChecker.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\FixedBoundingBox.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\FixedCylinder.h" />
+    <ClInclude Include="FluidNC\src\SoftLimits\MovingBoundingBox.h" />
+    <ClInclude Include="FluidNC\test\Planner\PlannerTestHelpers.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FluidNC\src\System.cpp">
@@ -1040,6 +1050,19 @@
     <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp">
       <Filter>test\Extender</Filter>
     </ClCompile>
+    <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp" />
+    <ClCompile Include="FluidNC\src\Planner\BasePlanner.cpp" />
+    <ClCompile Include="FluidNC\src\Planner\TrapezoidPlanner.cpp" />
+    <ClCompile Include="FluidNC\src\Planner\SCurvePlanner.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\LimitsChecker.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\FixedBoundingBox.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\FixedCylinder.cpp" />
+    <ClCompile Include="FluidNC\src\SoftLimits\MovingBoundingBox.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\SCurveMathTests.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\TrapezoidPlannerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\SCurvePlannerTests.cpp" />
+    <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
+    <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md">
@@ -1069,6 +1092,7 @@
     <None Include="FluidNC\test\UnitTests.md">
       <Filter>test</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="X86TestSupport\TestSupport\TODO.txt">

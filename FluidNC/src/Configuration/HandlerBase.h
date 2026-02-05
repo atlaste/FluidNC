@@ -18,12 +18,12 @@
 namespace Configuration {
     class Configurable;
 
-    typedef struct {
+    struct speedEntry {
         SpindleSpeed speed   = 0;
         float        percent = 0.0;
         uint32_t     offset  = 0;
         uint32_t     scale   = 0;
-    } speedEntry;
+    };
 
     template <typename BaseType>
     class GenericFactory;
