@@ -10,7 +10,15 @@
 #include "SpindleDatatypes.h"
 #include "System.h"
 #include "SoftwareGPIO.h"
+#include "Driver/PwmPin.h"
 #include <cstring>
+#include <cmath>
+#include <vector>
+#include <functional>
+
+// Dwell recording (defined in MotorTestMocks.cpp)
+extern std::vector<uint32_t>                     g_dwellRecords;
+extern std::function<bool(uint32_t, DwellMode)>  g_dwellHook;
 
 namespace SpindleTest {
 
@@ -27,6 +35,19 @@ namespace SpindleTest {
         /** True if this spindle drives physical pins (for pin assertions). */
         virtual bool HasPhysicalOutput() const { return false; }
     };
+
+    // Helper: clear dwell records before a test
+    inline void ClearDwellRecords() {
+        g_dwellRecords.clear();
+        g_dwellHook = nullptr;
+    }
+
+    // Helper: total dwell time recorded (sum of all dwell_ms calls)
+    inline uint32_t TotalDwellMs() {
+        uint32_t total = 0;
+        for (auto ms : g_dwellRecords) total += ms;
+        return total;
+    }
 
     /** Shared spindle test logic. Run these from concrete tests that provide a simulator. */
     struct SpindleTestBase {

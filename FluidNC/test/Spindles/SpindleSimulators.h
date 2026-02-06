@@ -32,13 +32,18 @@ namespace SpindleTest {
     constexpr int ARC_OK_PIN     = 9;
     // HBridge uses OUTPUT_PIN for CW, DIRECTION_PIN for CCW
 
-    // Helper: parse a YAML snippet into a spindle via its group() handler
-    inline void ParseSpindleYaml(const char* yaml, const char* sectionName, Spindles::Spindle* spindle) {
+    // Helper: parse a YAML snippet into any Configurable via its group() handler
+    inline void ParseYaml(const char* yaml, const char* sectionName, Configuration::Configurable* target) {
         Configuration::Parser parser(yaml);
         parser.Tokenize();
         Configuration::ParserHandler handler(parser);
-        handler.enterSection(sectionName, spindle);
-        spindle->afterParse();
+        handler.enterSection(sectionName, target);
+        target->afterParse();
+    }
+
+    // Convenience overload for spindles
+    inline void ParseSpindleYaml(const char* yaml, const char* sectionName, Spindles::Spindle* spindle) {
+        ParseYaml(yaml, sectionName, spindle);
     }
 
     // ---- Null spindle ----
@@ -265,10 +270,16 @@ namespace SpindleTest {
 
         void Setup() override {
             MotorSpindleTest::ResetGPIO();
-            // VFD spindle needs a Uart. We create one and assign it directly.
-            // The Uart will use fluidnc_uart mock functions.
+            // VFD spindle needs a Uart with TX/RX pins configured so that
+            // Uart::begin() can call getNative() without failing.
             if (!_uart) {
-                _uart = new Uart(0);  // UART 0
+                _uart = new Uart(0);
+                // Configure the Uart's TX/RX pins via YAML parsing
+                const char* uartYaml = "uart:\n"
+                                       "  txd_pin: gpio.16\n"
+                                       "  rxd_pin: gpio.17\n"
+                                       "  baud: 9600\n";
+                ParseYaml(uartYaml, "uart", _uart);
             }
             _spindle.setTestUart(_uart);
 
@@ -287,7 +298,8 @@ namespace SpindleTest {
 
         ~VFDHuanyangSimulator() {
             Teardown();
-            // Don't delete _uart - it may still be referenced by the task
+            delete _uart;
+            _uart = nullptr;
         }
 
     private:

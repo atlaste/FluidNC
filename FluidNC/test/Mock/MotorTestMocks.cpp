@@ -48,7 +48,14 @@ void Stepper::reset() {}
 
 parser_state_t gc_state = {};
 
-bool dwell_ms(uint32_t, DwellMode) {
+// dwell_ms hookable for spindle delay tests
+#include <functional>
+#include <vector>
+std::vector<uint32_t>                          g_dwellRecords;
+std::function<bool(uint32_t, DwellMode)>       g_dwellHook;
+bool dwell_ms(uint32_t ms, DwellMode mode) {
+    g_dwellRecords.push_back(ms);
+    if (g_dwellHook) { return g_dwellHook(ms, mode); }
     return true;
 }
 

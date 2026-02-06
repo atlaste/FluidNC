@@ -66,14 +66,15 @@ namespace Spindles {
             static TaskHandle_t  vfd_cmdTaskHandle;
             static void          vfd_cmd_task(void* pvParameters);
 
-            static uint16_t ModRTU_CRC(uint8_t* buf, size_t msg_len);
             bool            prepareSetModeCommand(SpindleState mode, ModbusCommand& data, VFDSpindle* spindle);
             bool            prepareSetSpeedCommand(uint32_t speed, ModbusCommand& data, VFDSpindle* spindle);
 
             static void reportParsingErrors(ModbusCommand cmd, uint8_t* rx_message, size_t read_length);
-            static bool checkRx(ModbusCommand cmd, uint8_t* rx_message, size_t read_length, uint8_t id);
 
         public:
+            // Static utilities exposed for unit tests and general use
+            static uint16_t ModRTU_CRC(uint8_t* buf, size_t msg_len);
+            static bool checkRx(ModbusCommand cmd, uint8_t* rx_message, size_t read_length, uint8_t id);
             static QueueHandle_t vfd_speed_queue;
 
             // Graceful shutdown for the background task (used by unit tests)

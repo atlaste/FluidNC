@@ -11,6 +11,7 @@
 #include "Configuration/ParserHandler.h"
 #include "Configuration/AfterParse.h"
 #include "SoftwareGPIO.h"
+#include "Driver/PwmPin.h"
 #include "GCode.h"   // gc_state, parser_state_t
 #include "System.h"  // sys
 
@@ -25,16 +26,27 @@ namespace MotorSpindleTest {
 
     inline void ResetGPIO() {
         SoftwareGPIO::instance().reset(nullptr, false);
+        PwmPin::resetAll();
 
         // Reset global GCode/system state that spindle tests depend on.
         // SpindleState::Disable is NOT 0, so zero-initialised gc_state is wrong.
         gc_state.modal.spindle = SpindleState::Disable;
         sys.set_state(State::Idle);
+
+        // Spindle speed override defaults to 0 in System::reset(), but
+        // the real firmware initialises it to 100 (100%).  Without this,
+        // mapSpeed() always returns 0 because speed * 0 / 100 = 0.
+        sys.set_spindle_speed_ovr(100);
     }
 
     /** Return last value written to pin (for disable/enable assertions). */
     inline bool GetPinOutput(int index) {
         return SoftwareGPIO::instance().getOutputValue(index);
+    }
+
+    /** Return last PWM duty written to a given GPIO pin. */
+    inline uint32_t GetPwmDuty(int gpio) {
+        return PwmPin::lastDuty(static_cast<pinnum_t>(gpio));
     }
 
     /** Parse minimal axes YAML into config->_axes. Idempotent: if config already has axes, does nothing. */

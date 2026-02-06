@@ -6,12 +6,10 @@
 
 namespace Pins {
     PinCapabilities GPIOPinDetail::GetDefaultCapabilities(pinnum_t index) {
-        // For testing purposes, most pins have full capabilities
-        // This matches the ESP32 capture platform behavior for common test pins (16, 17)
+        // For testing purposes, most pins have full capabilities.
+        // Only pin 11 is reserved (SPI flash on all ESP32 variants).
+        // Pins 6-8 are usable on ESP32-S3 and must be available for tests.
         switch (index) {
-            case 6:  // Reserved pins (SPI flash on real ESP32)
-            case 7:
-            case 8:
             case 11:
                 return PinCapabilities::Reserved;
 

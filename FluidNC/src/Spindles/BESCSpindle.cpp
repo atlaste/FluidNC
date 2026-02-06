@@ -35,6 +35,7 @@ namespace Spindles {
 
         _output_pin.setAttr(Pin::Attr::PWM, _pwm_freq);
         _enable_pin.setAttr(Pin::Attr::Output);
+        _direction_pin.setAttr(Pin::Attr::Output);
 
         // BESC PWM typically represents 0 speed as a 1ms pulse and max speed as a 2ms pulse
 
