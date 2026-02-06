@@ -374,6 +374,23 @@
     <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp" />
     <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\PWMSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\LaserSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\BESCSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\10vSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\RelaySpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\HBridgeSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\PlasmaSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFDSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\VFDProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\ODriveSpindle.cpp" />
+    <!-- UART support for VFD spindles -->
+    <ClCompile Include="FluidNC\src\Uart.cpp" />
+    <!-- UART mock for VFD -->
+    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_uart.cpp" />
+    <!-- CAN mock for ODrive -->
+    <ClCompile Include="FluidNC\test\Mock\ODrive\CanESP32Mock.cpp" />
     <!-- Spindle test files -->
     <ClCompile Include="FluidNC\test\Spindles\SpindleTests.cpp" />
   </ItemGroup>

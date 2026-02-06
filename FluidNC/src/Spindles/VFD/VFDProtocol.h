@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <atomic>
 #include "Spindles/Spindle.h"
 #include <freertos/message_buffer.h>
 
@@ -75,11 +76,19 @@ namespace Spindles {
         public:
             static QueueHandle_t vfd_speed_queue;
 
+            // Graceful shutdown for the background task (used by unit tests)
+            static void requestShutdown();
+            static bool isShutdownRequested();
+            static void resetShutdown();
+
             VFDProtocol() {}
             VFDProtocol(const VFDProtocol&)            = delete;
             VFDProtocol(VFDProtocol&&)                 = delete;
             VFDProtocol& operator=(const VFDProtocol&) = delete;
             VFDProtocol& operator=(VFDProtocol&&)      = delete;
+
+        private:
+            static std::atomic<bool> _shutdown;
         };
     }
 }

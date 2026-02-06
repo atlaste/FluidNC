@@ -7,6 +7,11 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifdef _MSC_VER
+#    include <stdlib.h>
+#    define __builtin_bswap64(x) _byteswap_uint64(x)
+#endif
+
 namespace Spindles::ODrive {
     template <typename T>
     T can_get_signal_raw(const uint8_t* buf, const size_t startBit, const size_t length, const bool isIntel) {

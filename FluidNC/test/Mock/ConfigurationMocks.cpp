@@ -6,13 +6,7 @@
 #include "UartTypes.h"
 #include <string_view>
 
-// Mock decodeUartMode - returns empty string (no error) for testing
-const char* decodeUartMode(std::string_view s, UartData& wordLength, UartParity& parity, UartStop& stopBits) {
-    wordLength = UartData::Bits8;
-    parity = UartParity::None;
-    stopBits = UartStop::Bits1;
-    return "";  // No error
-}
+// decodeUartMode is now provided by the real Uart.cpp (which is compiled for VFD spindle tests)
 
 // Note: Platform-specific PinDetail mocks (GPIOPinDetail, I2SOPinDetail, 
 // ChannelPinDetail, ExtPinDetail) are in PinsMocks.cpp

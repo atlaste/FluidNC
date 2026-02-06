@@ -123,13 +123,12 @@ void send_alarm(ExecAlarm alarm) {
 // Stepper mocks
 static int32_t mock_steps[static_cast<int>(axis_t::MAX_N_AXIS)] = {0};
 
-float steps_to_motor_pos(int axis, uint64_t steps_per_unit) {
-    if (steps_per_unit == 0) return 0.0f;
-    return static_cast<float>(mock_steps[axis]) / static_cast<float>(steps_per_unit);
+float steps_to_motor_pos(steps_t steps, size_t motor) {
+    return static_cast<float>(steps);
 }
 
-int motor_pos_to_steps(float pos, uint64_t steps_per_unit) {
-    return static_cast<int>(pos * static_cast<float>(steps_per_unit));
+steps_t motor_pos_to_steps(float pos, size_t motor) {
+    return static_cast<steps_t>(pos);
 }
 
 void get_steps(int* steps) {

@@ -11,6 +11,10 @@
 #include "Macro.h"
 #include "NutsBolts.h"
 #include "Types.h"
+#include "MotionControl.h"
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 static void protocol_do_limit(void*) {}
 const ArgEvent limitEvent { protocol_do_limit };
@@ -40,6 +44,7 @@ namespace Machine {
 
 // Spindle.cpp / Stepper / GCode stubs for spindle tests
 void Stepper::updateSpindleCallback() {}
+void Stepper::reset() {}
 
 parser_state_t gc_state = {};
 
@@ -50,3 +55,29 @@ bool dwell_ms(uint32_t, DwellMode) {
 bool Macro::run(Channel*) {
     return true;
 }
+
+// Plasma spindle needs mc_critical
+void mc_critical(ExecAlarm alarm) {
+    send_alarm(alarm);
+}
+
+// Plasma spindle needs protocol_execute_realtime -- hookable for tests
+#include <functional>
+std::function<void()> g_protocolExecuteRealtimeHook;
+void protocol_execute_realtime() {
+    if (g_protocolExecuteRealtimeHook) {
+        g_protocolExecuteRealtimeHook();
+    }
+}
+
+// NutsBolts time functions -- delegate to Capture system via FreeRTOS
+uint32_t get_ms() {
+    return xTaskGetTickCount() * (1000 / configTICK_RATE_HZ);
+}
+
+void delay_ms(uint32_t ms) {
+    vTaskDelay(ms / portTICK_PERIOD_MS);
+}
+
+// Report utility used by VFD debug output
+void hex_msg(uint8_t*, const char*, size_t) {}

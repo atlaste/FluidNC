@@ -30,9 +30,14 @@ namespace Spindles {
     };
 
     // Static member initialization
-    QueueHandle_t ODriveSpindle::cmd_queue     = nullptr;
-    QueueHandle_t ODriveSpindle::speed_queue   = nullptr;
-    TaskHandle_t  ODriveSpindle::cmdTaskHandle = nullptr;
+    QueueHandle_t       ODriveSpindle::cmd_queue     = nullptr;
+    QueueHandle_t       ODriveSpindle::speed_queue   = nullptr;
+    TaskHandle_t        ODriveSpindle::cmdTaskHandle = nullptr;
+    std::atomic<bool>   ODriveSpindle::_shutdown{false};
+
+    void ODriveSpindle::requestShutdown() { _shutdown.store(true); }
+    bool ODriveSpindle::isShutdownRequested() { return _shutdown.load(); }
+    void ODriveSpindle::resetShutdown() { _shutdown.store(false); }
 
     // ODrive CAN Messages:
     int ODriveSpindle::receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms) {
@@ -304,7 +309,7 @@ namespace Spindles {
         const TickType_t poll_delay = pdMS_TO_TICKS(100);  // 100ms polling interval
 
         // Main command processing loop
-        for (;;) {
+        for (; !_shutdown.load();) {
             if (instance->state == ODriveState::Initialized) {
                 ODriveAction action;
 

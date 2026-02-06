@@ -13,9 +13,14 @@ namespace Spindles {
         const int        RESPONSE_WAIT_MS   = 100;                                    // how long to wait for a response
         const TickType_t response_ticks     = RESPONSE_WAIT_MS / portTICK_PERIOD_MS;  // in milliseconds between commands
 
-        QueueHandle_t VFDProtocol::vfd_cmd_queue     = nullptr;
-        QueueHandle_t VFDProtocol::vfd_speed_queue   = nullptr;
-        TaskHandle_t  VFDProtocol::vfd_cmdTaskHandle = nullptr;
+        QueueHandle_t       VFDProtocol::vfd_cmd_queue     = nullptr;
+        QueueHandle_t       VFDProtocol::vfd_speed_queue   = nullptr;
+        TaskHandle_t        VFDProtocol::vfd_cmdTaskHandle = nullptr;
+        std::atomic<bool>   VFDProtocol::_shutdown{false};
+
+        void VFDProtocol::requestShutdown() { _shutdown.store(true); }
+        bool VFDProtocol::isShutdownRequested() { return _shutdown.load(); }
+        void VFDProtocol::resetShutdown() { _shutdown.store(false); }
 
         void VFDProtocol::reportParsingErrors(ModbusCommand cmd, uint8_t* rx_message, size_t read_length) {}
         bool VFDProtocol::checkRx(ModbusCommand cmd, uint8_t* rx_message, size_t read_length, uint8_t id) {
@@ -52,7 +57,7 @@ namespace Spindles {
             uint8_t       rx_message[VFD_RS485_MAX_MSG_SIZE];
             bool          safetyPollingEnabled = impl->safety_polling();
 
-            for (; true; delay_ms(instance->_poll_ms)) {
+            for (; !_shutdown.load(); delay_ms(instance->_poll_ms)) {
                 std::atomic_thread_fence(std::memory_order_seq_cst);  // read fence for settings
                 response_parser parser = nullptr;
 

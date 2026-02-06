@@ -846,6 +846,48 @@
     <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp">
       <Filter>src\Spindles</Filter>
     </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\PWMSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\LaserSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\BESCSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\10vSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\RelaySpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\HBridgeSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\PlasmaSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFDSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\VFDProtocol.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\ODriveSpindle.cpp">
+      <Filter>src\Spindles</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Uart.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_uart.cpp">
+      <Filter>test\Mock</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Mock\ODrive\CanESP32Mock.cpp">
+      <Filter>test\Mock</Filter>
+    </ClCompile>
     <ClCompile Include="FluidNC\test\Spindles\SpindleTests.cpp">
       <Filter>test\Spindles</Filter>
     </ClCompile>

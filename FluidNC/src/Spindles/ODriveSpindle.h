@@ -9,6 +9,7 @@
 
 #include "Logging.h"
 
+#include <atomic>
 #include <freertos/FreeRTOS.h>  // must be first
 
 // queue and task
@@ -38,10 +39,11 @@ namespace Spindles {
 
         void set_mode(SpindleState mode, bool critical);
 
-        static QueueHandle_t cmd_queue;
-        static QueueHandle_t speed_queue;
-        static TaskHandle_t  cmdTaskHandle;
-        static void          cmd_task(void* pvParameters);
+        static QueueHandle_t    cmd_queue;
+        static QueueHandle_t    speed_queue;
+        static TaskHandle_t     cmdTaskHandle;
+        static std::atomic<bool> _shutdown;
+        static void             cmd_task(void* pvParameters);
 
         template <typename T>
         bool send(T& msg) {
@@ -135,6 +137,11 @@ namespace Spindles {
         void validate() override;
         void afterParse() override;
         void group(Configuration::HandlerBase& handler) override;
+
+        // Graceful shutdown for the background task (used by unit tests)
+        static void requestShutdown();
+        static bool isShutdownRequested();
+        static void resetShutdown();
 
         virtual ~ODriveSpindle() {}
     };

@@ -11,6 +11,8 @@
 #include "Configuration/ParserHandler.h"
 #include "Configuration/AfterParse.h"
 #include "SoftwareGPIO.h"
+#include "GCode.h"   // gc_state, parser_state_t
+#include "System.h"  // sys
 
 namespace MotorSpindleTest {
 
@@ -23,6 +25,11 @@ namespace MotorSpindleTest {
 
     inline void ResetGPIO() {
         SoftwareGPIO::instance().reset(nullptr, false);
+
+        // Reset global GCode/system state that spindle tests depend on.
+        // SpindleState::Disable is NOT 0, so zero-initialised gc_state is wrong.
+        gc_state.modal.spindle = SpindleState::Disable;
+        sys.set_state(State::Idle);
     }
 
     /** Return last value written to pin (for disable/enable assertions). */

@@ -140,6 +140,9 @@ public:
     /** Last value written to pin (driver output). Use in tests to assert set_disable / spindle enable. */
     bool getOutputValue(int index) const { return pins[index].driverValue; }
 
+    /** Simulate an external signal on a pin (for input testing, e.g. arc_ok). Triggers ISR chain. */
+    void setPadValue(int index, bool value) { pins[index].handlePadChange(value); }
+
     void attachISR(int index, void (*callback)(void* arg, bool v), void* arg, int mode) {
         auto& pin = pins[index];
         Assert(pin.mode == 0, "ISR mode should be 0 when attaching interrupt. Another interrupt is already attached.");
