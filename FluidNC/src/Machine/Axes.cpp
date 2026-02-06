@@ -287,6 +287,7 @@ namespace Machine {
         for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; ++axis) {
             if (_axis[axis] != nullptr) {
                 delete _axis[axis];
+                _axis[axis] = nullptr;
             }
         }
     }

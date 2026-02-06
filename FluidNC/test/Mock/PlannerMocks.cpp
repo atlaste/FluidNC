@@ -54,21 +54,6 @@ namespace {
     static SysInitializer sysInit;
 }
 
-// Axes static
-axis_t Machine::Axes::_numberAxis = axis_t::MAX_N_AXIS;
-
-// axis_t increment operator
-axis_t operator++(axis_t& a, int) {
-    axis_t orig = a;
-    a = static_cast<axis_t>(static_cast<int>(a) + 1);
-    return orig;
-}
-
-axis_t& operator++(axis_t& a) {
-    a = static_cast<axis_t>(static_cast<int>(a) + 1);
-    return a;
-}
-
 // Logging mocks
 static MsgLevel currentMsgLevel = MsgLevelInfo;
 
@@ -165,30 +150,5 @@ namespace Machine {
     uint32_t Homing::unhomed_axes() {
         // Mock - return 0 (all axes homed)
         return 0;
-    }
-    
-    std::string Axes::maskToNames(uint32_t mask) {
-        std::string result;
-        if (mask & 0x01) result += "X";
-        if (mask & 0x02) result += "Y";
-        if (mask & 0x04) result += "Z";
-        if (mask & 0x08) result += "A";
-        if (mask & 0x10) result += "B";
-        if (mask & 0x20) result += "C";
-        return result;
-    }
-    
-    axis_t Axes::axisNum(std::string_view axis_name) {
-        // Mock - simple axis name lookup
-        if (axis_name.length() == 1) {
-            char c = axis_name[0];
-            if (c == 'X' || c == 'x') return X_AXIS;
-            if (c == 'Y' || c == 'y') return Y_AXIS;
-            if (c == 'Z' || c == 'z') return Z_AXIS;
-            if (c == 'A' || c == 'a') return A_AXIS;
-            if (c == 'B' || c == 'b') return B_AXIS;
-            if (c == 'C' || c == 'c') return C_AXIS;
-        }
-        return INVALID_AXIS;
     }
 }

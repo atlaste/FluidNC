@@ -101,6 +101,10 @@
     <ClInclude Include="FluidNC\test\Mock\Driver\delay_usecs.h" />
     <ClInclude Include="FluidNC\test\Mock\Driver\fluidnc_gpio.h" />
     <ClInclude Include="FluidNC\test\Mock\Platform.h" />
+    <ClInclude Include="FluidNC\test\Motors\MotorSimulators.h" />
+    <ClInclude Include="FluidNC\test\Motors\MotorTestBase.h" />
+    <ClInclude Include="FluidNC\test\Spindles\SpindleSimulators.h" />
+    <ClInclude Include="FluidNC\test\Spindles\SpindleTestBase.h" />
     <ClInclude Include="FluidNC\test\TestFactory.h" />
     <ClInclude Include="FluidNC\test\TestFramework.h" />
     <ClInclude Include="X86TestSupport\TestSupport\Arduino.h" />
@@ -248,11 +252,11 @@
     <ClInclude Include="FluidNC\src\SoftLimits\MovingBoundingBox.h" />
     <!-- Test helpers -->
     <ClInclude Include="FluidNC\test\Planner\PlannerTestHelpers.h" />
+    <ClInclude Include="FluidNC\test\Motors\MotorSpindleFixture.h" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test framework and main -->
     <ClCompile Include="FluidNC\test\test_main_win.cpp" />
-    
     <!-- Capture mocks (excludes main.cpp - that's the simulator entry point) -->
     <ClCompile Include="FluidNC\capture\AssertionFailed.cpp" />
     <ClCompile Include="FluidNC\capture\ExceptionHelper.cpp" />
@@ -262,7 +266,6 @@
     <ClCompile Include="FluidNC\capture\timing.cpp" />
     <ClCompile Include="FluidNC\capture\freertos\Queue.cpp" />
     <ClCompile Include="FluidNC\capture\freertos\Task.cpp" />
-    
     <!-- X86TestSupport mocks -->
     <ClCompile Include="X86TestSupport\TestSupport\Arduino.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\FS.cpp" />
@@ -275,58 +278,47 @@
     <ClCompile Include="X86TestSupport\TestSupport\driver\rmt.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp" />
     <ClCompile Include="X86TestSupport\TestSupport\soc\ledc_struct.cpp" />
-    
     <!-- Test Mocks -->
     <ClCompile Include="FluidNC\test\Mock\PlannerMocks.cpp" />
     <ClCompile Include="FluidNC\test\Mock\esp_err.cpp" />
-    
     <!-- Planner source files (pure math, minimal dependencies) -->
     <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp" />
-    
     <!-- Planner test files -->
     <ClCompile Include="FluidNC\test\Planner\SCurveMathTests.cpp" />
-    
     <!-- Planner source files with dependencies - adding incrementally -->
     <ClCompile Include="FluidNC\src\Planner\BasePlanner.cpp" />
     <ClCompile Include="FluidNC\src\Planner\TrapezoidPlanner.cpp" />
     <ClCompile Include="FluidNC\src\Planner\SCurvePlanner.cpp" />
     <ClCompile Include="FluidNC\test\Planner\TrapezoidPlannerTests.cpp" />
     <ClCompile Include="FluidNC\test\Planner\SCurvePlannerTests.cpp" />
-    
     <!-- SoftLimits source files -->
     <ClCompile Include="FluidNC\src\SoftLimits\LimitsChecker.cpp" />
     <ClCompile Include="FluidNC\src\SoftLimits\FixedBoundingBox.cpp" />
     <ClCompile Include="FluidNC\src\SoftLimits\FixedCylinder.cpp" />
     <ClCompile Include="FluidNC\src\SoftLimits\MovingBoundingBox.cpp" />
-    
     <!-- SoftLimits test files -->
     <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp" />
-    
     <!-- Configuration source files -->
     <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp" />
     <ClCompile Include="FluidNC\src\Configuration\Parser.cpp" />
+    <ClCompile Include="FluidNC\src\Configuration\AfterParse.cpp" />
     <ClCompile Include="FluidNC\src\string_util.cpp" />
     <ClCompile Include="FluidNC\src\UTF8.cpp" />
     <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp" />
     <ClCompile Include="FluidNC\test\Mock\PinsMocks.cpp" />
-    
     <!-- Real GPIOPinDetail - uses mocked fluidnc_gpio which forwards to SoftwareGPIO -->
     <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp" />
     <ClCompile Include="FluidNC\test\Mock\GPIOCapabilities.cpp" />
     <ClCompile Include="FluidNC\capture\PwmPin.cpp" />
-    
     <!-- Configuration test files -->
     <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp" />
     <ClCompile Include="FluidNC\test\Configuration\MachineConfigParsing.cpp" />
-
     <!-- UTF8 test files -->
     <ClCompile Include="FluidNC\test\UTF8\UTF8Tests.cpp" />
-
     <!-- StringUtil test files -->
     <ClCompile Include="FluidNC\test\StringUtil\StringUtilTests.cpp" />
-
     <!-- Pin source files -->
     <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp" />
     <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp" />
@@ -335,46 +327,55 @@
     <ClCompile Include="FluidNC\src\Pins\VoidPinDetail.cpp" />
     <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp" />
     <ClCompile Include="FluidNC\src\Pin.cpp" />
-    
     <!-- Pin test files -->
     <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp" />
     <ClCompile Include="FluidNC\test\Pins\Undefined.cpp" />
     <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp" />
-    
     <!-- Planner integration tests -->
     <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp" />
-    
     <!-- GPIO mock infrastructure -->
     <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_gpio.cpp" />
     <ClCompile Include="FluidNC\src\PinMapper.cpp" />
-    
     <!-- GPIO tests -->
     <ClCompile Include="FluidNC\test\Pins\GPIO.cpp" />
-    
     <!-- I2C mock infrastructure -->
     <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_i2c.cpp" />
-    
     <!-- I2C Bus source -->
     <ClCompile Include="FluidNC\src\Machine\I2CBus.cpp" />
-    
     <!-- Extender source files -->
     <ClCompile Include="FluidNC\src\Extenders\PinExtenderDriver.cpp" />
     <ClCompile Include="FluidNC\src\Extenders\I2CPinExtenderBase.cpp" />
     <ClCompile Include="FluidNC\src\Extenders\PCA9539.cpp" />
-    
     <!-- I2C Extender tests -->
     <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp" />
-
     <!-- Scheduler source files (no SchedulerTask - ESP32-only, would leave thread alive) -->
     <ClCompile Include="FluidNC\src\Scheduler\Timer.cpp" />
     <ClCompile Include="FluidNC\src\Scheduler\SlowEventScheduler.cpp" />
-
     <!-- Scheduler test files -->
     <ClCompile Include="FluidNC\test\Scheduler\TimepointTimespanTests.cpp" />
     <ClCompile Include="FluidNC\test\Scheduler\EventSchedulerTests.cpp" />
     <ClCompile Include="FluidNC\test\Scheduler\SlowEventSchedulerTests.cpp" />
     <ClCompile Include="FluidNC\test\Scheduler\TimerTests.cpp" />
     <ClCompile Include="FluidNC\test\Scheduler\CoroutineTests.cpp" />
+    <!-- Motor test mocks (limitEvent stub) -->
+    <ClCompile Include="FluidNC\test\Mock\MotorTestMocks.cpp" />
+    <!-- Motor/Axis/Axes source for motor tests -->
+    <ClCompile Include="FluidNC\src\Machine\Axes.cpp" />
+    <ClCompile Include="FluidNC\src\Machine\Axis.cpp" />
+    <ClCompile Include="FluidNC\src\Machine\Motor.cpp" />
+    <ClCompile Include="FluidNC\src\Machine\LimitPin.cpp" />
+    <ClCompile Include="FluidNC\src\Machine\EventPin.cpp" />
+    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp" />
+    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp" />
+    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp" />
+    <!-- Motor test files -->
+    <ClCompile Include="FluidNC\test\Motors\MotorTests.cpp" />
+    <!-- Spindle source for spindle tests -->
+    <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp" />
+    <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp" />
+    <!-- Spindle test files -->
+    <ClCompile Include="FluidNC\test\Spindles\SpindleTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
