@@ -253,6 +253,12 @@
     <!-- Test helpers -->
     <ClInclude Include="FluidNC\test\Planner\PlannerTestHelpers.h" />
     <ClInclude Include="FluidNC\test\Motors\MotorSpindleFixture.h" />
+    <!-- Kinematics headers -->
+    <ClInclude Include="FluidNC\src\Kinematics\ParallelDelta.h" />
+    <ClInclude Include="FluidNC\src\Kinematics\Compensated1D.h" />
+    <ClInclude Include="FluidNC\src\Kinematics\Compensated2D.h" />
+    <ClInclude Include="FluidNC\src\DynamicLimits.h" />
+    <ClInclude Include="FluidNC\test\Kinematics\TestableKinematics.h" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test framework and main -->
@@ -393,6 +399,15 @@
     <ClCompile Include="FluidNC\test\Mock\ODrive\CanESP32Mock.cpp" />
     <!-- Spindle test files -->
     <ClCompile Include="FluidNC\test\Spindles\SpindleTests.cpp" />
+    <!-- Kinematics source files -->
+    <ClCompile Include="FluidNC\src\Kinematics\Cartesian.cpp" />
+    <ClCompile Include="FluidNC\src\Kinematics\CoreXY.cpp" />
+    <ClCompile Include="FluidNC\src\Kinematics\Midtbot.cpp" />
+    <ClCompile Include="FluidNC\src\Kinematics\WallPlotter.cpp" />
+    <ClCompile Include="FluidNC\src\Kinematics\ParallelDelta.cpp" />
+    <!-- Kinematics test mocks and tests -->
+    <ClCompile Include="FluidNC\test\Kinematics\KinematicsMocks.cpp" />
+    <ClCompile Include="FluidNC\test\Kinematics\KinematicsTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FluidNC\src\Motors\Dynamixel2.md" />
