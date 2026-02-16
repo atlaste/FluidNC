@@ -62,6 +62,11 @@ namespace Kinematics {
 
         ~ParallelDelta() {}
 
+        // TODO: For testing; we should use a friend.
+        void homing_move(AxisMask axisMask, MotorMask motors, Machine::Homing::Phase phase, uint32_t settling_ms) override;
+        void set_homed_mpos(float* mpos);
+        bool limitReached(AxisMask& axisMask, MotorMask& motors, MotorMask limited) override;
+
     private:
         //  Config items Using geometry names from the published kinematics rather than typical Fluid Style
         // To make the math easier to compare with the code
@@ -84,9 +89,6 @@ namespace Kinematics {
         bool delta_calcAngleYZ(float x0, float y0, float z0, float& theta);
 
         void motorVector(AxisMask axisMask, MotorMask motors, Machine::Homing::Phase phase, float* target, float& rate, uint32_t& settle_ms);
-        void homing_move(AxisMask axisMask, MotorMask motors, Machine::Homing::Phase phase, uint32_t settling_ms) override;
-        void set_homed_mpos(float* mpos);
-        bool limitReached(AxisMask& axisMask, MotorMask& motors, MotorMask limited) override;
 
         inline float pos_to_radians(float pos) { return pos * (M_PI / 180.0); }
 

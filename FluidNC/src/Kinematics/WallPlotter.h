@@ -38,9 +38,11 @@ namespace Kinematics {
 
         ~WallPlotter() {}
 
-    private:
+        // TODO: For testing; we should use a friend.
         void lengths_to_xy(float left_length, float right_length, float& x, float& y);
         void xy_to_lengths(float x, float y, float& left_length, float& right_length);
+
+    private:
 
         // State
         float zero_left;   //  The left cord offset corresponding to cartesian (0, 0).
