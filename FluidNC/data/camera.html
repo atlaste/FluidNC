@@ -24,7 +24,7 @@
         }
         #cameraFeed {
             width: 100%;
-            max-width: 1920px;
+            max-width: 800px;
             height: auto;
             border: 2px solid #ddd;
             border-radius: 4px;
@@ -72,29 +72,6 @@
             background: #6c757d;
             cursor: not-allowed;
         }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .stat-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-        }
-        .stat-label {
-            font-size: 12px;
-            color: #6c757d;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-        }
         .info {
             background: #e7f3ff;
             padding: 15px;
@@ -106,7 +83,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎥 UVC Camera Test</h1>
+        <h1>FluidCam</h1>
         
         <div id="status" class="status disconnected">Disconnected</div>
         
@@ -116,35 +93,6 @@
         </div>
         
         <img id="cameraFeed" alt="Camera feed will appear here" />
-        
-        <div class="stats">
-            <div class="stat-box">
-                <div class="stat-label">Frames Received</div>
-                <div class="stat-value" id="frameCount">0</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">Frame Rate</div>
-                <div class="stat-value" id="fps">0 fps</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">Last Frame Size</div>
-                <div class="stat-value" id="frameSize">0 KB</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">Total Data</div>
-                <div class="stat-value" id="totalData">0 MB</div>
-            </div>
-        </div>
-        
-        <div class="info">
-            <strong>Instructions:</strong>
-            <ol>
-                <li>Make sure your FluidNC device is powered on and connected to your network</li>
-                <li>Ensure a USB camera is connected to the ESP32 USB host</li>
-                <li>Update the WebSocket URL below if needed (default: ws://&lt;current-host&gt;/camera)</li>
-                <li>Click "Connect" to start streaming</li>
-            </ol>
-        </div>
     </div>
 
     <script>
@@ -152,8 +100,6 @@
         let frameCount = 0;
         let totalBytes = 0;
         let lastFrameTime = Date.now();
-        let fpsCounter = 0;
-        let fpsInterval = null;
 
         // Determine WebSocket URL (use current host)
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -166,14 +112,6 @@
             const statusEl = document.getElementById('status');
             statusEl.textContent = message;
             statusEl.className = 'status ' + className;
-        }
-
-        function updateStats() {
-            document.getElementById('frameCount').textContent = frameCount;
-            document.getElementById('frameSize').textContent = 
-                (totalBytes > 0 ? (totalBytes / 1024).toFixed(2) : 0) + ' KB';
-            document.getElementById('totalData').textContent = 
-                (totalBytes > 0 ? (totalBytes / 1024 / 1024).toFixed(2) : 0) + ' MB';
         }
 
         function connect() {
@@ -194,12 +132,6 @@
                     updateStatus('Connected - Waiting for frames...', 'connected');
                     document.getElementById('disconnectBtn').disabled = false;
                     
-                    // Start FPS counter
-                    fpsCounter = 0;
-                    fpsInterval = setInterval(() => {
-                        document.getElementById('fps').textContent = fpsCounter + ' fps';
-                        fpsCounter = 0;
-                    }, 1000);
                 };
 
                 ws.onmessage = (event) => {
@@ -220,16 +152,10 @@
 
                         // Update statistics
                         frameCount++;
-                        fpsCounter++;
-                        totalBytes = event.data.byteLength;
-                        updateStats();
                         
                         const now = Date.now();
                         const timeSinceLastFrame = now - lastFrameTime;
                         lastFrameTime = now;
-                        
-                        console.log(`Frame ${frameCount}: ${(event.data.byteLength / 1024).toFixed(2)} KB, ` +
-                                  `${timeSinceLastFrame}ms since last frame`);
                         
                         updateStatus(`Connected - Streaming (${frameCount} frames)`, 'connected');
                     }
@@ -245,11 +171,6 @@
                     updateStatus('Disconnected', 'disconnected');
                     document.getElementById('connectBtn').disabled = false;
                     document.getElementById('disconnectBtn').disabled = true;
-                    
-                    if (fpsInterval) {
-                        clearInterval(fpsInterval);
-                        fpsInterval = null;
-                    }
                     
                     ws = null;
                 };
@@ -268,8 +189,8 @@
             }
         }
 
-        // Auto-connect on page load (optional - comment out if you prefer manual connection)
-        // window.addEventListener('load', connect);
+        // Auto-connect on page load
+        window.addEventListener('load', connect);
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {

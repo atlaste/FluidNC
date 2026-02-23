@@ -79,8 +79,7 @@ namespace WebUI {
     IntSetting*  http_port;
 
     uint64_t    WebUI_Server::_nextModeCheck = 0;
-    wifi_mode_t WebUI_Server::_lastMode = wifi_mode_t::WIFI_MODE_NULL;
-
+    wifi_mode_t WebUI_Server::_lastMode      = wifi_mode_t::WIFI_MODE_NULL;
 
     WebUI_Server::~WebUI_Server() {
         deinit();
@@ -236,6 +235,13 @@ namespace WebUI {
         _webserver->on("/performance.html", HTTP_GET, [](AsyncWebServerRequest* request) {
             if (!myStreamFile(request, "/localfs/performance.html", false, false)) {
                 request->send(404, "text/html", "<h1>Performance Profiler</h1><p>Upload performance.html to /localfs/</p>");
+            }
+        });
+
+        // UVC Camera
+        _webserver->on("/camera.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+            if (!myStreamFile(request, "/localfs/camera.html", false, false)) {
+                request->send(404, "text/html", "<h1>Camera</h1><p>Upload camera.html to /localfs/</p>");
             }
         });
 
