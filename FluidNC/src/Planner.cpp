@@ -20,12 +20,11 @@
 // Accessor for the planner instance (used by Stepper.cpp)
 BasePlanner* getPlanner() {
     if (config) {
-        if (config->_planner) {
-            return config->_planner;
-        } else {
+        if (!config->_planner) {
             log_info("Defaulting to trapezoid planner");
             config->_planner = new TrapezoidPlanner("trapezoid_planner");
         }
+        return config->_planner;
     } else {
         return nullptr;
     }

@@ -43,7 +43,6 @@ namespace WebUI {
 //embedded response file if no files on LocalFS
 #include "NoFile.h"
 
-
 namespace WebUI {
     extern bool needsNetworkServices;
 
@@ -79,6 +78,10 @@ namespace WebUI {
     EnumSetting *http_enable, *http_block_during_motion;
     IntSetting*  http_port;
 
+    uint64_t    WebUI_Server::_nextModeCheck = 0;
+    wifi_mode_t WebUI_Server::_lastMode = wifi_mode_t::WIFI_MODE_NULL;
+
+
     WebUI_Server::~WebUI_Server() {
         deinit();
     }
@@ -97,7 +100,7 @@ namespace WebUI {
         _setupdone = false;
 
         // Check if we have any network interface available (WiFi, Ethernet, etc.)
-        bool         has_network = needsNetworkServices;
+        bool has_network = needsNetworkServices;
         //esp_netif_t* netif = esp_netif_next_unsafe(NULL);
         //while (netif != NULL) {
         //    if (esp_netif_get_route_prio(netif) > 0) {
@@ -106,7 +109,7 @@ namespace WebUI {
         //    }
         //    netif = esp_netif_next_unsafe(netif);
         //}
-        
+
         if (!has_network || !http_enable->get()) {
             log_info("Skipping webserver (has network:" << has_network << ", http enable:" << http_enable->get() << ")");
             return;
@@ -194,7 +197,7 @@ namespace WebUI {
             // Serve symbols.txt.gz with Content-Encoding: gzip
             // Browser will automatically decompress it
             std::error_code ec;
-            FluidPath fpath { "/localfs/symbols.txt.gz", localfsName, ec };
+            FluidPath       fpath { "/localfs/symbols.txt.gz", localfsName, ec };
             if (ec) {
                 request->send(404, "text/plain", "Symbol map not found. Upload symbols.txt.gz to /localfs/");
                 return;
@@ -202,14 +205,12 @@ namespace WebUI {
 
             try {
                 FileStream* file = new FileStream(fpath, "r", "");
-                
+
                 // Use shared_ptr to safely manage file lifetime across callbacks
                 auto filePtr = std::shared_ptr<FileStream>(file);
-                
+
                 AsyncWebServerResponse* response = request->beginResponse(
-                    "text/plain",
-                    filePtr->size(),
-                    [filePtr](uint8_t* buffer, size_t maxLen, size_t total) mutable -> size_t {
+                    "text/plain", filePtr->size(), [filePtr](uint8_t* buffer, size_t maxLen, size_t total) mutable -> size_t {
                         if (!filePtr || total >= filePtr->size()) {
                             filePtr.reset();
                             return 0;
@@ -222,15 +223,13 @@ namespace WebUI {
                     });
 
                 // No disconnect handler needed - shared_ptr will auto-cleanup when last reference goes away
-                
+
                 // Key: serve with Content-Encoding: gzip so browser decompresses
                 response->addHeader("Content-Encoding", "gzip");
                 response->addHeader("Cache-Control", "no-cache");
                 request->send(response);
-                
-            } catch (const Error err) {
-                request->send(404, "text/plain", "Symbol map not found. Upload symbols.txt.gz to /localfs/");
-            }
+
+            } catch (const Error err) { request->send(404, "text/plain", "Symbol map not found. Upload symbols.txt.gz to /localfs/"); }
         });
 
         // Performance profiler dashboard
@@ -240,7 +239,10 @@ namespace WebUI {
             }
         });
 
-        if (WiFi.getMode() == WIFI_AP) {
+        _nextModeCheck = esp_timer_get_time() + ModeCheckTimeout;
+        _lastMode      = WiFi.getMode();
+
+        if (_lastMode == WIFI_AP) {
             // if DNSServer is started with "*" for domain name, it will reply with
             // provided IP to all DNS request
             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
@@ -406,8 +408,8 @@ namespace WebUI {
                     file = nullptr;
                     return 0;
                 }
-                int bytes  = int(min(file->size(), maxLen));
-                /*int actual = */file->read(buffer, bytes);  // return 0 even when no bytes were loaded
+                int bytes = int(min(file->size(), maxLen));
+                /*int actual = */ file->read(buffer, bytes);  // return 0 even when no bytes were loaded
                 if (bytes == 0 || (bytes + total) >= file->size()) {
                     file = nullptr;
                 }
@@ -437,7 +439,12 @@ namespace WebUI {
         return true;
     }
     void WebUI_Server::sendWithOurAddress(AsyncWebServerRequest* request, const char* content, uint16_t code) {
-        auto        ip    = WiFi.getMode() == WIFI_STA ? WiFi.localIP() : WiFi.softAPIP();
+        if (esp_timer_get_time() > _nextModeCheck) {
+            _nextModeCheck = esp_timer_get_time() + ModeCheckTimeout;
+            _lastMode      = WiFi.getMode();
+        }
+
+        auto        ip    = _lastMode == WIFI_STA ? WiFi.localIP() : WiFi.softAPIP();
         std::string ipstr = IP_string(ip);
         if (_port != 80) {
             ipstr += ":";
@@ -479,8 +486,7 @@ namespace WebUI {
         if (!(request->hasParam("forcefallback") && request->getParam("forcefallback")->value() == "yes")) {
             if (myStreamFile(request, "index.html", false, true)) {
                 return;
-            }
-            else if (myStreamFile(request, "test_camera.html", false, true)) {
+            } else if (myStreamFile(request, "test_camera.html", false, true)) {
                 return;
             }
         }
@@ -511,7 +517,12 @@ namespace WebUI {
             return;
         }
 
-        if (WiFi.getMode() == WIFI_AP) {
+        if (esp_timer_get_time() > _nextModeCheck) {
+            _nextModeCheck = esp_timer_get_time() + ModeCheckTimeout;
+            _lastMode      = WiFi.getMode();
+        }
+
+        if (_lastMode == WIFI_AP) {
             sendCaptivePortal(request);
             return;
         }
@@ -1123,17 +1134,17 @@ namespace WebUI {
                     j.begin_object();
                     j.member("name", dir_entry.path().filename().string());
                     j.member("shortname", dir_entry.path().filename().string());
-                    
+
                     // Use error_code versions to avoid crashes on SD card errors
                     std::error_code size_ec;
-                    bool is_dir = dir_entry.is_directory(size_ec);
+                    bool            is_dir = dir_entry.is_directory(size_ec);
                     if (!size_ec && !is_dir) {
                         auto size = stdfs::file_size(dir_entry.path(), size_ec);
                         j.member("size", size_ec ? -1 : size);
                     } else {
                         j.member("size", -1);
                     }
-                    
+
                     j.member("datetime", "");
                     j.end_object();
                 }
@@ -1151,7 +1162,7 @@ namespace WebUI {
         }
 
         j.member("path", path.c_str());
-        
+
         if (!ec) {
             j.member("total", formatBytes(totalspace));
             j.member("used", formatBytes(usedspace + 1));
@@ -1296,10 +1307,16 @@ namespace WebUI {
     }
 
     void WebUI_Server::poll() {
+        if (esp_timer_get_time() > _nextModeCheck) {
+            _nextModeCheck = esp_timer_get_time() + ModeCheckTimeout;
+            _lastMode      = WiFi.getMode();
+        }
+
         static uint32_t start_time = millis();
-        if (WiFi.getMode() == WIFI_AP) {
+        if (_lastMode == WIFI_AP) {
             dnsServer.processNextRequest();
         }
+
         if (_schedule_reboot and _schedule_reboot_time == millis()) {
             _schedule_reboot = false;
             protocol_send_event(&fullResetEvent);

@@ -27,6 +27,7 @@ const int BAUD_RATE = 115200;
 #include <esp_task_wdt.h>
 
 #include "esp32-hal.h"  // disableCore0WDT
+#include "esp_log.h" // disable logs
 
 #include <esp_idf_version.h>
 
@@ -37,6 +38,7 @@ inline void platform_preinit() {
     // Add current task to the watchdog
     esp_task_wdt_add(NULL);  // NULL means current task
 
+    esp_log_level_set("*", ESP_LOG_ERROR);  // Disable all logs but errors
 #endif
 }
 

@@ -353,6 +353,7 @@ esp_err_t fnc_uart_set_baudrate(uart_port_t uart_num, uint32_t baud_rate) {
     if (uart_num < SOC_UART_HP_NUM) {
         HP_UART_SRC_CLK_ATOMIC() {
             /*success = */uart_hal_set_baudrate(&(uart_context[uart_num].hal), baud_rate, sclk_freq);
+            success = true;
         }
     }
 #    if (SOC_UART_LP_NUM >= 1)
@@ -971,6 +972,7 @@ esp_err_t fnc_uart_param_config(uart_port_t uart_num, const uart_config_t* uart_
         HP_UART_SRC_CLK_ATOMIC() {
             uart_hal_set_sclk(&(uart_context[uart_num].hal), uart_sclk_sel);
             /*success = */uart_hal_set_baudrate(&(uart_context[uart_num].hal), uart_config->baud_rate, sclk_freq);
+            success = true;
         }
     }
 #    if (SOC_UART_LP_NUM >= 1)

@@ -11,6 +11,7 @@
 #include "Authentication.h"  // AuthenticationLevel
 
 #include <freertos/task.h>
+#include <WiFi.h>
 
 class AsyncWebSocket;
 class AsyncWebServer;
@@ -57,7 +58,7 @@ namespace WebUI {
         int init_priority() override { return 0x5500; };
 
         // static long     get_client_ID();
-        static uint16_t port() { return _port; }
+        static uint16_t        port() { return _port; }
         static AsyncWebServer* getWebServer() { return _webserver; }
 
         ~WebUI_Server();
@@ -77,6 +78,10 @@ namespace WebUI {
         static bool         _schedule_reboot;
         static uint32_t     _schedule_reboot_time;
 
+        static const uint64_t ModeCheckTimeout = 100'000;
+        static uint64_t _nextModeCheck;
+        static wifi_mode_t _lastMode;
+
         static const char* getContentType(const char* filename);
 
         static AuthenticationLevel is_authenticated();
@@ -95,17 +100,13 @@ namespace WebUI {
         static void        handle_login(AsyncWebServerRequest* request);
         static void        handle_not_found(AsyncWebServerRequest* request);
         static void        _handle_web_command(AsyncWebServerRequest* request, bool);
-        static void        handle_web_command(AsyncWebServerRequest* request) {
-                   _handle_web_command(request, false);
-        }
-        static void handle_web_command_silent(AsyncWebServerRequest* request) {
-            _handle_web_command(request, true);
-        }
-        static void handleReloadBlocked(AsyncWebServerRequest* request);
-        static void handleFeedholdReload(AsyncWebServerRequest* request);
-        static void handleCyclestartReload(AsyncWebServerRequest* request);
-        static void handleRestartReload(AsyncWebServerRequest* request);
-        static void handleDidRestart(AsyncWebServerRequest* request);
+        static void        handle_web_command(AsyncWebServerRequest* request) { _handle_web_command(request, false); }
+        static void        handle_web_command_silent(AsyncWebServerRequest* request) { _handle_web_command(request, true); }
+        static void        handleReloadBlocked(AsyncWebServerRequest* request);
+        static void        handleFeedholdReload(AsyncWebServerRequest* request);
+        static void        handleCyclestartReload(AsyncWebServerRequest* request);
+        static void        handleRestartReload(AsyncWebServerRequest* request);
+        static void        handleDidRestart(AsyncWebServerRequest* request);
         static void LocalFSFileupload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
         static void handleFileList(AsyncWebServerRequest* request);
         static void handleUpdate(AsyncWebServerRequest* request);
@@ -133,9 +134,7 @@ namespace WebUI {
 
         // static void sendFSError(Error err);
         static void sendJSON(AsyncWebServerRequest* request, uint16_t code, const char* s);
-        static void sendJSON(AsyncWebServerRequest* request, uint16_t code, const std::string& s) {
-            sendJSON(request, code, s.c_str());
-        }
+        static void sendJSON(AsyncWebServerRequest* request, uint16_t code, const std::string& s) { sendJSON(request, code, s.c_str()); }
         static void sendAuth(AsyncWebServerRequest* request, const char* status, const char* level, const char* user);
         static void sendAuthFailed(AsyncWebServerRequest* request);
         static void sendStatus(AsyncWebServerRequest* request, uint16_t code, const char* str);

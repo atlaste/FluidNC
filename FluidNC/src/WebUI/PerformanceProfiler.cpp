@@ -310,6 +310,14 @@ namespace WebUI {
             return;
         }
 
+        // Clean up stale clients before iterating
+        _profiler_socket->cleanupClients();
+
+        // Check again after cleanup
+        if (_profiler_socket->count() == 0) {
+            return;
+        }
+    
         // Capture total_cycles for this batch (for percentage calculation)
         uint64_t batch_total_cycles = _total_cycles;
         

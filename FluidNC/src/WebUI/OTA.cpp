@@ -1,3 +1,9 @@
+#include <esp_idf_version.h>
+
+// ArduinoOTA.handle() in OTA will consume 30% CPU easily. Let's disable it for now in IDF builds.
+
+#if ESP_IDF_VERSION_MAJOR < 5
+
 // Copyright (c) 2024 Mitch Bradley All rights reserved.
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
@@ -72,3 +78,5 @@ public:
 };
 
 ModuleFactory::InstanceBuilder<OTA> __attribute__((init_priority(106))) ota_module("ota", true);
+
+#endif

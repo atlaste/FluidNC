@@ -51,7 +51,7 @@ uint8_t FM25VXX::spi_transfer_byte(uint8_t data) {
     trans.flags             = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
     trans.tx_data[0]        = data;
 
-    spi_device_transmit(_spi_device, &trans);
+    spi_device_polling_transmit(_spi_device, &trans);
     return trans.rx_data[0];
 }
 
@@ -65,7 +65,7 @@ void FM25VXX::spi_transfer_bytes(const uint8_t* tx_data, uint8_t* rx_data, size_
     trans.tx_buffer         = tx_data;
     trans.rx_buffer         = rx_data;
 
-    spi_device_transmit(_spi_device, &trans);
+    spi_device_polling_transmit(_spi_device, &trans);
 }
 
 // Enable writes - must be called before any write operation
