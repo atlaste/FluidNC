@@ -121,8 +121,7 @@ int32_t ToolTable::parseToolNumber(const char* sectionName) {
 bool ToolTable::load(const std::string& filename) {
     _filename = filename;
     clearTools();
-    if (_turret == nullptr)
-    {
+    if (_turret == nullptr) {
         _turret = new TurretMapping();
     }
     memset(_turret->_position, 0, sizeof(_turret->_position));
@@ -206,6 +205,8 @@ bool ToolTable::save() {
         return true;  // Nothing to save
     }
 
+    log_info("Tool table was changes. Saving tool table to " << _filename);
+
     try {
         FileStream file(_filename, "wb", "");
 
@@ -281,7 +282,7 @@ void ToolTable::setToolRadius(int32_t toolNum, float radius) {
     ToolEntry* tool = findTool(toolNum);
     if (tool == nullptr) {
         // Create new entry with just radius
-        tool = new ToolEntry(toolNum);
+        tool          = new ToolEntry(toolNum);
         tool->_radius = radius;
         _tools.push_back(tool);
     } else {

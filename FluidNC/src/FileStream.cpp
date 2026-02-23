@@ -87,6 +87,19 @@ void FileStream::restore() {
     }
 }
 
+void FileStream::sendLine(MsgLevel level, const char* line) {
+    print_msg(level, line);
+}
+
+void FileStream::sendLine(MsgLevel level, const std::string* line) {
+    print_msg(level, line->c_str());
+    delete line;
+}
+
+void FileStream::sendLine(MsgLevel level, const std::string& line) {
+    print_msg(level, line.c_str());
+}
+
 FileStream::~FileStream() {
     if (_fd) {
         fclose(_fd);

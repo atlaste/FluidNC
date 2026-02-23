@@ -73,19 +73,21 @@ gc_modal_t modal_defaults = {
 };
 // clang-format on
 
+bool gc_state_restored = false;
+
 void gc_init() {
-    // Reset parser state:
+    if (!gc_state_restored) {
+        // Reset parser state:
+        memset(&gc_state, 0, sizeof(parser_state_t));
+        
+        // Load default G54 coordinate system.
+        gc_state.modal          = modal_defaults;
+        gc_state.modal.override = config->_start->_deactivateParking ? Override::Disabled : Override::ParkingMotion;
+        gc_state.current_tool   = -1;
+        coords[gc_state.modal.coord_select]->get(gc_state.coord_system);
+    }
 
-    memset(&gc_state, 0, sizeof(parser_state_t));
-
-    // Load default G54 coordinate system.
-    gc_state.modal          = modal_defaults;
-    gc_state.modal.override = config->_start->_deactivateParking ? Override::Disabled : Override::ParkingMotion;
-    gc_state.current_tool   = -1;
-    coords[gc_state.modal.coord_select]->get(gc_state.coord_system);
     flowcontrol_init();
-    
-    // Reset cutter compensation state
     mc_cutter_comp_reset();
 }
 
@@ -163,7 +165,7 @@ static void gcode_comment_msg(const char* comment) {
 static std::optional<WaitOnInputMode> validate_wait_on_input_mode_value(objnum_t);
 static Error                          gc_wait_on_input(bool is_digital, objnum_t input_number, WaitOnInputMode mode, float timeout);
 
-// TODO FIXME NOTES SdB 
+// TODO FIXME NOTES SdB
 // LinuxCNC uses some g-codes that aren't supported yet. Namely:
 // x G7: Diameter mode for lathes. Sets some g-code parser state.
 // x G8: Radius mode for lathes. Sets some g-code parser state.
@@ -973,8 +975,7 @@ Error gc_execute_line(const char* input_line) {
                         if (n_axis > X_AXIS) {
                             axis_word_bit = GCodeWord::X;
                             // In G7 diameter mode, X values are halved to convert to radius
-                            if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter &&
-                                config->_css_axis == X_AXIS) {
+                            if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter && config->_css_axis == X_AXIS) {
                                 gc_block.values.xyz[X_AXIS] = value * 0.5f;
                             } else {
                                 gc_block.values.xyz[X_AXIS] = value;
@@ -1000,7 +1001,7 @@ Error gc_execute_line(const char* input_line) {
                         break;
                     case 'Z':
                         if (n_axis > Z_AXIS) {
-                            axis_word_bit               = GCodeWord::Z;
+                            axis_word_bit = GCodeWord::Z;
                             // In G7 diameter mode, X values are halved to convert to radius
                             if (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter && config->_css_axis == Z_AXIS) {
                                 gc_block.values.xyz[Z_AXIS] = value * 0.5f;
@@ -1330,7 +1331,7 @@ Error gc_execute_line(const char* input_line) {
             if (bits_are_false(value_words, (bitnum_to_mask(GCodeWord::P) | bitnum_to_mask(GCodeWord::L)))) {
                 return Error::GcodeValueWordMissing;  // [P/L word missing]
             }
-            
+
             // Check for valid L values
             uint8_t l_value = gc_block.values.l;
             if (l_value == 1 || l_value == 10 || l_value == 11) {
@@ -1341,7 +1342,7 @@ Error gc_execute_line(const char* input_line) {
                     return Error::GcodeValueWordMissing;  // Tool number must be > 0
                 }
                 clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P)));
-                
+
                 // Pre-calculate tool offset based on L value
                 // coord_data is reused here to store tool offset values
                 memset(coord_data, 0, sizeof(coord_data));
@@ -1353,8 +1354,8 @@ Error gc_execute_line(const char* input_line) {
                         } else if (l_value == 10) {
                             // L10: Set tool offset so current position equals specified work position
                             // TLO = MPos - WCS - G92 - DesiredWPos
-                            coord_data[axis] = gc_state.position[axis] - gc_state.coord_system[axis] 
-                                             - gc_state.coord_offset[axis] - gc_block.values.xyz[axis];
+                            coord_data[axis] = gc_state.position[axis] - gc_state.coord_system[axis] - gc_state.coord_offset[axis] -
+                                               gc_block.values.xyz[axis];
                         } else {  // l_value == 11
                             // L11: Set tool offset relative to G59.3 coordinate system
                             float g59_3_offset[MAX_N_AXIS];
@@ -1370,7 +1371,7 @@ Error gc_execute_line(const char* input_line) {
                 if (l_value == 2 && bitnum_is_true(value_words, GCodeWord::R)) {
                     return Error::GcodeUnsupportedCommand;  // [G10 L2 R not supported]
                 }
-                
+
                 // Select the coordinate system based on the P word
                 pValue = int8_t(truncf(gc_block.values.p));  // Convert p value to integer
                 if (pValue > 0) {
@@ -1534,9 +1535,9 @@ Error gc_execute_line(const char* input_line) {
                 return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
             }
             // I, J, K, R, Q are optional with defaults
-            clear_bits(value_words, (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | 
-                                    bitnum_to_mask(GCodeWord::K) | bitnum_to_mask(GCodeWord::R) |
-                                    bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+            clear_bits(value_words,
+                       (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | bitnum_to_mask(GCodeWord::K) |
+                        bitnum_to_mask(GCodeWord::R) | bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
         } else {
             // Check if feed rate is defined for the motion modes that require it.
             if (gc_block.values.f == 0.0) {
@@ -1857,8 +1858,7 @@ Error gc_execute_line(const char* input_line) {
     // In CSS mode (G96), S value is surface speed in m/min
     // In constant RPM mode (G97), S value is RPM
     // G50 uses S word for max spindle speed, not current speed - skip this section
-    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed &&
-        ((gc_state.spindle_speed != gc_block.values.s) || syncLaser)) {
+    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed && ((gc_state.spindle_speed != gc_block.values.s) || syncLaser)) {
         if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
             // CSS mode - store surface speed, calculate RPM for immediate spindle command
             gc_state.css_surface_speed = gc_block.values.s;
@@ -1871,8 +1871,8 @@ Error gc_execute_line(const char* input_line) {
             if (css_axis != INVALID_AXIS) {
                 float* mpos = get_mpos();
                 // Tool tip position = MPos - TLO (LinuxCNC convention)
-                float  tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
-                float  radius = fabsf(tool_tip_pos);
+                float tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
+                float radius       = fabsf(tool_tip_pos);
                 if (radius < 0.001f) {
                     radius = 0.001f;  // Minimum radius to avoid division by zero
                 }
@@ -1911,7 +1911,7 @@ Error gc_execute_line(const char* input_line) {
         pl_data->css_max_rpm       = gc_state.css_max_rpm > 0 ? gc_state.css_max_rpm : spindle->maxSpeed();
 
         // Pass tool offset so planner can calculate physical distance from spindle center
-        axis_t css_axis = config->_css_axis;
+        axis_t css_axis          = config->_css_axis;
         pl_data->css_tool_offset = (css_axis != INVALID_AXIS) ? gc_state.tool_length_offset[css_axis] : 0.0f;
     } else {
         pl_data->css_mode = false;
@@ -1927,13 +1927,13 @@ Error gc_execute_line(const char* input_line) {
             protocol_buffer_synchronize();  // wait for motion in buffer to finish
 
             // Check if P parameter specifies a holder index
-            auto spindles = Spindles::SpindleFactory::objects();
+            auto    spindles     = Spindles::SpindleFactory::objects();
             int32_t holder_index = 0;  // Default to first spindle
             if (bitnum_is_true(value_words, GCodeWord::P)) {
                 holder_index = int32_t(truncf(gc_block.values.p));
                 clear_bitnum(value_words, GCodeWord::P);
             }
-            
+
             if (holder_index >= 0 && holder_index < (int32_t)spindles.size()) {
                 // Select spindle by index (P parameter)
                 Spindles::Spindle* target_spindle = spindles[holder_index];
@@ -1942,7 +1942,7 @@ Error gc_execute_line(const char* input_line) {
                         spindle->stop();
                         stopped_spindle = true;
                     }
-                    spindle = target_spindle;
+                    spindle     = target_spindle;
                     new_spindle = true;
                     log_info("Selected holder P" << holder_index << " (" << spindle->name() << ")");
                     Stepper::updateSpindleCallback();
@@ -1952,10 +1952,9 @@ Error gc_execute_line(const char* input_line) {
                 return Error::GcodeValueWordInvalid;
             } else {
                 // No P or P0: use default tool-based spindle selection
-                Spindles::Spindle::switchSpindle(
-                    gc_state.selected_tool, spindles, spindle, stopped_spindle, new_spindle);
+                Spindles::Spindle::switchSpindle(gc_state.selected_tool, spindles, spindle, stopped_spindle, new_spindle);
             }
-            
+
             if (stopped_spindle) {
                 gc_block.modal.spindle = SpindleState::Disable;
             }
@@ -1967,25 +1966,32 @@ Error gc_execute_line(const char* input_line) {
             if (spindle->_atc_name == "" && spindle->_m6_macro.get().empty()) {  // if neither of these exist we need to set the value here
                 gc_state.current_tool = gc_state.selected_tool;
             }
-            
+
             // Apply TLO from tool table if ATC doesn't handle it internally
-            // Check if there's an ATC that handles TLO
             bool atc_handles_tlo = false;
             if (spindle->atc() != nullptr) {
                 atc_handles_tlo = spindle->atc()->handles_tlo();
             }
-            if (!atc_handles_tlo && toolTable != nullptr && gc_state.current_tool > 0) {
-                float offset[MAX_N_AXIS] = {};
-                if (toolTable->getToolOffset(gc_state.current_tool, offset)) {
-                    for (size_t idx = 0; idx < n_axis; idx++) {
-                        gc_state.tool_length_offset[idx] = offset[idx];
+            if (!atc_handles_tlo && toolTable != nullptr) {
+                if (gc_state.current_tool > 0) {
+                    float offset[MAX_N_AXIS] = {};
+                    if (toolTable->getToolOffset(gc_state.current_tool, offset)) {
+                        for (size_t idx = 0; idx < n_axis; idx++) {
+                            gc_state.tool_length_offset[idx] = offset[idx];
+                        }
+                        gc_state.modal.tool_length = ToolLengthOffset::Enable;
+                        coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
+                        log_info("Applied TLO from tool table for tool " << gc_state.current_tool);
                     }
-                    gc_state.modal.tool_length = ToolLengthOffset::Enable;
+                } else {
+                    for (size_t idx = 0; idx < n_axis; idx++) {
+                        gc_state.tool_length_offset[idx] = 0.0;
+                    }
+                    gc_state.modal.tool_length = ToolLengthOffset::Cancel;
                     coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
-                    log_info("Applied TLO from tool table for tool " << gc_state.current_tool);
                 }
             }
-            
+
             report_ovr_counter = 0;  // Set to report change immediately
             gc_ovr_changed();
         }
@@ -2000,15 +2006,15 @@ Error gc_execute_line(const char* input_line) {
         bool stopped_spindle   = false;  // was spindle stopped via the change
         bool new_spindle       = false;  // was the spindle changed
         protocol_buffer_synchronize();   // wait for motion in buffer to finish
-        
+
         // Check if P parameter specifies a holder index
-        auto spindles = Spindles::SpindleFactory::objects();
+        auto    spindles     = Spindles::SpindleFactory::objects();
         int32_t holder_index = 0;  // Default to first spindle
         if (bitnum_is_true(value_words, GCodeWord::P)) {
             holder_index = int32_t(truncf(gc_block.values.p));
             clear_bitnum(value_words, GCodeWord::P);
         }
-        
+
         Spindles::Spindle* target_spindle = spindle;
         if (holder_index >= 0 && holder_index < (int32_t)spindles.size()) {
             target_spindle = spindles[holder_index];
@@ -2025,7 +2031,7 @@ Error gc_execute_line(const char* input_line) {
             Spindles::Spindle::switchSpindle(gc_state.selected_tool, spindles, spindle, stopped_spindle, new_spindle);
             target_spindle = spindle;
         }
-        
+
         if (stopped_spindle) {
             gc_block.modal.spindle = SpindleState::Disable;
         }
@@ -2033,12 +2039,12 @@ Error gc_execute_line(const char* input_line) {
             gc_state.spindle_speed = 0.0;
         }
         target_spindle->tool_change(gc_state.selected_tool, false, true);
-        
+
         // Only update gc_state.current_tool if we're setting it on the primary holder
         if (holder_index == 0 || target_spindle == spindle) {
             gc_state.current_tool = gc_block.values.q;
         }
-        report_ovr_counter    = 0;  // Set to report change immediately
+        report_ovr_counter = 0;  // Set to report change immediately
         gc_ovr_changed();
     }
     // [7. Spindle control ]:
@@ -2048,7 +2054,7 @@ Error gc_execute_line(const char* input_line) {
         // rather than gc_state, is used to manage laser state for non-laser motions.
         if (!state_is(State::CheckMode)) {
             protocol_buffer_synchronize();
-            
+
             // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
             // Calculate actual RPM from machine position - tool offset when turning spindle on
             uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
@@ -2058,8 +2064,8 @@ Error gc_execute_line(const char* input_line) {
                 if (css_axis != INVALID_AXIS) {
                     float* mpos = get_mpos();
                     // Tool tip position = MPos - TLO (LinuxCNC convention)
-                    float  tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
-                    float  radius = fabsf(tool_tip_pos);
+                    float tool_tip_pos = mpos[css_axis] - gc_state.tool_length_offset[css_axis];
+                    float radius       = fabsf(tool_tip_pos);
                     if (radius < 0.001f) {
                         radius = 0.001f;
                     }
@@ -2072,7 +2078,7 @@ Error gc_execute_line(const char* input_line) {
                     actual_rpm = (uint32_t)rpm;
                 }
             }
-            
+
             spindle->setState(gc_block.modal.spindle, actual_rpm);
         }
         gc_ovr_changed();
@@ -2209,7 +2215,7 @@ Error gc_execute_line(const char* input_line) {
     // [14. Cutter length compensation ]: G43, G43.1 and G49 supported.
     if (axis_command == AxisCommand::ToolLengthOffset) {  // Indicates a change.
         gc_state.modal.tool_length = gc_block.modal.tool_length;
-        
+
         if (gc_state.modal.tool_length == ToolLengthOffset::Cancel) {
             // G49 - Cancel tool length offset
             for (size_t idx = 0; idx < n_axis; idx++) {

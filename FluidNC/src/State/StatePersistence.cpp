@@ -211,6 +211,13 @@ void StatePersistence::saveAllSections() {
         return;
     }
 
+    static int64_t lastSaveDbg = 0;
+    if (esp_timer_get_time() > lastSaveDbg)
+    {
+        lastSaveDbg = esp_timer_get_time() + 1000000;
+        log_debug("Saving state...");
+    }
+
     savePositionState();
     saveParserState();
     saveParameters();
@@ -251,8 +258,25 @@ void StatePersistence::restoreParserState() {
         return;
     }
 
-    // Restore entire gc_state structure directly
     _fram->ReadBlock(FRAM_PARSER_STATE_ADDR, sizeof(gc_state), 1, (uint8_t*)&gc_state);
+
+    // G92 and TLO coords[] entries are RAM-only (is_saved=false), so they're
+    // zeroed on boot. Push the FRAM-restored values into them.
+    coords[CoordIndex::G92]->set(gc_state.coord_offset);
+    coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
+
+    // WCS offsets (G54-G59.3) are NVS-backed; reload the active one.
+    coords[gc_state.modal.coord_select]->get(gc_state.coord_system);
+
+    // Recompute position from the motor steps restored by restorePositionState()
+    // rather than trusting the FRAM-saved position which may be slightly stale.
+    gc_sync_position();
+
+    gc_state_restored = true;
+
+    gc_ngc_changed(CoordIndex::G92);
+    gc_ngc_changed(CoordIndex::TLO);
+    gc_wco_changed();
 }
 
 void StatePersistence::restoreParameters() {
@@ -352,6 +376,8 @@ void StatePersistence::restoreAllSections() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
     }
+
+    log_info("Restoring state")
 
     restorePositionState();
     restoreParserState();

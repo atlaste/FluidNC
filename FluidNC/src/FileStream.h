@@ -64,5 +64,13 @@ public:
     void save() override;
     void restore() override;
 
+    // FileStream must always write synchronously -- never through the async
+    // message queue. FileStreams are typically stack-local temporaries; if
+    // sendLine posts to the queue, the file may be closed before output_loop
+    // processes the message, causing use-after-free on the FILE*.
+    void sendLine(MsgLevel level, const char* line) override;
+    void sendLine(MsgLevel level, const std::string* line) override;
+    void sendLine(MsgLevel level, const std::string& line) override;
+
     ~FileStream() override;
 };

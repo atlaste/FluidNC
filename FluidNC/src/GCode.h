@@ -348,6 +348,7 @@ struct parser_state_t {
 };
 
 extern parser_state_t gc_state;
+extern bool           gc_state_restored;
 
 struct parser_block_t {
     NonModal     non_modal_command;

@@ -32,7 +32,5 @@ namespace ATCs {
 
         // Get raw voltage reading in mV
         float getVoltage();
-
-        // TODO FIXME: Group and init methods.
     };
 }

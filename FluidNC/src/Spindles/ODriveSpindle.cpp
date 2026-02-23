@@ -366,8 +366,8 @@ namespace Spindles {
         // Initialization is complete, so now it's okay to run the queue task:
         if (!cmd_queue) {  // init can happen many times, we only want to start one task
             const int ODRIVE_QUEUE_SIZE = 32;
-            cmd_queue                   = xQueueCreate(ODRIVE_QUEUE_SIZE, sizeof(ODriveAction));
             speed_queue                 = xQueueCreate(ODRIVE_QUEUE_SIZE, sizeof(uint32_t));
+            cmd_queue                   = xQueueCreate(ODRIVE_QUEUE_SIZE, sizeof(ODriveAction));
 
             xTaskCreatePinnedToCore(cmd_task,                // task
                                     "ODrive_cmdTaskHandle",  // name for task
@@ -495,40 +495,43 @@ namespace Spindles {
         }
 
         // Reset speed queue first
-        xQueueReset(speed_queue);
+        if (speed_queue != nullptr) {
+            xQueueReset(speed_queue);
 
-        // Update speed override:
-        _last_override_value = sys.spindle_speed_ovr();
-        auto lastSpeed       = _sync_dev_speed;
+            // Update speed override:
+            _last_override_value = sys.spindle_speed_ovr();
+            auto lastSpeed       = _sync_dev_speed;
 
-        // Wait while it's changing.
-        while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
-               ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
-            // Keep re-arming startRamp() to prevent SpindleEncoder from validating
-            // while we're waiting for the ODrive cmd_task to process and reach target.
-            startRamp(_default_ramp_delay);
+            // Wait while it's changing.
+            while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
+                   ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
+                // Keep re-arming startRamp() to prevent SpindleEncoder from validating
+                // while we're waiting for the ODrive cmd_task to process and reach target.
+                startRamp(_default_ramp_delay);
 
-            if (!xQueueReceive(speed_queue, &_sync_dev_speed, 500)) {
-                if (unchanged >= limit) {
-                    mc_critical(ExecAlarm::SpindleControl);
-                    log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
-                    _syncing = false;
+                if (!xQueueReceive(speed_queue, &_sync_dev_speed, 500)) {
+                    if (unchanged >= limit) {
+                        mc_critical(ExecAlarm::SpindleControl);
+                        log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is "
+                                         << _sync_dev_speed);
+                        _syncing = false;
 
-                    // Let's just say it's valid again; otherwise we get issues later.
-                    endRamp();
-                    return;
+                        // Let's just say it's valid again; otherwise we get issues later.
+                        endRamp();
+                        return;
+                    }
                 }
-            }
 
-            // Check if the speed changed significantly enough.
-            auto diff = int32_t(lastSpeed) - int32_t(_sync_dev_speed);
-            if (diff < 0) {
-                diff = -diff;
-            }
-            if (diff < int32_t(allowedSlop)) {
-                ++unchanged;
-            } else {
-                unchanged = 0;
+                // Check if the speed changed significantly enough.
+                auto diff = int32_t(lastSpeed) - int32_t(_sync_dev_speed);
+                if (diff < 0) {
+                    diff = -diff;
+                }
+                if (diff < int32_t(allowedSlop)) {
+                    ++unchanged;
+                } else {
+                    unchanged = 0;
+                }
             }
         }
 

@@ -28,7 +28,5 @@ namespace ATCs {
         int readMillivolts();
 
         bool isCalibrated() const;
-
-        // TODO FIXME: Group and init methods.
     };
 }

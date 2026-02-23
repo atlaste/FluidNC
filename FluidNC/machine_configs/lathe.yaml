@@ -225,14 +225,15 @@ uvc_camera:
   buffer_count: 3
 
 pneumatic_tool_turret:
-  offsetsPerRevolution: 320
-  toolOffsets: 0 40 80 120 160 200 240 280
-  useTLO: true
-  toolTypes: "OOOOOOOO"
-  safeX: 29
-  safeZ: 0
+  safe_x: 29
+  safe_z: 0
+  offsets_per_revolution: 320
+  tool_offsets: 0 40 80 120 160 200 240 280 32 72 112 152 192 232 272 312
+  tool_types: "OOOOOOOOIIIIIIII"
+  safety_margin: 5
+  use_pressure_sensor: true
   # tool post length is 120mm, so we need to retract to -120mm to avoid crashing into the tool post.
-  maxRetractZ: -120 
+  # max_retract_z: -120 
 
 arc_tolerance_mm: 0.002000
 junction_deviation_mm: 0.010000

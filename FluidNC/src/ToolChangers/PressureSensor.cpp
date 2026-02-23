@@ -2,14 +2,10 @@
 #include "NutsBolts.h"
 
 namespace ATCs {
-    PressureSensor::PressureSensor( float sensor_min_v,
-                                   float sensor_max_v,
-                                   float min_press_mpa,
-                                   float max_press_mpa,
-                                   float voltage_divider_ratio,
-                                   int   samples) :
-        adc(ADC_UNIT_1, ADC_CHANNEL_1, ADC_ATTEN_DB_12),
-        min_pressure_mpa(min_press_mpa), max_pressure_mpa(max_press_mpa), num_samples(samples) {
+    PressureSensor::PressureSensor(
+        float sensor_min_v, float sensor_max_v, float min_press_mpa, float max_press_mpa, float voltage_divider_ratio, int samples) :
+        adc(ADC_UNIT_1, ADC_CHANNEL_1, ADC_ATTEN_DB_12), min_pressure_mpa(min_press_mpa), max_pressure_mpa(max_press_mpa),
+        num_samples(samples) {
         // Apply voltage divider ratio to sensor voltage range
         min_voltage_mv = sensor_min_v * voltage_divider_ratio * 1000.0f;
         max_voltage_mv = sensor_max_v * voltage_divider_ratio * 1000.0f;
