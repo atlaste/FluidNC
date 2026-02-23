@@ -26,9 +26,9 @@ void BasePlanner::reset() {
 }
 
 void BasePlanner::resetBuffer() {
-    _block_buffer_tail = 0;
-    _block_buffer_head = 0;
-    _next_buffer_head = 1;
+    _block_buffer_tail    = 0;
+    _block_buffer_head    = 0;
+    _next_buffer_head     = 1;
     _block_buffer_planned = 0;
 }
 
@@ -155,20 +155,20 @@ void BasePlanner::computeProfileParameters(plan_block_t* block, float nominal_sp
 
 // Re-calculates buffered motions profile parameters upon a motion-based override change.
 void BasePlanner::updateVelocityProfileParameters() {
-    uint8_t block_index = _block_buffer_tail;
+    uint8_t       block_index = _block_buffer_tail;
     plan_block_t* block;
-    float nominal_speed;
-    float prev_nominal_speed = SOME_LARGE_VALUE;  // Set high for first block nominal speed calculation.
-    
+    float         nominal_speed;
+    float         prev_nominal_speed = SOME_LARGE_VALUE;  // Set high for first block nominal speed calculation.
+
     while (block_index != _block_buffer_head) {
-        block = &_block_buffer[block_index];
+        block         = &_block_buffer[block_index];
         nominal_speed = computeNominalSpeed(block);
         computeProfileParameters(block, nominal_speed, prev_nominal_speed);
         prev_nominal_speed = nominal_speed;
-        block_index = nextBlockIndex(block_index);
+        block_index        = nextBlockIndex(block_index);
     }
     _pl.previous_nominal_speed = prev_nominal_speed;  // Update prev nominal speed for next incoming block.
-    
+
     if (_block_buffer_tail != _block_buffer_head) {
         cycleReinitialize();
     }
@@ -189,20 +189,20 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
     // Prepare and initialize new block. Copy relevant pl_data for block execution.
     plan_block_t* block = &_block_buffer[_block_buffer_head];
     memset(block, 0, sizeof(plan_block_t));  // Zero all block values.
-    
-    block->motion = pl_data->motion;
-    block->coolant = pl_data->coolant;
-    block->spindle = pl_data->spindle;
-    block->spindle_speed = pl_data->spindle_speed;
-    block->line_number = pl_data->line_number;
-    block->is_jog = pl_data->is_jog;
-    block->sync_mode = pl_data->sync_mode;
+
+    block->motion              = pl_data->motion;
+    block->coolant             = pl_data->coolant;
+    block->spindle             = pl_data->spindle;
+    block->spindle_speed       = pl_data->spindle_speed;
+    block->line_number         = pl_data->line_number;
+    block->is_jog              = pl_data->is_jog;
+    block->sync_mode           = pl_data->sync_mode;
     block->feed_per_revolution = pl_data->feed_per_revolution;
 
     // CSS (Constant Surface Speed) data
-    block->css_mode = pl_data->css_mode;
-    block->css_surface_speed = pl_data->css_surface_speed;
-    block->css_max_rpm = pl_data->css_max_rpm;
+    block->css_mode           = pl_data->css_mode;
+    block->css_surface_speed  = pl_data->css_surface_speed;
+    block->css_max_rpm        = pl_data->css_max_rpm;
     block->css_start_position = 0.0f;
 
     // Compute and store initial move distance data
@@ -227,18 +227,18 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
     }
 
     steps_t target_steps[MAX_N_AXIS];
-    float unit_vec[MAX_N_AXIS];
-    auto n_axis = Axes::_numberAxis;
-    
+    float   unit_vec[MAX_N_AXIS];
+    auto    n_axis = Axes::_numberAxis;
+
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
         // Calculate target position in absolute steps, number of steps for each axis, and determine max step events.
         // Also, compute individual axes distance for move and prep unit vector calculations.
         // NOTE: Computes true distance from converted step values.
-        target_steps[axis] = motor_pos_to_steps(target[axis], axis);
-        block->steps[axis] = labs(target_steps[axis] - position_steps[axis]);
+        target_steps[axis]      = motor_pos_to_steps(target[axis], axis);
+        block->steps[axis]      = labs(target_steps[axis] - position_steps[axis]);
         block->step_event_count = MAX(block->step_event_count, block->steps[axis]);
-        float delta_mm = steps_to_motor_pos((target_steps[axis] - position_steps[axis]), axis);
-        unit_vec[axis] = delta_mm;  // Store unit vector numerator
+        float delta_mm          = steps_to_motor_pos((target_steps[axis] - position_steps[axis]), axis);
+        unit_vec[axis]          = delta_mm;  // Store unit vector numerator
         // Set direction bits. Bit enabled always means direction is negative.
         if (delta_mm < 0.0) {
             block->direction_bits |= bitnum_to_mask(axis);
@@ -254,9 +254,9 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
     // down such that no individual axes maximum values are exceeded with respect to the line direction.
     // NOTE: This calculation assumes all axes are orthogonal (Cartesian) and works with ABC-axes,
     // if they are also orthogonal/independent. Operates on the absolute value of the unit vector.
-    block->millimeters = convert_delta_vector_to_unit_vector(unit_vec);
+    block->millimeters  = convert_delta_vector_to_unit_vector(unit_vec);
     block->acceleration = limit_acceleration_by_axis_maximum(unit_vec);
-    block->rapid_rate = limit_rate_by_axis_maximum(unit_vec);
+    block->rapid_rate   = limit_rate_by_axis_maximum(unit_vec);
 
     // Store programmed rate.
     if (block->motion.rapidMotion) {
@@ -272,7 +272,7 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
     if ((_block_buffer_head == _block_buffer_tail) || (block->motion.systemMotion)) {
         // Initialize block entry speed as zero. Assume it will be starting from rest. Planner will correct this later.
         // If system motion, the system motion block always is assumed to start from rest and end at a complete stop.
-        block->entry_speed_sqr = 0.0;
+        block->entry_speed_sqr        = 0.0;
         block->max_junction_speed_sqr = 0.0;  // Starting from rest. Enforce start from zero velocity.
     } else {
         // Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
@@ -312,11 +312,10 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
             block->max_junction_speed_sqr = SOME_LARGE_VALUE;
         } else {
             convert_delta_vector_to_unit_vector(junction_unit_vec);
-            float junction_acceleration = limit_acceleration_by_axis_maximum(junction_unit_vec);
-            float sin_theta_d2 = sqrtf(0.5f * (1.0f - junction_cos_theta));  // Trig half angle identity. Always positive.
-            block->max_junction_speed_sqr =
-                MAX(MINIMUM_JUNCTION_SPEED * MINIMUM_JUNCTION_SPEED,
-                    (junction_acceleration * config->_junctionDeviation * sin_theta_d2) / (1.0f - sin_theta_d2));
+            float junction_acceleration   = limit_acceleration_by_axis_maximum(junction_unit_vec);
+            float sin_theta_d2            = sqrtf(0.5f * (1.0f - junction_cos_theta));  // Trig half angle identity. Always positive.
+            block->max_junction_speed_sqr = MAX(MINIMUM_JUNCTION_SPEED * MINIMUM_JUNCTION_SPEED,
+                                                (junction_acceleration * config->_junctionDeviation * sin_theta_d2) / (1.0f - sin_theta_d2));
         }
     }
 
@@ -325,15 +324,15 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
         float nominal_speed = computeNominalSpeed(block);
         computeProfileParameters(block, nominal_speed, _pl.previous_nominal_speed);
         _pl.previous_nominal_speed = nominal_speed;
-        
+
         // Update previous path unit_vector and planner position.
         copyAxes(_pl.previous_unit_vec, unit_vec);
         copyAxes(_pl.position, target_steps);
-        
+
         // New block is all set. Update buffer head and next buffer head indices.
         _block_buffer_head = _next_buffer_head;
-        _next_buffer_head = nextBlockIndex(_block_buffer_head);
-        
+        _next_buffer_head  = nextBlockIndex(_block_buffer_head);
+
         // Finish up by recalculating the plan with the new block.
         recalculate();
     }
@@ -353,18 +352,15 @@ float BasePlanner::computeDecelDistance(float v_entry, float v_exit, float accel
 }
 
 // Default velocity profile computation (will be overridden)
-BasePlanner::VelocityProfile BasePlanner::computeVelocityProfile(plan_block_t* block,
-                                                                  float entry_speed,
-                                                                  float exit_speed_sqr) {
+BasePlanner::VelocityProfile BasePlanner::computeVelocityProfile(plan_block_t* block, float entry_speed, float exit_speed_sqr) {
     VelocityProfile profile = {};
     // Default implementation - derived classes should override
     return profile;
 }
 
 // Default ramp update (will be overridden)
-BasePlanner::RampUpdate BasePlanner::updateRamp(uint8_t ramp_type, float time_var,
-                                                 float current_speed, float current_accel,
-                                                 float mm_remaining, float phase_boundary) {
+BasePlanner::RampUpdate BasePlanner::updateRamp(
+    uint8_t ramp_type, float time_var, float current_speed, float current_accel, float mm_remaining, float phase_boundary) {
     RampUpdate update = {};
     // Default implementation - derived classes should override
     return update;

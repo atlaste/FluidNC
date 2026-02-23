@@ -14,14 +14,21 @@
 
 #include "Planner.h"
 #include "Planner/BasePlanner.h"
+#include "Planner/TrapezoidPlanner.h"
 #include "Machine/MachineConfig.h"
 
 // Accessor for the planner instance (used by Stepper.cpp)
 BasePlanner* getPlanner() {
     if (config) {
-        return config->_planner;
+        if (config->_planner) {
+            return config->_planner;
+        } else {
+            log_info("Defaulting to trapezoid planner");
+            config->_planner = new TrapezoidPlanner("trapezoid_planner");
+        }
+    } else {
+        return nullptr;
     }
-    return nullptr;
 }
 
 void plan_init() {

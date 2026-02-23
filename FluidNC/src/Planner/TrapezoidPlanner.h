@@ -20,9 +20,9 @@ public:
     TrapezoidPlanner(const char* name) : BasePlanner(name) {}
 
     // Ramp types for trapezoidal profiles
-    static constexpr uint8_t RAMP_ACCEL = 0;
-    static constexpr uint8_t RAMP_CRUISE = 1;
-    static constexpr uint8_t RAMP_DECEL = 2;
+    static constexpr uint8_t RAMP_ACCEL          = 0;
+    static constexpr uint8_t RAMP_CRUISE         = 1;
+    static constexpr uint8_t RAMP_DECEL          = 2;
     static constexpr uint8_t RAMP_DECEL_OVERRIDE = 3;
 
     // Configuration (no extra parameters for trapezoid)
@@ -41,19 +41,16 @@ public:
     }
 
     // Compute velocity profile for segment generation
-    VelocityProfile computeVelocityProfile(plan_block_t* block,
-                                           float entry_speed,
-                                           float exit_speed_sqr) override;
+    VelocityProfile computeVelocityProfile(plan_block_t* block, float entry_speed, float exit_speed_sqr) override;
 
     // Update ramp state during segment generation
-    RampUpdate updateRamp(uint8_t ramp_type, float time_var,
-                          float current_speed, float current_accel,
-                          float mm_remaining, float phase_boundary) override;
+    RampUpdate updateRamp(
+        uint8_t ramp_type, float time_var, float current_speed, float current_accel, float mm_remaining, float phase_boundary) override;
 
 protected:
     // Backward pass: maximize entry speeds from end to start
     void recalculateBackward();
-    
+
     // Forward pass: limit speeds based on achievable acceleration
     void recalculateForward();
 };

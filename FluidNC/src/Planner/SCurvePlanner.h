@@ -53,24 +53,21 @@ public:
     float computeDecelDistance(float v_entry, float v_exit, float accel) override;
 
     // Extended velocity profile with 7 phase boundaries
-    VelocityProfile computeVelocityProfile(plan_block_t* block,
-                                           float entry_speed,
-                                           float exit_speed_sqr) override;
+    VelocityProfile computeVelocityProfile(plan_block_t* block, float entry_speed, float exit_speed_sqr) override;
 
     // 7-phase ramp update for segment generation
-    RampUpdate updateRamp(uint8_t ramp_type, float time_var,
-                          float current_speed, float current_accel,
-                          float mm_remaining, float phase_boundary) override;
+    RampUpdate updateRamp(
+        uint8_t ramp_type, float time_var, float current_speed, float current_accel, float mm_remaining, float phase_boundary) override;
 
     // Set jerk limit (can be called during configuration)
-    void setJerkLimit(float jerk) { _jerk = jerk; }
+    void  setJerkLimit(float jerk) { _jerk = jerk; }
     float getJerkLimit() const { return _jerk; }
-    
+
     // Feed hold handling
     // Computes jerk-limited deceleration profile for feed hold
     // Returns distance needed to stop smoothly
     float computeFeedHoldDistance(float current_speed, float current_accel, float a_max);
-    
+
     // Check if we should use S-curve or trapezoidal for this stop
     // Returns true if S-curve stop is feasible
     bool canUseSCurveStop(float current_speed, float distance_remaining);
@@ -87,7 +84,5 @@ protected:
     float computeJunctionAccelLimit(float* prev_unit_vec, float* unit_vec);
 
     // Helper to compute S-curve distance with given entry/exit accelerations
-    float computeDistanceWithAccel(float v_entry, float a_entry,
-                                   float v_exit, float a_exit,
-                                   float a_max, bool accelerating);
+    float computeDistanceWithAccel(float v_entry, float a_entry, float v_exit, float a_exit, float a_max, bool accelerating);
 };

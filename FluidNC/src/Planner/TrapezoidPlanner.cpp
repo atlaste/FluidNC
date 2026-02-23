@@ -91,21 +91,20 @@ void TrapezoidPlanner::recalculate() {
 void TrapezoidPlanner::recalculateBackward() {
     // Initialize block index to the last block in the planner buffer.
     uint8_t block_index = prevBlockIndex(_block_buffer_head);
-    
+
     // Bail. Can't do anything with only one plan-able block.
     if (block_index == _block_buffer_planned) {
         return;
     }
 
     plan_block_t* current = &_block_buffer[block_index];
-    
+
     // Calculate maximum entry speed for last block in buffer, where the exit speed is always zero.
     // Using trapezoidal kinematics: v² = v₀² + 2ad → v₀² = v² - 2ad = 0 - 2*(-a)*d = 2ad
-    current->entry_speed_sqr = std::min(current->max_entry_speed_sqr, 
-                                        2.0f * current->acceleration * current->millimeters);
+    current->entry_speed_sqr = std::min(current->max_entry_speed_sqr, 2.0f * current->acceleration * current->millimeters);
 
     block_index = prevBlockIndex(block_index);
-    
+
     if (block_index == _block_buffer_planned) {
         // Only two plannable blocks in buffer. Reverse pass complete.
         // Check if the first block is the tail. If so, notify stepper to update its current parameters.
@@ -116,15 +115,15 @@ void TrapezoidPlanner::recalculateBackward() {
         // Three or more plan-able blocks
         plan_block_t* next;
         while (block_index != _block_buffer_planned) {
-            next = current;
-            current = &_block_buffer[block_index];
+            next        = current;
+            current     = &_block_buffer[block_index];
             block_index = prevBlockIndex(block_index);
-            
+
             // Check if next block is the tail block(=planned block). If so, update current stepper parameters.
             if (block_index == _block_buffer_tail) {
                 Stepper::update_plan_block_parameters();
             }
-            
+
             // Compute maximum entry speed decelerating over the current block from its exit speed.
             // The exit_speed of current block = entry_speed of next block
             if (current->entry_speed_sqr != current->max_entry_speed_sqr) {
@@ -147,12 +146,12 @@ void TrapezoidPlanner::recalculateForward() {
         return;
     }
 
-    plan_block_t* next = &_block_buffer[_block_buffer_planned];  // Begin at buffer planned pointer
-    uint8_t block_index = nextBlockIndex(_block_buffer_planned);
+    plan_block_t* next        = &_block_buffer[_block_buffer_planned];  // Begin at buffer planned pointer
+    uint8_t       block_index = nextBlockIndex(_block_buffer_planned);
 
     while (block_index != _block_buffer_head) {
         plan_block_t* current = next;
-        next = &_block_buffer[block_index];
+        next                  = &_block_buffer[block_index];
 
         // Any acceleration detected in the forward pass automatically moves the optimal planned
         // pointer forward, since everything before this is all optimal. In other words, nothing
@@ -160,7 +159,7 @@ void TrapezoidPlanner::recalculateForward() {
         if (current->entry_speed_sqr < next->entry_speed_sqr) {
             // Compute achievable exit speed: v² = v₀² + 2ad
             float entry_speed_sqr = current->entry_speed_sqr + 2.0f * current->acceleration * current->millimeters;
-            
+
             // If true, current block is full-acceleration and we can move the planned pointer forward.
             if (entry_speed_sqr < next->entry_speed_sqr) {
                 next->entry_speed_sqr = entry_speed_sqr;  // Always <= max_entry_speed_sqr. Backward pass sets this.
@@ -180,54 +179,52 @@ void TrapezoidPlanner::recalculateForward() {
     }
 }
 
-TrapezoidPlanner::VelocityProfile TrapezoidPlanner::computeVelocityProfile(
-    plan_block_t* block, float entry_speed, float exit_speed_sqr) 
-{
+TrapezoidPlanner::VelocityProfile TrapezoidPlanner::computeVelocityProfile(plan_block_t* block, float entry_speed, float exit_speed_sqr) {
     VelocityProfile profile = {};
-    
-    float exit_speed = sqrtf(exit_speed_sqr);
+
+    float exit_speed    = sqrtf(exit_speed_sqr);
     float nominal_speed = computeNominalSpeed(block);
-    
+
     // Compute intersection point where accel meets decel
     // Using trapezoidal profile equations
     float millimeters = block->millimeters;
-    float accel = block->acceleration;
-    
+    float accel       = block->acceleration;
+
     // Distance to accelerate from entry to nominal: d = (v² - v₀²) / (2a)
     float accel_dist = computeAccelDistance(entry_speed, nominal_speed, accel);
-    
+
     // Distance to decelerate from nominal to exit: d = (v₀² - v²) / (2a)
     float decel_dist = computeDecelDistance(nominal_speed, exit_speed, accel);
-    
+
     // Check if we have room for full profile
     float intersect_dist = accel_dist + decel_dist;
-    
+
     if (intersect_dist > millimeters) {
         // Not enough distance - compute intersection of accel and decel curves
         // v² = entry² + 2*a*d_accel = exit² + 2*a*(mm - d_accel)
         // Solving: d_accel = (exit² - entry² + 2*a*mm) / (4*a)
         accel_dist = (exit_speed_sqr - entry_speed * entry_speed + 2.0f * accel * millimeters) / (4.0f * accel);
-        
+
         if (accel_dist < 0.0f) {
             accel_dist = 0.0f;  // Pure deceleration
         } else if (accel_dist > millimeters) {
             accel_dist = millimeters;  // Pure acceleration
         }
-        
+
         decel_dist = millimeters - accel_dist;
-        
+
         // Compute peak speed at intersection
-        float peak_speed_sqr = entry_speed * entry_speed + 2.0f * accel * accel_dist;
+        float peak_speed_sqr  = entry_speed * entry_speed + 2.0f * accel * accel_dist;
         profile.maximum_speed = sqrtf(peak_speed_sqr);
     } else {
         profile.maximum_speed = nominal_speed;
     }
-    
+
     // Set profile boundaries (measured from block END)
     profile.accelerate_until = millimeters - accel_dist;  // mm from end where accel phase ends
     profile.decelerate_after = decel_dist;                // mm from end where decel phase starts
-    profile.exit_speed = exit_speed;
-    
+    profile.exit_speed       = exit_speed;
+
     // Determine initial ramp type
     if (entry_speed < profile.maximum_speed - 0.0001f) {
         profile.initial_ramp_type = RAMP_ACCEL;
@@ -236,30 +233,27 @@ TrapezoidPlanner::VelocityProfile TrapezoidPlanner::computeVelocityProfile(
     } else {
         profile.initial_ramp_type = RAMP_DECEL;
     }
-    
+
     return profile;
 }
 
 TrapezoidPlanner::RampUpdate TrapezoidPlanner::updateRamp(
-    uint8_t ramp_type, float time_var,
-    float current_speed, float current_accel,
-    float mm_remaining, float phase_boundary)
-{
+    uint8_t ramp_type, float time_var, float current_speed, float current_accel, float mm_remaining, float phase_boundary) {
     RampUpdate update = {};
-    
+
     // Note: current_accel is the block's acceleration rate, not current acceleration state
     // For trapezoidal profiles, acceleration is constant during accel/decel phases
-    
+
     switch (ramp_type) {
         case RAMP_ACCEL: {
             // Constant acceleration: v = v₀ + a*t, d = v₀*t + 0.5*a*t²
             float speed_delta = current_accel * time_var;
-            float dist = time_var * (current_speed + 0.5f * speed_delta);
-            
-            update.speed_delta = speed_delta;
+            float dist        = time_var * (current_speed + 0.5f * speed_delta);
+
+            update.speed_delta       = speed_delta;
             update.distance_traveled = dist;
-            update.accel_delta = 0.0f;  // Acceleration doesn't change in trapezoid
-            
+            update.accel_delta       = 0.0f;  // Acceleration doesn't change in trapezoid
+
             float new_remaining = mm_remaining - dist;
             if (new_remaining < phase_boundary) {
                 update.phase_complete = true;
@@ -267,15 +261,15 @@ TrapezoidPlanner::RampUpdate TrapezoidPlanner::updateRamp(
             }
             break;
         }
-        
+
         case RAMP_CRUISE: {
             // Constant velocity: d = v*t
             float dist = current_speed * time_var;
-            
-            update.speed_delta = 0.0f;
+
+            update.speed_delta       = 0.0f;
             update.distance_traveled = dist;
-            update.accel_delta = 0.0f;
-            
+            update.accel_delta       = 0.0f;
+
             float new_remaining = mm_remaining - dist;
             if (new_remaining < phase_boundary) {
                 update.phase_complete = true;
@@ -283,23 +277,23 @@ TrapezoidPlanner::RampUpdate TrapezoidPlanner::updateRamp(
             }
             break;
         }
-        
+
         case RAMP_DECEL:
         case RAMP_DECEL_OVERRIDE: {
             // Constant deceleration: v = v₀ - a*t, d = v₀*t - 0.5*a*t²
             float speed_delta = current_accel * time_var;
-            
+
             if (current_speed > speed_delta) {
-                float dist = time_var * (current_speed - 0.5f * speed_delta);
-                update.speed_delta = -speed_delta;
+                float dist               = time_var * (current_speed - 0.5f * speed_delta);
+                update.speed_delta       = -speed_delta;
                 update.distance_traveled = dist;
             } else {
                 // At or near zero speed
-                update.speed_delta = -current_speed;
+                update.speed_delta       = -current_speed;
                 update.distance_traveled = mm_remaining;  // Finish the block
             }
             update.accel_delta = 0.0f;
-            
+
             float new_remaining = mm_remaining - update.distance_traveled;
             if (new_remaining <= phase_boundary || current_speed <= speed_delta) {
                 update.phase_complete = true;
@@ -308,11 +302,11 @@ TrapezoidPlanner::RampUpdate TrapezoidPlanner::updateRamp(
             break;
         }
     }
-    
+
     return update;
 }
 
 // Register TrapezoidPlanner with the factory
 namespace {
-    PlannerFactory::InstanceBuilder<TrapezoidPlanner> registration("TrapezoidPlanner");
+    PlannerFactory::InstanceBuilder<TrapezoidPlanner> registration("trapezoid_planner");
 }

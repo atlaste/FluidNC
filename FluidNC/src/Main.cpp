@@ -20,7 +20,7 @@
 #    include "StartupLog.h"
 #    include "Module.h"
 #    include "wdt.h"
-#include "Scheduler/SchedulerTask.h"
+#    include "Scheduler/SchedulerTask.h"
 
 #    include "Driver/localfs.h"
 
@@ -212,6 +212,7 @@ void loop() {
         // to avoid memory leaks. It is probably worth doing eventually.
         log_config_error("Critical error in run_once: " << ex.what());
     }
+
     // sys.abort is a user-initiated exit via ^x so we don't limit the number of occurrences
     if (!sys.abort() && ++tries > 1) {
         log_info("Stalling due to too many failures");
