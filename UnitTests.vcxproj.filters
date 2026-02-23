@@ -1,433 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="FluidNC\src\Kinematics\Compensated2D.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Kinematics\TestableKinematics.h">
-      <Filter>FluidNC\test\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Planner\TrapezoidPlanner.h">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Planner\SCurvePlanner.h">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\PCA9539.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Planner\BasePlanner.h">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Mock\Driver\delay_usecs.h">
-      <Filter>FluidNC\test\Mock\Driver</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\I2CPinExtenderBase.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SoftLimits\SoftLimitsComponent.h">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SoftLimits\MovingBoundingBox.h">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Planner\SCurveMath.h">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Planner\PlannerTestHelpers.h">
-      <Filter>FluidNC\test\Planner</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Mock\Driver\fluidnc_gpio.h">
-      <Filter>FluidNC\test\Mock\Driver</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\PCA9535_9555.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SoftLimits\FixedCylinder.h">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\ParallelDelta.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\Compensated1D.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SoftLimits\FixedBoundingBox.h">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\DynamicLimits.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Mock\Platform.h">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SoftLimits\LimitsChecker.h">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SettingsDefinitions.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StartupLog.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Config.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StringRange.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Main.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Serial.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\ControlPin.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Types.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Channel.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Assertion.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Planner.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Logging.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\MotionControl.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Control.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Limits.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\NutsBolts.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StringStream.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\xmodem.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\GCode.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SDCard.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Stepping.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\lineedit.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Report.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Platform.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Settings.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\FileStream.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\CoolantControl.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\CPUMap.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\PinMapper.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\I2SOut.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Error.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\MyIOStream.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Regex.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Stepper.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\EnumItem.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\UartTypes.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\System.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Uart.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Probe.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\InputFile.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pin.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\SpindleDatatypes.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Jog.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StepperPrivate.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Protocol.h">
-      <Filter>FluidNC\src</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\ExtPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\PinAttributes.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\DebugPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\PinCapabilities.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\I2SOPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\PinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\VoidPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\GPIOPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\LedcPin.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\PinOptionsParser.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Pins\ErrorPinDetail.h">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\BTConfig.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\InputBuffer.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\WebUIServer.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\JSONEncoder.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\NoFile.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\NotificationsService.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\WebClient.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\WebSettings.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\Authentication.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\Commands.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\WifiServices.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\WifiConfig.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\TelnetServer.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\WebUI\Serial2Socket.h">
-      <Filter>FluidNC\src\WebUI</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Custom\oled_io.h">
-      <Filter>FluidNC\src\Custom</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\StepStick.h">
+    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp">
       <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\UnipolarMotor.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp">
       <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\StandardStepper.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp">
       <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\Solenoid.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\RcServo.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\NullMotor.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\Servo.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\MotorDriver.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\Dynamixel2.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Motors\RcServoSettings.h">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\I2CBus.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Machine\Axes.cpp">
       <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\Macros.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Machine\Axis.cpp">
       <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\WifiSTAConfig.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Machine\Motor.cpp">
       <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\LimitPin.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Machine\LimitPin.cpp">
       <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\SPIBus.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\WifiAPConfig.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\Axis.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\WifiConfig.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\Homing.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\Motor.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\Axes.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\I2SOBus.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\MachineConfig.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Machine\UserOutputs.h">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\PinUsers\PwmPin.h">
-      <Filter>FluidNC\src\PinUsers</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\OnOffSpindle.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp">
       <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\10vSpindle.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp">
       <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\RelaySpindle.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp">
       <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\Laser.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\PWMSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\HuanyangSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\VFDSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\Spindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\DacSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\NullSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\BESCSpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\YL620Spindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Spindles\H2ASpindle.h">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\Extenders.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\PinExtender.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Extenders\PinExtenderDriver.h">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StackTrace\debug_helpers.h">
-      <Filter>FluidNC\src\StackTrace</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\StackTrace\AssertionFailed.h">
-      <Filter>FluidNC\src\StackTrace</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\WallPlotter.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\Midtbot.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\CoreXY.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\Kinematics.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Kinematics\Cartesian.h">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\GenericFactory.h">
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp">
+      <Filter>FluidNC\src\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Configuration\Parser.cpp">
+      <Filter>FluidNC\src\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp">
+      <Filter>FluidNC\test\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp">
+      <Filter>FluidNC\test\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp">
+      <Filter>FluidNC\test\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\test\Configuration\MachineConfigParsing.cpp">
+      <Filter>FluidNC\test\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Logging.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\PinAttributes.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\PinCapabilities.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\VoidPinDetail.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+    <ClCompile Include="FluidNC\src\Channel.cpp">
+      <Filter>FluidNC\src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="FluidNC\src\Configuration\TokenState.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Configurable.h">
+    <ClInclude Include="FluidNC\src\Configuration\Tokenizer.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\LegacySettingRegistry.h">
+    <ClInclude Include="FluidNC\src\Configuration\parser_logging.h">
+      <Filter>FluidNC\src\Configuration</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Configuration\ParserHandler.h">
+      <Filter>FluidNC\src\Configuration</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Configuration\Parser.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
     <ClInclude Include="FluidNC\src\Configuration\HandlerType.h">
@@ -436,722 +99,64 @@
     <ClInclude Include="FluidNC\src\Configuration\HandlerBase.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Generator.h">
+    <ClInclude Include="FluidNC\src\Configuration\GenericFactory.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Validator.h">
+    <ClInclude Include="FluidNC\src\Configuration\Configurable.h">
       <Filter>FluidNC\src\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\RuntimeSetting.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\AfterParse.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Parser.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\LegacySettingHandler.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Tokenizer.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\ParseException.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\Completer.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\JsonGenerator.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\ParserHandler.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\src\Configuration\TokenState.h">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\TestFactory.h">
-      <Filter>FluidNC\test</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\TestFramework.h">
-      <Filter>FluidNC\test</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Motors\MotorSimulators.h">
-      <Filter>FluidNC\test\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Motors\MotorTestBase.h">
-      <Filter>FluidNC\test\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Motors\MotorSpindleFixture.h">
-      <Filter>FluidNC\test\Motors</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Spindles\SpindleSimulators.h">
-      <Filter>FluidNC\test\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="FluidNC\test\Spindles\SpindleTestBase.h">
-      <Filter>FluidNC\test\Spindles</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Arduino.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Capture.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\driver\uart.h">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\driver\ledc.h">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\driver\rmt.h">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\driver\dac.h">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Esp.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-cpu.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-dac.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-gpio.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-i2c.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-ledc.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-matrix.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal-timer.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp32-hal.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp_attr.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp_err.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\esp_system.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\freertos\FreeRTOS.h">
-      <Filter>X86TestSupport\TestSupport\freertos</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\freertos\FreeRTOSTypes.h">
-      <Filter>X86TestSupport\TestSupport\freertos</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\freertos\Queue.h">
-      <Filter>X86TestSupport\TestSupport\freertos</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\freertos\task.h">
-      <Filter>X86TestSupport\TestSupport\freertos</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\FS.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\FSImpl.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\IPAddress.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\nvs.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Print.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Printable.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\SD.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\dport_reg.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\gpio_sig_map.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\io_mux_reg.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\ledc_struct.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\rtc.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\soc\uart_reg.h">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\SoftwareGPIO.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\SPI.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\SPIFFS.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Stream.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\TMC\TMCStepper.h">
-      <Filter>X86TestSupport\TestSupport\TMC</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\TMC\TMCStepper_UTILITY.h">
-      <Filter>X86TestSupport\TestSupport\TMC</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\Wire.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\WString.h">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClInclude>
-    <ClInclude Include="X86TestSupport\TestSupport\xtensa\core-macros.h">
-      <Filter>X86TestSupport\TestSupport\xtensa</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="FluidNC\src\Machine\Axes.cpp">
-      <Filter>src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\Axis.cpp">
-      <Filter>src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\Motor.cpp">
-      <Filter>src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\LimitPin.cpp">
-      <Filter>src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp">
-      <Filter>src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp">
-      <Filter>src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp">
-      <Filter>src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp">
-      <Filter>src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Planner\SCurvePlanner.cpp">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\SoftLimits\FixedCylinder.cpp">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\Print.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\AssertionFailed.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\ExceptionHelper.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Kinematics\ParallelDelta.cpp">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Kinematics\CoreXY.cpp">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\WString.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\ODrive\CanESP32Mock.cpp">
-      <Filter>FluidNC\test\Mock\ODrive</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\GPIOCapabilities.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\ConfigurationMocks.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\PinsMocks.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Kinematics\Cartesian.cpp">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Extenders\PCA9539.cpp">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\SoftLimits\FixedBoundingBox.cpp">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\freertos\Queue.cpp">
-      <Filter>FluidNC\capture\freertos</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\UTF8.cpp">
+    <ClInclude Include="FluidNC\src\Assertion.h">
       <Filter>FluidNC\src</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Kinematics\KinematicsTests.cpp">
-      <Filter>FluidNC\test\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Kinematics\KinematicsMocks.cpp">
-      <Filter>FluidNC\test\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Planner\SCurveMathTests.cpp">
-      <Filter>FluidNC\test\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\test_main_win.cpp">
-      <Filter>FluidNC\test</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Extenders\I2CPinExtenderBase.cpp">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Planner\TrapezoidPlanner.cpp">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_gpio.cpp">
-      <Filter>FluidNC\test\Mock\Driver</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_uart.cpp">
-      <Filter>FluidNC\test\Mock\Driver</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\SoftLimits\MovingBoundingBox.cpp">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Planner\PlannerIntegrationTests.cpp">
-      <Filter>FluidNC\test\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Planner\BasePlanner.cpp">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\SoftLimits\LimitsChecker.cpp">
-      <Filter>FluidNC\src\SoftLimits</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\esp_err.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\PlannerMocks.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Planner\TrapezoidPlannerTests.cpp">
-      <Filter>FluidNC\test\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Planner\SCurvePlannerTests.cpp">
-      <Filter>FluidNC\test\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\PwmPin.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\Stream.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\timing.cpp">
-      <Filter>FluidNC\capture</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\capture\freertos\Task.cpp">
-      <Filter>FluidNC\capture\freertos</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Planner\SCurveMath.cpp">
-      <Filter>FluidNC\src\Planner</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Kinematics\Midtbot.cpp">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\SoftLimits\SoftLimitsTests.cpp">
-      <Filter>FluidNC\test\SoftLimits</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\MotorTestMocks.cpp">
-      <Filter>FluidNC\test\Mock</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Mock\Driver\fluidnc_i2c.cpp">
-      <Filter>FluidNC\test\Mock\Driver</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\string_util.cpp">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Logging.h">
       <Filter>FluidNC\src</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Kinematics\WallPlotter.cpp">
-      <Filter>FluidNC\src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pin.cpp">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\MyIOStream.h">
       <Filter>FluidNC\src</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\PinMapper.cpp">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\GPIOPinDetail.h">
       <Filter>FluidNC\src</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Uart.cpp">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\PinAttributes.h">
       <Filter>FluidNC\src</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\GPIOPinDetail.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\PinOptionsParser.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\PinDetail.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\PinAttributes.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\PinCapabilities.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\VoidPinDetail.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Pins\ErrorPinDetail.cpp">
-      <Filter>FluidNC\src\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\MotorDriver.cpp">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\NullMotor.cpp">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Motors\StandardStepper.cpp">
-      <Filter>FluidNC\src\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\I2CBus.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\Axes.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\Axis.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\Motor.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\LimitPin.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Machine\EventPin.cpp">
-      <Filter>FluidNC\src\Machine</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\Spindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\NullSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\OnOffSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\PWMSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\LaserSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\BESCSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\10vSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\RelaySpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\HBridgeSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\PlasmaSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\VFDSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\VFD\VFDProtocol.cpp">
-      <Filter>FluidNC\src\Spindles\VFD</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\VFD\HuanyangProtocol.cpp">
-      <Filter>FluidNC\src\Spindles\VFD</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Spindles\ODriveSpindle.cpp">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Extenders\PinExtenderDriver.cpp">
-      <Filter>FluidNC\src\Extenders</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Scheduler\Timer.cpp">
-      <Filter>FluidNC\src\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Scheduler\SlowEventScheduler.cpp">
-      <Filter>FluidNC\src\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Configuration\Tokenizer.cpp">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Configuration\Parser.cpp">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\src\Configuration\AfterParse.cpp">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Pins\PinOptionParsing.cpp">
-      <Filter>FluidNC\test\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Pins\Undefined.cpp">
-      <Filter>FluidNC\test\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Pins\ErrorPinTest.cpp">
-      <Filter>FluidNC\test\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Pins\GPIO.cpp">
-      <Filter>FluidNC\test\Pins</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\UTF8\UTF8Tests.cpp">
-      <Filter>FluidNC\test\UTF8</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Motors\MotorTests.cpp">
-      <Filter>FluidNC\test\Motors</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Extender\I2CExtenderTests.cpp">
-      <Filter>FluidNC\test\Extender</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Spindles\SpindleTests.cpp">
-      <Filter>FluidNC\test\Spindles</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Scheduler\TimepointTimespanTests.cpp">
-      <Filter>FluidNC\test\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Scheduler\EventSchedulerTests.cpp">
-      <Filter>FluidNC\test\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Scheduler\SlowEventSchedulerTests.cpp">
-      <Filter>FluidNC\test\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Scheduler\TimerTests.cpp">
-      <Filter>FluidNC\test\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Scheduler\CoroutineTests.cpp">
-      <Filter>FluidNC\test\Scheduler</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\StringUtil\StringUtilTests.cpp">
-      <Filter>FluidNC\test\StringUtil</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Configuration\YamlParser.cpp">
-      <Filter>FluidNC\test\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Configuration\YamlComplete.cpp">
-      <Filter>FluidNC\test\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Configuration\YamlTreeBuilder.cpp">
-      <Filter>FluidNC\test\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="FluidNC\test\Configuration\MachineConfigParsing.cpp">
-      <Filter>FluidNC\test\Configuration</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\Arduino.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\FS.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\SDFS.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\SPI.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\Wire.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\esp32-hal-timer.cpp">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\driver\dac.cpp">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\driver\ledc.cpp">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\driver\rmt.cpp">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\driver\uartdriver.cpp">
-      <Filter>X86TestSupport\TestSupport\driver</Filter>
-    </ClCompile>
-    <ClCompile Include="X86TestSupport\TestSupport\soc\ledc_struct.cpp">
-      <Filter>X86TestSupport\TestSupport\soc</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-    <None Include="FluidNC\src\user_io.md">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\PinCapabilities.h">
       <Filter>FluidNC\src</Filter>
-    </None>
-    <None Include="FluidNC\src\Stepper.md">
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\PinDetail.h">
       <Filter>FluidNC\src</Filter>
-    </None>
-    <None Include="FluidNC\src\Motors\Dynamixel2.md">
-      <Filter>FluidNC\src\Motors</Filter>
-    </None>
-    <None Include="FluidNC\src\Spindles\H2ASpindle.md">
-      <Filter>FluidNC\src\Spindles</Filter>
-    </None>
-    <None Include="FluidNC\src\Configuration\Parser.md">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </None>
-    <None Include="FluidNC\src\Configuration\_Overview.md">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </None>
-    <None Include="FluidNC\src\Configuration\ConfigurationHandlers.md">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </None>
-    <None Include="FluidNC\src\Configuration\GenericFactory.md">
-      <Filter>FluidNC\src\Configuration</Filter>
-    </None>
-    <None Include="FluidNC\test\UnitTests.md">
-      <Filter>FluidNC\test</Filter>
-    </None>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\PinOptionsParser.h">
+      <Filter>FluidNC\src</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\VoidPinDetail.h">
+      <Filter>FluidNC\src</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Pins\ErrorPinDetail.h">
+      <Filter>FluidNC\src</Filter>
+    </ClInclude>
+    <ClInclude Include="FluidNC\src\Channel.h">
+      <Filter>FluidNC\src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="FluidNC">
-      <UniqueIdentifier>{71bd2ff5-9fec-40ef-9f85-4681b1be165b}</UniqueIdentifier>
+      <UniqueIdentifier>{af823396-827a-48cc-8908-a572491f7fb1}</UniqueIdentifier>
     </Filter>
     <Filter Include="FluidNC\src">
-      <UniqueIdentifier>{56a64624-022c-4e9e-86fa-72b2f7582c10}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Kinematics">
-      <UniqueIdentifier>{bc61ec08-a382-445d-8ccf-6b5856d82419}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Planner">
-      <UniqueIdentifier>{47301c1a-de88-4041-9ef0-445a892a1879}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\SoftLimits">
-      <UniqueIdentifier>{f13d8c42-d6a8-4d44-882b-c3581e09baf5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test">
-      <UniqueIdentifier>{2d932159-792f-4a8f-b60e-8836a1b01878}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Kinematics">
-      <UniqueIdentifier>{336c14f5-71e4-4202-ae5b-12572acccd00}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\capture">
-      <UniqueIdentifier>{44c4d22d-3869-4cb2-878c-adf138168250}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Mock">
-      <UniqueIdentifier>{2dc83a6b-d116-4380-a8cf-e45dd1ef21ed}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Mock\ODrive">
-      <UniqueIdentifier>{d491a014-cf4c-4a9e-89f7-c7cd814806e4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Extenders">
-      <UniqueIdentifier>{ab1decce-864a-4db2-9da4-f9faea88eee2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\capture\freertos">
-      <UniqueIdentifier>{d6679e72-6d88-4004-bcb6-740606532d26}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Mock\Driver">
-      <UniqueIdentifier>{79177df4-2b9b-4324-8058-81a584c0d3af}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Planner">
-      <UniqueIdentifier>{dc6d7491-ced1-46a0-a19e-60b6aa1faf2c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\SoftLimits">
-      <UniqueIdentifier>{fdd1e51a-e085-4464-953a-992406745524}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Pins">
-      <UniqueIdentifier>{c994665f-7229-4161-a79f-8116cf670fdd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\WebUI">
-      <UniqueIdentifier>{226cd856-fa6c-462b-9e74-e147a679b314}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Custom">
-      <UniqueIdentifier>{8b03cf5f-0694-468c-b8ac-3c5ac77ba002}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Motors">
-      <UniqueIdentifier>{cd8186df-82d0-4d09-9215-aa87d25c3777}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Machine">
-      <UniqueIdentifier>{7de0f6b4-02ae-4072-ba21-788bb8160bb0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\PinUsers">
-      <UniqueIdentifier>{5742e7aa-54fd-4486-87a8-1ecd8c0c6263}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Spindles">
-      <UniqueIdentifier>{1acfcad6-36ba-4656-ae1d-c9dd790a8b96}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Spindles\VFD">
-      <UniqueIdentifier>{7b6fd56c-8597-40ec-8d45-9bd8f12964b9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\Scheduler">
-      <UniqueIdentifier>{d6751af2-951c-4fce-acca-d63ad173b511}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\src\StackTrace">
-      <UniqueIdentifier>{93947498-bdb3-4025-aa3d-01e13246798d}</UniqueIdentifier>
+      <UniqueIdentifier>{1ab24f0f-2297-426a-b31e-cf1bf129d375}</UniqueIdentifier>
     </Filter>
     <Filter Include="FluidNC\src\Configuration">
-      <UniqueIdentifier>{cdbb22e2-b63e-4345-9461-ba6bd1449920}</UniqueIdentifier>
+      <UniqueIdentifier>{5917e340-5774-4616-adbb-8cd30d4e0475}</UniqueIdentifier>
     </Filter>
-    <Filter Include="FluidNC\test\Pins">
-      <UniqueIdentifier>{18e21da2-ad80-43f3-967b-a06f20a3e57f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\UTF8">
-      <UniqueIdentifier>{8502fc18-d1d8-4a63-868a-2cbccffec375}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Motors">
-      <UniqueIdentifier>{59f0bc33-4113-40cf-992c-824fd568146b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Extender">
-      <UniqueIdentifier>{f307a39c-23d9-42fb-befa-7936c60fdb2d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Spindles">
-      <UniqueIdentifier>{063b2a2e-9c23-4445-aff0-39e01086f240}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\Scheduler">
-      <UniqueIdentifier>{611bb560-c97a-4916-9838-e4fcf5b9b3b4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="FluidNC\test\StringUtil">
-      <UniqueIdentifier>{a6ab8885-5408-4b0d-b63c-887a95c24744}</UniqueIdentifier>
+    <Filter Include="FluidNC\test">
+      <UniqueIdentifier>{cbad3cb2-8d0c-4b37-8d33-a8956d9bc1b3}</UniqueIdentifier>
     </Filter>
     <Filter Include="FluidNC\test\Configuration">
-      <UniqueIdentifier>{8bf1903d-772a-4794-94cd-c6adc5ab3c1a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport">
-      <UniqueIdentifier>{48a07817-faaa-478a-8f3a-8f5b70cc9e56}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport">
-      <UniqueIdentifier>{344d2fea-6c95-4907-98c5-5c7c7d636ecd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport\driver">
-      <UniqueIdentifier>{47eb6109-26c4-4ccc-acc2-18a61d60e619}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport\soc">
-      <UniqueIdentifier>{10c4274e-1629-4567-9e82-caf4fa4247c6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport\freertos">
-      <UniqueIdentifier>{204a284d-6e49-4228-ac2f-7d8845734332}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport\TMC">
-      <UniqueIdentifier>{0f3a3a69-b5ca-4570-8ad1-9369d42a1585}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="X86TestSupport\TestSupport\xtensa">
-      <UniqueIdentifier>{4f3efb50-34aa-4a86-8222-b17971e074b9}</UniqueIdentifier>
+      <UniqueIdentifier>{689c7609-09e4-4a31-8ffd-b156e606d9ef}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="X86TestSupport\TestSupport\TODO.txt">
-      <Filter>X86TestSupport\TestSupport</Filter>
-    </Text>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

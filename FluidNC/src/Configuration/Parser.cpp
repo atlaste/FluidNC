@@ -6,7 +6,6 @@
 
 #include "EnumItem.h"
 
-#include "Config.h"
 #include "string_util.h"
 
 #include <climits>

@@ -11,6 +11,9 @@
 #include <string_view>
 #include <algorithm>
 
+extern TaskHandle_t outputTask;
+extern QueueHandle_t message_queue;
+
 Channel::Channel(const std::string& name, bool addCR) : _name(name), _linelen(0), _addCR(addCR) {}
 Channel::Channel(const char* name, bool addCR) : _name(name), _linelen(0), _addCR(addCR) {}
 Channel::Channel(const char* name, objnum_t num, bool addCR) : _name(name) {

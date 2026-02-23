@@ -17,7 +17,7 @@
 #include "../SoftLimits/LimitsChecker.h"
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#    define M_PI 3.14159265358979323846
 #endif
 
 namespace ATCs {
@@ -25,7 +25,7 @@ namespace ATCs {
     // Static constexpr definitions
     constexpr float PneumaticToolTurret::SQUARE_TOOL_ANGLES[8];
     constexpr float PneumaticToolTurret::BORING_TOOL_ANGLES[8];
-    void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
+    void            PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
     {
         macro.erase();
         macro.addf("%s", str);
@@ -71,11 +71,11 @@ namespace ATCs {
         // handler.item("probePosition", probePosition);
 
         // Tool types and safe retract:
-        handler.item("toolTypes", toolTypes);          // 'I' = inside (boring), 'O' = outside (turning)
-        handler.item("safeX", safeX);                  // Safe X position (machine coords)
-        handler.item("safeZ", safeZ);                  // Safe Z position (machine coords)
-        handler.item("safetyMargin", safetyMargin);    // Extra clearance in mm
-        handler.item("maxRetractZ", maxRetractZ);      // Maximum Z position to retract to (due to tool post)
+        handler.item("toolTypes", toolTypes);        // 'I' = inside (boring), 'O' = outside (turning)
+        handler.item("safeX", safeX);                // Safe X position (machine coords)
+        handler.item("safeZ", safeZ);                // Safe Z position (machine coords)
+        handler.item("safetyMargin", safetyMargin);  // Extra clearance in mm
+        handler.item("maxRetractZ", maxRetractZ);    // Maximum Z position to retract to (due to tool post)
 
         // Bed geometry (for slanted bed lathes)
         handler.item("bed_angle_deg", _bedAngleDeg);
@@ -163,9 +163,8 @@ namespace ATCs {
         bool isInsideTool = false;
         if (toolTypes.size() > currentToolNumber) {
             char toolType = std::toupper(toolTypes[currentToolNumber]);
-            isInsideTool = (toolType == 'I');
-        }
-        else {
+            isInsideTool  = (toolType == 'I');
+        } else {
             Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
         }
 
@@ -177,7 +176,7 @@ namespace ATCs {
             // Inside tool: First retract Z (out of the bore), then X
             // Use TLO + safety margin if available, otherwise use configured safeZ
             float tlo[MAX_N_AXIS] = {};
-            bool hasTLO = useTLO && toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
+            bool  hasTLO          = useTLO && toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
             if (hasTLO) {
                 // Calculate safe Z position based on TLO + margin
                 // This ensures we clear the bore before moving X
@@ -213,8 +212,7 @@ namespace ATCs {
                 protocol_buffer_synchronize();
             }
         }
-        if (sys.state() == State::Alarm)
-        {
+        if (sys.state() == State::Alarm) {
             return false;
         }
 
@@ -268,7 +266,7 @@ namespace ATCs {
 
         // DO NOT return to location before the tool change. Because you don't know the tool geometry, it
         // might crash the machine!!!
-        // 
+        //
         // CAM needs to handle the approach after a tool change in lathes!
 
         // run("G0Z#<start_z>\n");
@@ -382,16 +380,10 @@ namespace ATCs {
 
     bool PneumaticToolTurret::checkATCBodyCollision(const float* fromChuck, const float* toChuck) const {
         // Build AABB for ATC body box at current position
-        float boxMin[3] = {
-            fromChuck[X_AXIS] + _boxOriginX,
-            fromChuck[Y_AXIS] + _boxOriginY,
-            fromChuck[Z_AXIS] + _boxOriginZ
-        };
-        float boxMax[3] = {
-            fromChuck[X_AXIS] + _boxOriginX + _boxSizeX,
-            fromChuck[Y_AXIS] + _boxOriginY + _boxSizeY,
-            fromChuck[Z_AXIS] + _boxOriginZ + _boxSizeZ
-        };
+        float boxMin[3] = { fromChuck[X_AXIS] + _boxOriginX, fromChuck[Y_AXIS] + _boxOriginY, fromChuck[Z_AXIS] + _boxOriginZ };
+        float boxMax[3] = { fromChuck[X_AXIS] + _boxOriginX + _boxSizeX,
+                            fromChuck[Y_AXIS] + _boxOriginY + _boxSizeY,
+                            fromChuck[Z_AXIS] + _boxOriginZ + _boxSizeZ };
 
         // Check if line segment (which represents motion of a point, like cutting tip)
         // would enter the ATC body box
@@ -406,9 +398,8 @@ namespace ATCs {
         float cylCenterY = fromChuck[Y_AXIS] + _cylinderCenterY;
 
         // Check line intersection with circle in XY plane
-        if (lineIntersectsCircle2D(fromChuck[X_AXIS], fromChuck[Y_AXIS],
-                                   toChuck[X_AXIS], toChuck[Y_AXIS],
-                                   cylCenterX, cylCenterY, _cylinderRadius)) {
+        if (lineIntersectsCircle2D(
+                fromChuck[X_AXIS], fromChuck[Y_AXIS], toChuck[X_AXIS], toChuck[Y_AXIS], cylCenterX, cylCenterY, _cylinderRadius)) {
             // Check Z range overlap
             float segZMin = std::min(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
             float segZMax = std::max(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
@@ -422,7 +413,8 @@ namespace ATCs {
     }
 
     bool PneumaticToolTurret::checkSquareToolCollision(int toolIndex, const float* fromChuck, const float* toChuck) const {
-        if (toolIndex < 0 || toolIndex >= 8) return false;
+        if (toolIndex < 0 || toolIndex >= 8)
+            return false;
 
         // Get tool angle and calculate position
         float angleDeg = SQUARE_TOOL_ANGLES[toolIndex];
@@ -443,12 +435,8 @@ namespace ATCs {
 
         // Build AABB for the square tool (12x12mm cross-section, stickout length)
         // The tool sticks out radially from the cylinder
-        float halfSize = _squareToolSize / 2.0f;
-        float toolMin[3] = {
-            toolCenterX - halfSize,
-            toolCenterY - halfSize,
-            fromChuck[Z_AXIS] + _cylinderZMin
-        };
+        float halfSize   = _squareToolSize / 2.0f;
+        float toolMin[3] = { toolCenterX - halfSize, toolCenterY - halfSize, fromChuck[Z_AXIS] + _cylinderZMin };
         float toolMax[3] = {
             toolCenterX + halfSize + stickout * std::cos(angleRad),
             toolCenterY + halfSize + stickout * std::sin(angleRad),
@@ -456,15 +444,19 @@ namespace ATCs {
         };
 
         // Ensure min < max
-        if (toolMin[0] > toolMax[0]) std::swap(toolMin[0], toolMax[0]);
-        if (toolMin[1] > toolMax[1]) std::swap(toolMin[1], toolMax[1]);
-        if (toolMin[2] > toolMax[2]) std::swap(toolMin[2], toolMax[2]);
+        if (toolMin[0] > toolMax[0])
+            std::swap(toolMin[0], toolMax[0]);
+        if (toolMin[1] > toolMax[1])
+            std::swap(toolMin[1], toolMax[1]);
+        if (toolMin[2] > toolMax[2])
+            std::swap(toolMin[2], toolMax[2]);
 
         return lineIntersectsAABB(fromChuck, toChuck, toolMin, toolMax);
     }
 
     bool PneumaticToolTurret::checkBoringToolCollision(int toolIndex, const float* fromChuck, const float* toChuck) const {
-        if (toolIndex < 0 || toolIndex >= 8) return false;
+        if (toolIndex < 0 || toolIndex >= 8)
+            return false;
 
         // Check if this boring position has a tool loaded
         // Boring tool numbers are typically offset from square tools
@@ -472,7 +464,7 @@ namespace ATCs {
         int toolNumber = 8 + toolIndex + 1;
 
         float tlo[MAX_N_AXIS] = {};
-        bool hasToolLoaded = (toolTable != nullptr && toolTable->getToolOffset(toolNumber, tlo));
+        bool  hasToolLoaded   = (toolTable != nullptr && toolTable->getToolOffset(toolNumber, tlo));
 
         // If no tool loaded in this position, no collision possible
         if (!hasToolLoaded) {
@@ -490,20 +482,20 @@ namespace ATCs {
         // Tool center in chuck space
         float toolCenterX = fromChuck[X_AXIS] + _cylinderCenterX + holderOffsetX;
         float toolCenterY = fromChuck[Y_AXIS] + _cylinderCenterY + holderOffsetY;
-        float toolRadius = _boringToolDiameter / 2.0f;
+        float toolRadius  = _boringToolDiameter / 2.0f;
 
         // Tool stickout (Z direction for boring tools)
         float stickout = std::abs(tlo[Z_AXIS]);
-        if (stickout <= 0) stickout = 50.0f;  // Default if not set
+        if (stickout <= 0)
+            stickout = 50.0f;  // Default if not set
 
         // Z range of the boring tool (sticks out in Z direction)
         float toolZMin = fromChuck[Z_AXIS] + _cylinderZMin;
         float toolZMax = fromChuck[Z_AXIS] + _cylinderZMax + stickout;
 
         // Check circle intersection in XY plane
-        if (lineIntersectsCircle2D(fromChuck[X_AXIS], fromChuck[Y_AXIS],
-                                   toChuck[X_AXIS], toChuck[Y_AXIS],
-                                   toolCenterX, toolCenterY, toolRadius)) {
+        if (lineIntersectsCircle2D(
+                fromChuck[X_AXIS], fromChuck[Y_AXIS], toChuck[X_AXIS], toChuck[Y_AXIS], toolCenterX, toolCenterY, toolRadius)) {
             float segZMin = std::min(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
             float segZMax = std::max(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
             if (zRangesOverlap(segZMin, segZMax, toolZMin, toolZMax)) {
@@ -514,13 +506,13 @@ namespace ATCs {
     }
 
     bool PneumaticToolTurret::checkChuckCollision(const float* fromChuck, const float* toChuck) const {
-        if (!_chuckCollisionEnabled) return false;
+        if (!_chuckCollisionEnabled)
+            return false;
 
         // Chuck is fixed at the centerline, check if ATC volumes would collide with it
         // Check circle intersection in XY plane
-        if (lineIntersectsCircle2D(fromChuck[X_AXIS], fromChuck[Y_AXIS],
-                                   toChuck[X_AXIS], toChuck[Y_AXIS],
-                                   _chuckCenterX, _chuckCenterY, _chuckRadius)) {
+        if (lineIntersectsCircle2D(
+                fromChuck[X_AXIS], fromChuck[Y_AXIS], toChuck[X_AXIS], toChuck[Y_AXIS], _chuckCenterX, _chuckCenterY, _chuckRadius)) {
             float segZMin = std::min(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
             float segZMax = std::max(fromChuck[Z_AXIS], toChuck[Z_AXIS]);
             if (zRangesOverlap(segZMin, segZMax, _chuckZMin, _chuckZMax)) {
@@ -568,15 +560,12 @@ namespace ATCs {
                 float stickout = getToolStickout(i);
 
                 // Tool tip position (furthest point from cylinder center)
-                float toolTipX = fromChuck[X_AXIS] + _cylinderCenterX +
-                                (_squareToolRadiusFromCenter + stickout) * std::cos(angleRad);
-                float toolTipY = fromChuck[Y_AXIS] + _cylinderCenterY +
-                                (_squareToolRadiusFromCenter + stickout) * std::sin(angleRad);
+                float toolTipX = fromChuck[X_AXIS] + _cylinderCenterX + (_squareToolRadiusFromCenter + stickout) * std::cos(angleRad);
+                float toolTipY = fromChuck[Y_AXIS] + _cylinderCenterY + (_squareToolRadiusFromCenter + stickout) * std::sin(angleRad);
 
                 // Check if tool tip circle overlaps with chuck circle
                 float toolEffectiveRadius = _squareToolSize / 2.0f;
-                if (circlesOverlapXY(toolTipX, toolTipY, toolEffectiveRadius,
-                                     _chuckCenterX, _chuckCenterY, _chuckRadius)) {
+                if (circlesOverlapXY(toolTipX, toolTipY, toolEffectiveRadius, _chuckCenterX, _chuckCenterY, _chuckRadius)) {
                     // Check Z overlap
                     float toolZMin = fromChuck[Z_AXIS] + _cylinderZMin;
                     float toolZMax = fromChuck[Z_AXIS] + _cylinderZMax + _squareToolSize;
@@ -590,30 +579,30 @@ namespace ATCs {
 
         // Check all 8 boring tool positions for collision with chuck
         for (int i = 0; i < 8; ++i) {
-            if (!_chuckCollisionEnabled) continue;
+            if (!_chuckCollisionEnabled)
+                continue;
 
             // Check if this boring position has a tool loaded
-            int toolNumber = 8 + i + 1;  // Boring tools are numbered 9-16
+            int   toolNumber      = 8 + i + 1;  // Boring tools are numbered 9-16
             float tlo[MAX_N_AXIS] = {};
-            bool hasToolLoaded = (toolTable != nullptr && toolTable->getToolOffset(toolNumber, tlo));
-            if (!hasToolLoaded) continue;
+            bool  hasToolLoaded   = (toolTable != nullptr && toolTable->getToolOffset(toolNumber, tlo));
+            if (!hasToolLoaded)
+                continue;
 
             // Get tool position
             float angleDeg = BORING_TOOL_ANGLES[i];
             float angleRad = angleDeg * float(M_PI) / 180.0f;
             float stickout = std::abs(tlo[Z_AXIS]);
-            if (stickout <= 0) stickout = 50.0f;
+            if (stickout <= 0)
+                stickout = 50.0f;
 
             // Boring tool holder position
-            float holderX = fromChuck[X_AXIS] + _cylinderCenterX +
-                           _boringToolRadiusFromCenter * std::cos(angleRad);
-            float holderY = fromChuck[Y_AXIS] + _cylinderCenterY +
-                           _boringToolRadiusFromCenter * std::sin(angleRad);
+            float holderX    = fromChuck[X_AXIS] + _cylinderCenterX + _boringToolRadiusFromCenter * std::cos(angleRad);
+            float holderY    = fromChuck[Y_AXIS] + _cylinderCenterY + _boringToolRadiusFromCenter * std::sin(angleRad);
             float toolRadius = _boringToolDiameter / 2.0f;
 
             // Check if tool cylinder overlaps with chuck cylinder
-            if (circlesOverlapXY(holderX, holderY, toolRadius,
-                                 _chuckCenterX, _chuckCenterY, _chuckRadius)) {
+            if (circlesOverlapXY(holderX, holderY, toolRadius, _chuckCenterX, _chuckCenterY, _chuckRadius)) {
                 float toolZMin = fromChuck[Z_AXIS] + _cylinderZMin;
                 float toolZMax = fromChuck[Z_AXIS] + _cylinderZMax + stickout;
                 if (zRangesOverlap(toolZMin, toolZMax, _chuckZMin, _chuckZMax)) {
@@ -627,8 +616,7 @@ namespace ATCs {
         if (_chuckCollisionEnabled) {
             float cylCenterX = fromChuck[X_AXIS] + _cylinderCenterX;
             float cylCenterY = fromChuck[Y_AXIS] + _cylinderCenterY;
-            if (circlesOverlapXY(cylCenterX, cylCenterY, _cylinderRadius,
-                                 _chuckCenterX, _chuckCenterY, _chuckRadius)) {
+            if (circlesOverlapXY(cylCenterX, cylCenterY, _cylinderRadius, _chuckCenterX, _chuckCenterY, _chuckRadius)) {
                 float cylZMin = fromChuck[Z_AXIS] + _cylinderZMin;
                 float cylZMax = fromChuck[Z_AXIS] + _cylinderZMax;
                 if (zRangesOverlap(cylZMin, cylZMax, _chuckZMin, _chuckZMax)) {

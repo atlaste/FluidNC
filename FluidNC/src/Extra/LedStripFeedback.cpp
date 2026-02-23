@@ -443,7 +443,7 @@ namespace Extra {
                 co_yield 100_msec;
                 continue;
             }
-            
+
             // Startup rainbow overrides everything except probe flash
             if (inStartup_) {
                 if (probeFlashCounter_ > 0) {
@@ -462,31 +462,31 @@ namespace Extra {
                     case State::CheckMode:
                         updateIdle();
                         break;
-                        
+
                     case State::Cycle:
                     case State::Jog:
                         updateRunning();
                         break;
-                        
+
                     case State::Homing:
                         updateHoming();
                         break;
-                        
+
                     case State::Hold:
                     case State::Held:
                         updateHold();
                         break;
-                        
+
                     case State::SafetyDoor:
                         updateSafetyDoor();
                         break;
-                        
+
                     case State::Alarm:
                     case State::ConfigAlarm:
                     case State::Critical:
                         updateAlarm();
                         break;
-                        
+
                     case State::Sleep:
                         // Turn off LEDs
                         if (strip_) {
@@ -496,7 +496,7 @@ namespace Extra {
                         break;
                 }
             }
-            
+
             animationCounter_++;
             co_yield 167_msec;  // ~6 FPS
         }

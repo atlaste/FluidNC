@@ -195,6 +195,7 @@ static bool mc_linear_compensated(float* target, plan_line_data_t* pl_data, floa
 static void get_plane_axes(int& axis_0, int& axis_1, int& axis_linear) {
     switch (gc_state.modal.plane_select) {
         case Plane::XY:
+        default:
             axis_0 = X_AXIS;
             axis_1 = Y_AXIS;
             axis_linear = Z_AXIS;
