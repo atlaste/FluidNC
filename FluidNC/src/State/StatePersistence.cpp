@@ -186,23 +186,18 @@ void StatePersistence::saveSpindleState()
         return;
     }
     
-    auto                 spindles = Spindles::SpindleFactory::objects();
+    auto                 atcs = ATCs::ATCFactory::objects();
     std::vector<uint8_t> atcData;
     
-    // Reserve space for size at the beginning
     atcData.resize(4);
     
-    // Collect ATC data from all spindles (appends after the size field)
-    for (auto it : spindles) {
+    for (auto it : atcs) {
         it->save_atc_data(atcData);
     }
     
-    // Write the total size at the beginning (now that we know the final size)
     uint32_t size = atcData.size();
     memcpy(atcData.data(), &size, 4);
     
-    // Write the entire buffer to FRAM
-    // WriteBlock signature: WriteBlock(address, blockSize, numBlocks, data)
     _fram->WriteBlock(FRAM_ATC_ADDR, atcData.size(), 1, atcData.data());
 }
 
@@ -361,12 +356,13 @@ void StatePersistence::restoreSpindleState() {
     atcData.resize(length);
     _fram->ReadBlock(FRAM_ATC_ADDR, length, 1, atcData.data());
     
-    // Restore ATC data to all spindles (starting after the 4-byte size header)
+    // Restore ATC data directly to ATC objects (not through spindles,
+    // because spindle->_atc isn't set until spindle init runs later).
     size_t index = 4;
-    auto spindles = Spindles::SpindleFactory::objects();
-    for (auto it : spindles) {
+    auto atcs = ATCs::ATCFactory::objects();
+    for (auto it : atcs) {
         if (index >= length) {
-            break;  // No more data to read
+            break;
         }
         it->restore_atc_data(atcData, index);
     }

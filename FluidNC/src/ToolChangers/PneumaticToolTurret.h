@@ -64,5 +64,8 @@ namespace ATCs {
 
         // This ATC handles TLO internally when useTLO is enabled
         bool handles_tlo() override { return true; }
+
+        void save_atc_data(std::vector<uint8_t>& buffer) override;
+        void restore_atc_data(const std::vector<uint8_t>& buffer, size_t& index) override;
     };
 }

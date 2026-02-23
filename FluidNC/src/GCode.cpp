@@ -79,7 +79,7 @@ void gc_init() {
     if (!gc_state_restored) {
         // Reset parser state:
         memset(&gc_state, 0, sizeof(parser_state_t));
-        
+
         // Load default G54 coordinate system.
         gc_state.modal          = modal_defaults;
         gc_state.modal.override = config->_start->_deactivateParking ? Override::Disabled : Override::ParkingMotion;
@@ -1294,6 +1294,9 @@ Error gc_execute_line(const char* input_line) {
         if (gc_block.modal.tool_length == ToolLengthOffset::EnableDynamic) {
             gc_ngc_changed(CoordIndex::TLO);
         }
+        if (gc_block.modal.tool_length == ToolLengthOffset::Enable) {
+            clear_bits(value_words, bitnum_to_mask(GCodeWord::H));
+        }
     }
     // [15. Coordinate system selection ]: *N/A. Error, if cutter radius comp is active.
     // TODO: Reading the coordinate data may require a buffer sync when the cycle
@@ -2223,9 +2226,8 @@ Error gc_execute_line(const char* input_line) {
             }
         } else if (gc_state.modal.tool_length == ToolLengthOffset::Enable) {
             // G43 H# - Load from tool table
-            // If H word not specified or H0, use current tool
             int32_t tool_num = gc_block.values.h;
-            if (!bitnum_is_true(value_words, GCodeWord::H) || tool_num == 0) {
+            if (tool_num == 0) {
                 // H0 or no H word: cancel TLO (same as G49)
                 for (size_t idx = 0; idx < n_axis; idx++) {
                     gc_state.tool_length_offset[idx] = 0.0;

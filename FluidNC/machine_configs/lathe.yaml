@@ -63,6 +63,7 @@ odrive:
   can_rx: gpio.47
   odrive_node_id: 1
   gear_factor: 0.777778
+  atc: pneumatic_tool_turret
 
 kinematics:
   Cartesian:

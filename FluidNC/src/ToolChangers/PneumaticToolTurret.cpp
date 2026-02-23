@@ -24,6 +24,12 @@ namespace ATCs {
     // Static constexpr definitions
     void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
     {
+        auto it = str;
+        for (; *it && *it != '\r' && *it != '\n'; ++it) {}
+        std::string tmp(str, it);
+
+        log_info("ATC command: " << str);  // just for debugging.
+
         macro.erase();
         macro.addf("%s", str);
         macro.run(nullptr);
@@ -94,6 +100,17 @@ namespace ATCs {
 
         protocol_buffer_synchronize();  // wait for all motion to complete
 
+        if (toolNumber <= 0 || toolNumber >= int(toolOffsets.size())) {
+            log_info("Attempting to select an invalid tool.");
+            return false;
+        }
+
+        if (currentToolNumber == toolNumber) {
+            return true;
+        }
+
+        log_info("Starting pneumatic tool change");
+
         // First thing we're going to do here is enable the stepper motor for the tool changer:
         setToolChangeStepperEnable(true);
 
@@ -117,6 +134,8 @@ namespace ATCs {
             Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
         }
 
+        log_info("Current tool is "<< (isInsideTool ? "" : "not ") << "an inside tool.");
+
         // Safe retract sequence depends on tool type:
         // - Inside tools (boring): Z first (out of hole, don't crash into tailstock!), then X, then more Z.
         // - Outside tools (turning): X first (away from OD), then Z.
@@ -127,6 +146,8 @@ namespace ATCs {
             float tlo[MAX_N_AXIS] = {};
             bool  hasTLO          = toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
             if (hasTLO) {
+                log_info("Retracting boring tool (Z)");
+
                 // Calculate safe Z position based on TLO + margin
                 // This ensures we clear the bore before moving X
                 float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
@@ -140,15 +161,22 @@ namespace ATCs {
 
         // fallthrough:
         {
+            log_info("Retracting turret (X)");
+
             // Inside & outside tool: First retract X (away from workpiece OD), then Z
             snprintf(safeRetract, 100, "G53 G0 X%0.4f\n", safeX);
             run(safeRetract);
+
+            log_info("Going to change position (Z)");
+
             snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeZ);
             run(safeRetract);
         }
 
         // Before doing the tool change, we need to check if the pressure is on:
         if (usePressureSensor) {
+            log_info("Checking pressure");
+
             while (pneumaticSensor.readBar() < 2.0f) {
                 log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar()
                                                                                                        << " bar.");
@@ -176,6 +204,8 @@ namespace ATCs {
         // }
         // Assert(!pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
 
+        log_info("Changing tool");
+        
         // Should we move forward or backward?
         auto offset1 = toolOffsets[currentToolNumber];
         auto offset2 = toolOffsets[toolNumber];
@@ -205,6 +235,8 @@ namespace ATCs {
 
         // And disable the stepper again. Otherwise it's just going to fight the coupling.
         setToolChangeStepperEnable(false);
+
+        log_info("Setting TLO");
 
         // Load TLO from tool table using G43 H#
         snprintf(toolChange, sizeof(toolChange), "G43 H%d\n", toolNumber);
@@ -236,8 +268,17 @@ namespace ATCs {
     // ATC API:
     void PneumaticToolTurret::probe_notification() {}
     bool PneumaticToolTurret::tool_change(tool_t value, bool pre_select, bool set_tool) {
+        if (int(value) <= 0 || int(value) >= int(toolOffsets.size())) {
+            log_info("Attempting to select an invalid tool.");
+            return false;
+        }
+
         if (pre_select) {
             // TODO FIXME: Is this ever used?
+            return true;
+        }
+
+        if (currentToolNumber == value) {
             return true;
         }
 
@@ -252,6 +293,22 @@ namespace ATCs {
             } else {
                 return true;
             }
+        }
+    }
+
+    void PneumaticToolTurret::save_atc_data(std::vector<uint8_t>& buffer) {
+        ATC::save_atc_data(buffer);
+        auto offset = buffer.size();
+        buffer.resize(offset + sizeof(currentToolNumber));
+        memcpy(buffer.data() + offset, &currentToolNumber, sizeof(currentToolNumber));
+    }
+
+    void PneumaticToolTurret::restore_atc_data(const std::vector<uint8_t>& buffer, size_t& index) {
+        ATC::restore_atc_data(buffer, index);
+        if (index + sizeof(currentToolNumber) <= buffer.size()) {
+            memcpy(&currentToolNumber, buffer.data() + index, sizeof(currentToolNumber));
+            index += sizeof(currentToolNumber);
+            log_info("Restored ATC tool number: " << currentToolNumber);
         }
     }
 
