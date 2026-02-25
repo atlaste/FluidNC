@@ -1564,7 +1564,8 @@ namespace GCode {
             // rather than gc_state, is used to manage laser state for non-laser motions.
             if (!state_is(State::CheckMode)) {
                 protocol_buffer_synchronize();
-                spindle->setState(gc_block.modal.spindle, (uint32_t)pl_data->spindle_speed);
+                uint32_t speed = gc_block.modal.spindle == SpindleState::Disable ? 0 : (uint32_t)pl_data->spindle_speed;
+                spindle->setState(gc_block.modal.spindle, speed);
             }
             gc_ovr_changed();
             gc_state.modal.spindle = gc_block.modal.spindle;

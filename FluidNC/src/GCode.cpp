@@ -178,12 +178,12 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 // x G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
 // x G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
-// t G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
+// x G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
 // t G40: Cutter compensation cancellation. We'll deal with this later.
 // t G41 / G42: Cutter compensation left/right. We'll deal with this later.
-// t G49: Tool length offset cancellation. We'll deal with this later.
-// t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
+// x G49: Tool length offset cancellation. We'll deal with this later.
+// x G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
 
 // Edit GCode line in-place, removing whitespace and comments and
@@ -1750,6 +1750,10 @@ Error gc_execute_line(const char* input_line) {
     if (jogMotion) {
         // Jogging only uses the F feed rate and XYZ value words. N is valid, but S and T are invalid.
         clear_bits(value_words, (bitnum_to_mask(GCodeWord::N) | bitnum_to_mask(GCodeWord::F)));
+    } else if (gc_block.non_modal_command == NonModal::SetMaxSpindleSpeed) {
+        // G50 uses S word in section [19] - don't clear it here
+        clear_bits(value_words,
+                   (bitnum_to_mask(GCodeWord::N) | bitnum_to_mask(GCodeWord::F) | bitnum_to_mask(GCodeWord::T)));
     } else {
         clear_bits(value_words,
                    (bitnum_to_mask(GCodeWord::N) | bitnum_to_mask(GCodeWord::F) | bitnum_to_mask(GCodeWord::S) |
@@ -1852,6 +1856,7 @@ Error gc_execute_line(const char* input_line) {
     pl_data->feed_rate = gc_state.feed_rate;  // Record data for planner use.
 
     // [3.5 Update spindle speed mode ]:
+    bool spindle_speed_mode_changed = (gc_state.modal.spindle_speed_mode != gc_block.modal.spindle_speed_mode);
     gc_state.modal.spindle_speed_mode = gc_block.modal.spindle_speed_mode;
 
     // [3.6 Update lathe diameter mode ]:
@@ -1861,7 +1866,9 @@ Error gc_execute_line(const char* input_line) {
     // In CSS mode (G96), S value is surface speed in m/min
     // In constant RPM mode (G97), S value is RPM
     // G50 uses S word for max spindle speed, not current speed - skip this section
-    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed && ((gc_state.spindle_speed != gc_block.values.s) || syncLaser)) {
+    // Also enter when switching G96<->G97 since the S value meaning changes
+    if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed &&
+        ((gc_state.spindle_speed != gc_block.values.s) || syncLaser || spindle_speed_mode_changed)) {
         if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
             // CSS mode - store surface speed, calculate RPM for immediate spindle command
             gc_state.css_surface_speed = gc_block.values.s;
@@ -2058,7 +2065,7 @@ Error gc_execute_line(const char* input_line) {
 
             // In CSS mode, pl_data->spindle_speed contains surface speed, not RPM
             // Calculate actual RPM from machine position - tool offset when turning spindle on
-            uint32_t actual_rpm = (uint32_t)pl_data->spindle_speed;
+            uint32_t actual_rpm = gc_block.modal.spindle == SpindleState::Disable ? 0 : (uint32_t)pl_data->spindle_speed;
             if (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
                 gc_block.modal.spindle != SpindleState::Disable) {
                 axis_t css_axis = config->_css_axis;

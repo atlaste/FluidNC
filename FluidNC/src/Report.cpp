@@ -311,6 +311,37 @@ void report_gcode_modes(Channel& channel) {
             break;
     }
 
+    switch (gc_state.modal.spindle_speed_mode) {
+        case SpindleSpeedMode::ConstantRPM:
+            msg << " G97";
+            break;
+        case SpindleSpeedMode::ConstantSurfaceSpeed:
+            msg << " G96";
+            break;
+    }
+
+    switch (gc_state.modal.cutter_comp) {
+        case CutterCompensation::Disable:
+            msg << " G40";
+            break;
+        case CutterCompensation::Left:
+            msg << " G41";
+            break;
+        case CutterCompensation::Right:
+            msg << " G42";
+            break;
+    }
+
+    switch (gc_state.modal.tool_length) {
+        case ToolLengthOffset::Cancel:
+            msg << " G49";
+            break;
+        case ToolLengthOffset::Enable:
+        case ToolLengthOffset::EnableDynamic:
+            msg << " G43";
+            break;
+    }
+
     //report_util_gcode_modes_M();
     switch (gc_state.modal.program_flow) {
         case ProgramFlow::Running:
