@@ -176,13 +176,7 @@ bool ToolTable::load(const std::string& filename) {
                 }
             }
 
-            // Move to next token if held
-            if (parser._token._state == Configuration::TokenState::Held) {
-                parser._token._state = Configuration::TokenState::Matching;
-            }
-            if (parser._token._state == Configuration::TokenState::Matching) {
-                parser.Tokenize();
-            }
+            parser.Tokenize();
         }
 
         _loaded = true;

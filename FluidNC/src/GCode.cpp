@@ -1966,9 +1966,7 @@ Error gc_execute_line(const char* input_line) {
             }
             log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool << " Holder:P" << holder_index);
             spindle->tool_change(gc_state.selected_tool, false, false);
-            if (spindle->_atc_name == "" && spindle->_m6_macro.get().empty()) {  // if neither of these exist we need to set the value here
-                gc_state.current_tool = gc_state.selected_tool;
-            }
+            gc_state.current_tool = gc_state.selected_tool;
 
             // Apply TLO from tool table if ATC doesn't handle it internally
             bool atc_handles_tlo = false;

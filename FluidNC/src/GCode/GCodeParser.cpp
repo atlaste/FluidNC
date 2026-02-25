@@ -1531,9 +1531,7 @@ namespace GCode {
                 }
                 log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool);
                 spindle->tool_change(gc_state.selected_tool, false, false);
-                if (spindle->_atc_name == "" && spindle->_m6_macro.get().empty()) {  // if neither of these exist we need to set the value here
-                    gc_state.current_tool = gc_state.selected_tool;
-                }
+                gc_state.current_tool = gc_state.selected_tool;
                 report_ovr_counter = 0;  // Set to report change immediately
                 gc_ovr_changed();
             }
