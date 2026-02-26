@@ -24,6 +24,8 @@ using namespace Stepper;
 
 static bool awake = false;
 
+static bool crashThis = false;
+
 // Cached ISR-safe spindle speed callback to avoid vtable lookups in IRAM
 // The callback is updated when the spindle changes via updateSpindleCallback()
 static Spindles::SpeedCallbackInfo spindle_isr_callback = { Spindles::Spindle::defaultSpeedCallback, nullptr };
@@ -315,8 +317,11 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
         value = spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
     }
 
-    // ets_printf("enc_wait: alarm_target=%lld\n", (long long)value);
+    ets_printf("enc_wait: alarm_target=%lld\n", (long long)value);
     start_spindle_encoder(value);
+
+    crashThis = true;
+
     // Note: spindle speed is set, but n_step=0 so no motion occurs
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
 }
@@ -330,6 +335,11 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
  * Returns true if step interrupts should continue
  */
 bool IRAM_ATTR Stepper::pulse_func() {
+    if (crashThis) {
+        crashThis = false;
+        *((uint32_t*)0)=0xdeadbeef; // boom!
+        return false;
+    }
 #ifdef DEBUG_STEPPER_ISR
     isr_count++;
 #endif
