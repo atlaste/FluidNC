@@ -247,3 +247,158 @@ $TTS    ; Save current tool table to file
 | G10 L11	| Offset computed from MPos
 | $TTS/$TTL	| Offsets persist across reload
 | Invalid H# | Error returned, state unchanged
+
+# Tool table
+```
+; --- Setup ---
+G21 G90 G54
+G92 X0 Y0 Z0
+
+; --- G10 L1: Set tool offset directly ---
+G10 L1 P1 X10 Z-5
+$#
+; LOOK FOR: [TLO:...] unchanged (G10 L1 doesn't activate TLO)
+; Verify tool table: $T (or inspect /localfs/tooltable.yaml)
+
+; --- G10 L10: Set offset so current position = given work position ---
+; At MPos:0, this computes TLO = MPos - WCS - G92 - desiredWPos
+G10 L10 P2 X0 Z0
+$#
+; LOOK FOR: Tool 2 offset should be written to tool table
+
+; --- G10 L11: Set offset relative to G59.3 ---
+G10 L2 P9 X5 Z5
+; (set G59.3 to X5 Z5 first)
+G10 L11 P3 X0 Z0
+; LOOK FOR: Tool 3 offset = MPos - G59.3 - desiredWPos = 0 - 5 - 0 = -5
+
+; --- G10 L2 / L20: Set coordinate system offset ---
+G10 L2 P1 X0 Y0 Z0
+; Sets G54 to X0Y0Z0
+$#
+; LOOK FOR: [G54:0.000,0.000,0.000,...]
+
+G10 L20 P2 X0 Y0 Z0
+; Sets G55 so that current position IS X0Y0Z0
+; G55 = MPos - G92 - TLO - desiredWPos
+$#
+; LOOK FOR: [G55:...] computed from current position
+```
+# TLO
+```
+; --- Setup: create tool offsets ---
+G10 L1 P1 X10 Z-5
+G10 L1 P2 X0 Z-20
+
+; --- G43 H1: Load TLO from tool table ---
+G43 H1
+$#
+; LOOK FOR: [TLO:10.000,0.000,-5.000,...]
+; LOOK FOR: ? shows WCO changed by TLO amount
+
+; --- G43 H2: Switch to different tool ---
+G43 H2
+$#
+; LOOK FOR: [TLO:0.000,0.000,-20.000,...]
+
+; --- G43.1 X5 Z-3: Dynamic TLO from axis words ---
+G43.1 X5 Z-3
+$#
+; LOOK FOR: [TLO:5.000,0.000,-3.000,...]
+
+; --- G49: Cancel TLO ---
+G49
+$#
+; LOOK FOR: [TLO:0.000,0.000,0.000,...]
+; LOOK FOR: ? shows WCO back to just G54+G92
+
+; --- G43 H0: Should also cancel (same as G49) ---
+G43 H0
+$#
+; LOOK FOR: [TLO:0.000,0.000,0.000,...]
+```
+
+# Cutter radius compensation (G40/G41/G42)
+
+```gcode
+
+; --- Setup: Set tool radius in tool table ---
+G10 L1 P1 X0 Z0
+; Then manually set radius (or use the tool table yaml)
+; For now, use D word with tool number
+
+; --- G41 D1: Activate left compensation ---
+G41 D1
+; LOOK FOR: $G should show G41
+; NOTE: Will warn if tool 1 has no radius defined
+
+; --- Move with compensation active ---
+G1 X50 F200
+G1 Y50
+G1 X0
+G1 Y0
+; LOOK FOR: ? during motion - MPos should be offset from
+; programmed path by the tool radius amount (left side)
+
+; --- G40: Cancel compensation ---
+G40
+G1 X10
+; LOOK FOR: $G should show G40
+
+; --- G42 D1: Right compensation ---
+G42 D1
+G1 X50 F200
+G1 Y50
+; LOOK FOR: Offset to the right of the programmed path
+G40
+G1 X0 Y0
+
+; --- D0 should also cancel ---
+G41 D0
+; LOOK FOR: $G should show G40 (D0 cancels)
+```
+
+# G33 (Spindle Synchronized Motion) -- NEEDS ENCODER
+
+```gcode
+; --- Requires spindle encoder connected ---
+; G33 does a single-pass threading move synced to spindle rotation
+; K = thread pitch (mm per revolution)
+
+G90 G21
+G0 X0 Z5
+M3 S300
+; Wait for spindle to reach speed
+
+; --- Single threading pass: 1mm pitch, move Z to -20 ---
+G33 Z-20 K1.0
+; LOOK FOR: ? during motion should show State:Run
+; Motion should be synchronized to spindle speed
+; Feed rate = K * spindle_RPM (automatic, not F word)
+
+G0 Z5
+; Retract
+
+M5
+```
+
+# G76 (Multi-pass Threading Cycle) -- NEEDS ENCODER
+
+```gcode
+; --- Requires spindle encoder connected ---
+; G76 does multiple G33 passes at increasing depth
+
+G90 G21
+G0 X10 Z5
+M3 S300
+
+; G76 P(pitch) Z(end_z) I(first_cut_depth) J(cut_decrement) K(min_cut) Q(compound_angle)
+; Example: 1mm pitch thread, Z end at -20, 0.5mm first cut, 0.1mm decrement, 0.05mm min
+G76 Z-20 P1.0 I-0.5 J0.1 K0.05
+; LOOK FOR: Multiple passes in sequence
+; Each pass goes deeper by a decreasing amount
+; ? during motion shows Run state
+
+G0 X10 Z5
+M5
+```
