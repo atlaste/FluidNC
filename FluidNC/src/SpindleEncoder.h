@@ -40,6 +40,9 @@ class SpindleEncoder : public ConfigurableModule {
     volatile encoder_step_callback_t encoder_callback         = nullptr;
     volatile int32_t                 encoder_counts_remaining = 0;  // Remaining counts to next step (for >16-bit threshold handling)
 
+    // Counting direction: +1 for positive, -1 for negative (determined by monitorSpeed)
+    volatile int8_t countDirection_ = 1;
+
     // Threading sync state
     volatile int64_t target_absolute_count = 0;  // Target count for setCountAlarm()
 

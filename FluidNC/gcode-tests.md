@@ -91,7 +91,7 @@ G94          ; Back to units per minute
 M5
 ```
 
-**Pass**
+**Pass** **RETEST**
 
 ## G33 - Spindle Synchronized Threading (requires spindle encoder)
 
@@ -484,5 +484,15 @@ G76 P1.0 Z-20 J0.5 K2.0 R2.0
 ; Each pass cuts deeper by a decreasing amount (constant chip load)
 ; ? during motion shows Run state, X should vary between passes
 
+M5
+```
+
+
+```gcode
+G90 G21
+G0 X10 Z5
+M3 S300
+G76 P1.0 Z-20 J0.5 K2.0 R2.0
+?
 M5
 ```

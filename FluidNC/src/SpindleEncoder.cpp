@@ -377,47 +377,53 @@ void IRAM_ATTR SpindleEncoder::stopStepCallback() {
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
-    // Convert fixed-point (scaled by 1024) to integer encoder counts
-    int32_t value = counts_fp / 1024;
-    int32_t remainder = counts_fp - (value * 1024);  // Remainder keeps sign
+    // counts_fp is always positive (encoder counts per motor step, scaled by 1024).
+    // Apply counting direction so alarm targets and re-arm logic match the PCNT direction.
+    auto dir = countDirection_;
+    int32_t signed_fp = counts_fp * dir;
 
-    // Ensure we always move at least one count
+    int32_t value = signed_fp / 1024;
+    int32_t remainder = signed_fp - (value * 1024);
+
     if (value == 0) {
-        value = (counts_fp < 0) ? -1 : 1;
+        value = dir;  // At least one count in the right direction
     }
 
     this->current_step_fp_remainder = remainder;
-    this->current_step_fp = counts_fp;
+    this->current_step_fp = signed_fp;
 
     return getCount() + value;
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {
-    // Wait for index pulse (Z channel). Since we're just tracking all the pulses, we are basically
-    // waiting for the next revolution.
     auto count     = getCount();
     auto remainder = count % countPerRevolution;
+    auto base      = count - remainder;  // Most recent revolution boundary we crossed
+    auto dir       = countDirection_;
 
-    // We should also reset the remainder to avoid the +/- 1 count drift
     this->current_step_fp_remainder = 0;
 
-    auto target = count - remainder + countPerRevolution;
-    ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld target=%lld\n",
-               (long long)count, (int)countPerRevolution, (long long)remainder, (long long)target);
+    // Next revolution boundary in the counting direction
+    auto target = base + dir * countPerRevolution;
+    ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld dir=%d target=%lld\n",
+               (long long)count, (int)countPerRevolution, (long long)remainder, (int)dir, (long long)target);
     return target;
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setCountAlarm(int32_t target_count) {
-    // Wait until encoder reaches a specific absolute count
-    // waiting for the next revolution.
     auto count     = getCount();
     auto remainder = count % countPerRevolution;
-    auto result    = count - remainder + target_count;
+    auto dir       = countDirection_;
+    auto base      = count - remainder;
 
-    // We should also reset the remainder to avoid the +/- 1 count drift
     this->current_step_fp_remainder = 0;
 
-    return result <= 0 ? result + countPerRevolution : result;
+    // Offset from base in counting direction; wrap by one revolution if needed
+    auto result = base + dir * target_count;
+    if ((dir > 0 && result <= count) || (dir < 0 && result >= count)) {
+        result += dir * countPerRevolution;
+    }
+    return result;
 }
 
 void SpindleEncoder::deinit() {
@@ -476,6 +482,13 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
 
     // Use separate lastCount tracking for ISR vs idle coroutine to avoid race conditions
     int32_t delta = int32_t(count - lastCountRef);
+
+    // Track counting direction for alarm computations (setIndexAlarm, setStepAlarmValue)
+    if (delta > 20) {
+        countDirection_ = 1;
+    } else if (delta < -20) {
+        countDirection_ = -1;
+    }
 
     // At low RPM, delta might be 0 if sampled too frequently
     // Only validate if we have enough ticks (at least 20 to be meaningful)
