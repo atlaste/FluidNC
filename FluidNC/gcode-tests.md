@@ -29,6 +29,24 @@ M3 S500      ; Start spindle at 500 RPM
 M5           ; Stop spindle
 ```
 
+## CSS and G50
+
+```
+G50 S500
+G96 S200
+M3
+G0 X200
+G1 X5 F100
+```
+
+Expected behavior: 
+
+At X=200: uncapped RPM ≈ 159 (below cap, should show ~159)
+At X=63.7: RPM = 500 (exactly at cap boundary)
+At X<63.7: would exceed 500, so capped at 500
+
+During the G1 move inward, you should see the speed ramp up from ~159 toward 500, then hold at 500 for the rest of the cut.
+
 ## G96 - Constant Surface Speed
 
 Note that for CSS mode the centerline of the spindle has to be X=0 in MCO (!). We take the TLO into 
@@ -458,8 +476,13 @@ M3 S300
 ;
 ; Example: 1mm pitch, Z end at -20, 0.5mm first cut, 2mm total depth
 G76 P1.0 Z-20 J0.5 K2.0
+
 ; LOOK FOR: Multiple passes cycling X deeper each time:
 ;   rapid to depth -> thread along Z -> retract X -> rapid back to Z start
+;   In total we'll get roughly 14 passes.
+; For 4 passes of 0.5 depth we do:
+G76 P1.0 Z-20 J0.5 K2.0 R2.0
+
 ; Each pass cuts deeper by a decreasing amount (constant chip load)
 ; ? during motion shows Run state, X should vary between passes
 
