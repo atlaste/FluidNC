@@ -172,7 +172,7 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 // - G64: Path control mode with optional blending tolerances to maintain constant velocity. Iirc this is similar to setting arc_tolerance_mm dynamically - which we already have.
 // - G61 / G61.1 (Exact Path/Stop Mode): The counterpart to G64. It forces the machine to stop exactly at every programmed point, which
 //   is useful for finishing sharp corners. I'm not sure if this is the same as waiting for the planner to complete after each point.
-// t G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
+// x G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
 // - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
 // x G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
 // x G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
@@ -1140,7 +1140,10 @@ Error gc_execute_line(const char* input_line) {
     // clear_bitnum(value_words, GCodeWord::F); // NOTE: Single-meaning value word. Set at end of error-checking.
     // [4. Set spindle speed ]: S is negative (done.)
     if (bitnum_is_false(value_words, GCodeWord::S)) {
-        gc_block.values.s = gc_state.spindle_speed;
+        if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed) {
+            gc_block.values.s = gc_state.spindle_speed;
+        }
+    }
         // clear_bitnum(value_words, GCodeWord::S); // NOTE: Single-meaning value word. Set at end of error-checking.
         // [5. Select tool ]: NOT SUPPORTED. Only tracks value. T is negative (done.) Not an integer. Greater than max tool value.
         // clear_bitnum(value_words, GCodeWord::T); // NOTE: Single-meaning value word. Set at end of error-checking.
@@ -1762,7 +1765,7 @@ Error gc_execute_line(const char* input_line) {
         // Jogging only uses the F feed rate and XYZ value words. N is valid, but S and T are invalid.
         clear_bits(value_words, (bitnum_to_mask(GCodeWord::N) | bitnum_to_mask(GCodeWord::F)));
     } else if (gc_block.non_modal_command == NonModal::SetMaxSpindleSpeed) {
-        // G50 uses S word in section [19] - don't clear it here
+        clear_bits(value_words, (bitnum_to_mask(GCodeWord::S)));
         clear_bits(value_words,
                    (bitnum_to_mask(GCodeWord::N) | bitnum_to_mask(GCodeWord::F) | bitnum_to_mask(GCodeWord::T)));
     } else {
@@ -2355,10 +2358,8 @@ Error gc_execute_line(const char* input_line) {
             break;
         case NonModal::SetMaxSpindleSpeed:
             // G50 Sxxx - Set maximum spindle speed for CSS mode
-            if (bitnum_is_true(value_words, GCodeWord::S)) {
-                gc_state.css_max_rpm = gc_block.values.s;
-                clear_bitnum(value_words, GCodeWord::S);
-            }
+            // S word is required (validated in step 3). S bit was already cleared for unused-words check.
+            gc_state.css_max_rpm = gc_block.values.s;
             break;
         default:
             break;

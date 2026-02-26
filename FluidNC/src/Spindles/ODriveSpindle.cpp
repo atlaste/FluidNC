@@ -342,7 +342,7 @@ namespace Spindles {
 
                 // If syncing, periodically poll for speed updates
                 if (instance->_syncing && instance->speed_queue) {
-                    uint32_t currentSpeed = uint32_t(instance->lastVelocity * 60.0f);  // Convert rev/s to RPM
+                    uint32_t currentSpeed = uint32_t(fabs(instance->lastVelocity) * 60.0f);
                     xQueueSend(speed_queue, &currentSpeed, 0);
                 }
             } else if (instance->state == ODriveState::Uninitialized) {
@@ -443,27 +443,35 @@ namespace Spindles {
         // This will be re-armed by setSpeedCommand() and cleared by endRamp() when target is reached.
         startRamp(_default_ramp_delay);
 
-        bool change_direction = false;
-        if (_current_state != state) {
-            // Check if we're going from 'disable' (M5) to 'enable' (M3/M4).
-            if ((_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw) !=
-                (state == SpindleState::Cw || state == SpindleState::Ccw)) {
-                // Set speed *FIRST* when going from disable to Cw/Ccw.
-                log_debug("Set speed " << int(dev_speed));
-                _current_state = state;
-                setSpeed(dev_speed, false);
+        bool wasEnabled   = (_current_state == SpindleState::Cw || _current_state == SpindleState::Ccw);
+        bool willEnable   = (state == SpindleState::Cw || state == SpindleState::Ccw);
+        bool stateChanged = (_current_state != state);
 
-                log_debug("Set mode " << int(state));
-                set_mode(state, critical);  // critical if we are in a job
-            } else {
+        if (stateChanged) {
+            if (wasEnabled && willEnable) {
+                // Direction change (CW↔CCW): ODrive must go idle before reversing
+                _last_speed        = UINT32_MAX;
+                _current_dev_speed = -1;
+                setSpeed(0, false);
+                set_mode(SpindleState::Disable, critical);
                 _current_state = state;
+                set_mode(state, critical);
+            } else if (willEnable) {
+                // Disable→Enable: enter closed loop first, then set speed
+                _current_state = state;
+                set_mode(state, critical);
+            } else {
+                // Enable→Disable: ramp to 0, then go idle
+                _current_state = state;
+                _last_speed        = UINT32_MAX;
+                _current_dev_speed = -1;
+                setSpeed(0, false);
+                set_mode(state, critical);
             }
-            change_direction = true;
         }
 
-        if (_current_dev_speed != dev_speed || change_direction) {
-            // It's okay to set the speed again.
-            log_debug("Set speed " << int(dev_speed));
+        if (willEnable && (_current_dev_speed != dev_speed || stateChanged)) {
+            _last_speed = UINT32_MAX;
             setSpeed(dev_speed);
         }
 
