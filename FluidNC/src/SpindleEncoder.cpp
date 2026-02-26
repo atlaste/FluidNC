@@ -405,8 +405,8 @@ int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {
 
     // Next revolution boundary in the counting direction
     auto target = base + dir * countPerRevolution;
-    ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld dir=%d target=%lld\n",
-               (long long)count, (int)countPerRevolution, (long long)remainder, (int)dir, (long long)target);
+    // ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld dir=%d target=%lld\n",
+    //            (long long)count, (int)countPerRevolution, (long long)remainder, (int)dir, (long long)target);
     return target;
 }
 
