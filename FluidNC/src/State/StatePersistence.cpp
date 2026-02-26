@@ -255,6 +255,11 @@ void StatePersistence::restoreParserState() {
 
     _fram->ReadBlock(FRAM_PARSER_STATE_ADDR, sizeof(gc_state), 1, (uint8_t*)&gc_state);
 
+    // Spindle and coolant hardware are not running after a restart — force off to match reality.
+    // Keep spindle_speed so the user can resume with M3 at the previous speed.
+    gc_state.modal.spindle = SpindleState::Disable;
+    gc_state.modal.coolant = {};
+
     // G92 and TLO coords[] entries are RAM-only (is_saved=false), so they're
     // zeroed on boot. Push the FRAM-restored values into them.
     coords[CoordIndex::G92]->set(gc_state.coord_offset);
