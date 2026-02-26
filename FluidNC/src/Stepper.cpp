@@ -167,6 +167,8 @@ typedef struct {
     float        inv_rate;  // Used by PWM laser mode to speed up segment calculations.
     SpindleSpeed current_spindle_speed;
 
+    float css_total_mm;  // Original total block distance for CSS progress calculation
+
 } st_prep_t;
 static st_prep_t prep;
 
@@ -591,6 +593,7 @@ void Stepper::prep_buffer() {
                 prep.step_per_mm      = prep.steps_remaining / pl_block->millimeters;
                 prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR / prep.step_per_mm;
                 prep.dt_remainder     = 0.0;  // Reset for new segment block
+                prep.css_total_mm     = pl_block->millimeters;
                 if ((sys.step_control.executeHold) || prep.recalculate_flag.decelOverride) {
                     // New block loaded mid-hold. Override planner block entry speed to enforce deceleration.
                     prep.current_speed                  = prep.exit_speed;
@@ -824,8 +827,8 @@ void Stepper::prep_buffer() {
                     axis_t css_axis = config->_css_axis;
                     if (css_axis != INVALID_AXIS) {
                         // Calculate current CSS axis position for this segment
-                        // Progress through block: (total_mm - mm_remaining) / total_mm
-                        float progress = (pl_block->millimeters - mm_remaining) / pl_block->millimeters;
+                        // Progress through block: distance traveled / total block distance
+                        float progress = (prep.css_total_mm - mm_remaining) / prep.css_total_mm;
 
                         // Get CSS axis delta from direction bits and steps
                         float css_delta_mm = 0.0f;
