@@ -84,8 +84,10 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     // (we update watchers[] when setting thresholds, so this is accurate)
     auto ecr = enc->encoder_counts_remaining - edata->watch_point_value;
 
-    // Debug: trace ISR calls (commented out to avoid WDT timeout)
-    // ets_printf("ISR: wp=%d ecr=%d->%d\n", edata->watch_point_value, enc->encoder_counts_remaining, ecr);
+    if (ecr != 0 && (enc->encoder_counts_remaining > 100 || enc->encoder_counts_remaining < -100)) {
+        ets_printf("pcnt_on_reach: countdown wp=%d ecr=%d->%d\n",
+                   (int)edata->watch_point_value, (int)enc->encoder_counts_remaining, (int)ecr);
+    }
 
     enc->encoder_counts_remaining = ecr;
 
@@ -95,8 +97,12 @@ bool IRAM_ATTR SpindleEncoder::pcnt_on_reach(pcnt_unit_handle_t unit, const pcnt
     if (ecr == 0) {
         // Target reached - execute step callback
         auto cb = enc->encoder_callback;
-        if (!cb || !cb() || enc->current_step_fp == 0) {
-            // No callback, cb returned false (motion complete), or no more steps
+        bool cb_result = cb ? cb() : false;
+        ets_printf("pcnt_on_reach: ecr=0 wp=%d cb=%d cb_ret=%d step_fp=%d\n",
+                   (int)edata->watch_point_value, (int)(cb != nullptr), (int)cb_result, (int)enc->current_step_fp);
+        if (!cb || !cb_result || enc->current_step_fp == 0) {
+            ets_printf("pcnt_on_reach: STOPPING alarm (cb=%d ret=%d fp=%d)\n",
+                       (int)(cb != nullptr), (int)cb_result, (int)enc->current_step_fp);
             pcnt_ll_clear_count(group->hal.dev, unit_id);
             pcnt_unit_stop(enc->pcnt_alm);
             return pdFALSE;
@@ -355,12 +361,10 @@ void IRAM_ATTR SpindleEncoder::armAlarm(int64_t targetCount) {
     // Start the ALM counter
     AssertOK(pcnt_unit_start(pcnt_alm));
 
-    // Debug (commented out for production):
-    // int hw_thres0 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 0);
-    // int hw_thres1 = pcnt_ll_get_thres_value(group->hal.dev, unit_id, 1);
-    // int hw_count = pcnt_ll_get_count(group->hal.dev, unit_id);
-    // ets_printf("armAlarm: threshold=%d, alarmValue=%d, HW: thres0=%d thres1=%d count=%d\n", 
-    //            initial_threshold, alarmValue, hw_thres0, hw_thres1, hw_count);
+    if (alarmValue > 100 || alarmValue < -100) {
+        ets_printf("armAlarm: target=%lld sum=%lld delta=%d thresh=%d\n",
+                   (long long)targetCount, (long long)sum, alarmValue, initial_threshold);
+    }
 }
 
 void IRAM_ATTR SpindleEncoder::startStepCallback(int64_t target) {
@@ -397,7 +401,10 @@ int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {
     // We should also reset the remainder to avoid the +/- 1 count drift
     this->current_step_fp_remainder = 0;
 
-    return count - remainder + countPerRevolution;
+    auto target = count - remainder + countPerRevolution;
+    ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld target=%lld\n",
+               (long long)count, (int)countPerRevolution, (long long)remainder, (long long)target);
+    return target;
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setCountAlarm(int32_t target_count) {

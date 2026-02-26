@@ -91,6 +91,8 @@ G94          ; Back to units per minute
 M5
 ```
 
+**Pass**
+
 ## G33 - Spindle Synchronized Threading (requires spindle encoder)
 
 ```gcode
@@ -102,21 +104,7 @@ G0 Z0        ; Retract
 M5
 ```
 
-## G76 - Threading Cycle (requires spindle encoder)
-
-```gcode
-M3 S100      ; Start spindle
-G0 X5 Z0     ; Starting position
-G76 X0 Z-10 K1.5 P0.5 Q30 ; Multi-pass threading
-                          ; X0 = final diameter
-                          ; Z-10 = length
-                          ; K1.5 = pitch
-                          ; P0.5 = depth per pass
-                          ; Q30 = angle
-?            ; Check state
-G0 Z0
-M5
-```
+**Pass**
 
 # Manual rigid tapping
 
@@ -127,7 +115,13 @@ G1 Z-15     ; Tap to depth
 ```
 
 The motion system doesn't dynamically reverse direction based on encoder direction. We probably 
-want to implement that? TODO.
+want to implement that? Or not? I'm not sure.
+
+There's currently also no way to 'stop' this once you've given the command.
+
+All in all, it doesn't work at the moment and I don't have a viable path forward.
+
+**Fail**
 
 # Test Plan for Tool Table
 

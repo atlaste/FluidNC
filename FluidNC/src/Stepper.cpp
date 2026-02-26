@@ -302,6 +302,7 @@ void IRAM_ATTR segment_load_encoder(volatile segment_t* seg) {
 // When encoder reaches target, pulse_func fires, segment completes (n_step=0),
 // and next segment (the actual run segment) loads automatically.
 void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
+    ets_printf("enc_wait: wait_idx=%d timerMode=%d\n", (int)seg->encoder_wait.wait_for_index, (int)timerMode);
     if (timerMode) {
         Stepping::stopTimer();
         timerMode = false;
@@ -309,13 +310,12 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
 
     int64_t value;
     if (seg->encoder_wait.wait_for_index) {
-        // Wait for index pulse
         value = spindle_encoder->setIndexAlarm();
     } else {
-        // Wait for specific encoder count
         value = spindle_encoder->setCountAlarm(seg->encoder_wait.target_count);
     }
 
+    ets_printf("enc_wait: alarm_target=%lld\n", (long long)value);
     start_spindle_encoder(value);
     // Note: spindle speed is set, but n_step=0 so no motion occurs
     setSpindleSpeedFromISR(seg->spindle_dev_speed);
@@ -382,13 +382,19 @@ bool IRAM_ATTR Stepper::pulse_func() {
             // Must exit before Bresenham/decrement code — step_count is uint16_t, decrementing
             // 0 wraps to 65535 and would generate thousands of phantom steps.
             if (st.step_count == 0) {
+                ets_printf("pulse_func: n_step=0 wait seg consumed, tail=%d head=%d\n",
+                           (int)segment_buffer_tail, (int)segment_buffer_head);
                 st.exec_segment     = NULL;
                 segment_buffer_tail = segment_buffer_tail >= (Stepping::_segments - 1) ? 0 : segment_buffer_tail + 1;
+                ets_printf("pulse_func: new tail=%d, has_next=%d\n",
+                           (int)segment_buffer_tail, (int)(segment_buffer_head != segment_buffer_tail));
                 Stepping::unstep();
                 return true;
             }
         } else {
             // Segment buffer empty. Shutdown.
+            ets_printf("pulse_func: BUFFER EMPTY shutdown, timerMode=%d tail=%d head=%d\n",
+                       (int)timerMode, (int)segment_buffer_tail, (int)segment_buffer_head);
             stop_stepping();
 
             if (!state_is(State::Jog)) {  // added to prevent ... jog after probing crash
@@ -733,6 +739,8 @@ void Stepper::prep_buffer() {
             prep_segment->n_step                      = 0;
             prep_segment->amass_level                 = 0;
             prep_segment->spindle_dev_speed            = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);
+            log_debug("prep_buffer: wait-for-index segment created, head=" << segment_buffer_head
+                      << " next=" << segment_next_head << " tail=" << segment_buffer_tail);
 
             // Put the segment back without the bit set.
             auto lastseg        = segment_next_head;
