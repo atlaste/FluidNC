@@ -1143,7 +1143,6 @@ Error gc_execute_line(const char* input_line) {
         if (gc_block.non_modal_command != NonModal::SetMaxSpindleSpeed) {
             gc_block.values.s = gc_state.spindle_speed;
         }
-    }
         // clear_bitnum(value_words, GCodeWord::S); // NOTE: Single-meaning value word. Set at end of error-checking.
         // [5. Select tool ]: NOT SUPPORTED. Only tracks value. T is negative (done.) Not an integer. Greater than max tool value.
         // clear_bitnum(value_words, GCodeWord::T); // NOTE: Single-meaning value word. Set at end of error-checking.
