@@ -1530,8 +1530,9 @@ namespace GCode {
                     gc_state.spindle_speed = 0.0;
                 }
                 log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool);
-                spindle->tool_change(gc_state.selected_tool, false, false);
-                gc_state.current_tool = gc_state.selected_tool;
+                if (spindle->tool_change(gc_state.selected_tool, false, false)) {
+                    gc_state.current_tool = gc_state.selected_tool;
+                }
                 report_ovr_counter = 0;  // Set to report change immediately
                 gc_ovr_changed();
             }
@@ -1552,8 +1553,9 @@ namespace GCode {
             if (new_spindle) {
                 gc_state.spindle_speed = 0.0;
             }
-            spindle->tool_change(gc_state.selected_tool, false, true);
-            gc_state.current_tool = gc_block.values.q;
+            if (spindle->tool_change(gc_state.selected_tool, false, true)) {
+                gc_state.current_tool = gc_block.values.q;
+            }
             report_ovr_counter    = 0;  // Set to report change immediately
             gc_ovr_changed();
         }

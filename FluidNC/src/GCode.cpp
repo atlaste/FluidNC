@@ -174,16 +174,16 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 //   is useful for finishing sharp corners. I'm not sure if this is the same as waiting for the planner to complete after each point.
 // t G76: Multi-pass threading cycle, the primary canned cycle supported for threading operations. Basically just emits planner blocks.
 // - G90.1 / G91.1: Incremental/absolute programming for IJK arc center format. Not sure yet, let's deal with it later.
-// t G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
+// x G33: Spindle Synchronized Motion (for threading operations). Emits planner blocks syning the motion to the spindle encoder.
 // x G95: Feed per revolution, typically used for lathe operations instead of G94 (feed per minute). Changes the mode to emit planner blocks syning the motion to the spindle encoder.
 // x G96 / G97: Spindle control modes for Constant Surface Speed (CSS) or constant RPM. Changes the planner blocks so it can calculate the RPM at each depth; the
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
-// t G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
+// x G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
-// t G40: Cutter compensation cancellation. We'll deal with this later.
-// t G41 / G42: Cutter compensation left/right. We'll deal with this later.
-// t G49: Tool length offset cancellation. We'll deal with this later.
-// t G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
+// x G40: Cutter compensation cancellation. We'll deal with this later.
+// x G41 / G42: Cutter compensation left/right. We'll deal with this later.
+// x G49: Tool length offset cancellation. We'll deal with this later.
+// x G10 L1/L10/L11: Set tool table offset. L2/L20: Set coordinate system offset.
 // - G80-G83, G98/G99 Canned cycles? Let's deal with this later.
 
 // Edit GCode line in-place, removing whitespace and comments and
@@ -1533,18 +1533,25 @@ Error gc_execute_line(const char* input_line) {
             }
             clear_bitnum(value_words, GCodeWord::K);
         } else if (gc_block.modal.motion == Motion::ThreadingCycle) {
-            // G76 - Multi-pass threading canned cycle
-            // Requires P (pitch), axis words for end position
-            if (!axis_words) {
-                return Error::GcodeNoAxisWords;  // [No axis words]
+            // G76 - Multi-pass threading canned cycle (LinuxCNC convention)
+            // Required: P (pitch), Z (end position), J (first cut depth), K (full thread depth)
+            // Optional: I (taper at Z end), Q (compound angle), H (spring passes), R (degression)
+            if (!bitnum_is_true(axis_words, Z_AXIS)) {
+                return Error::GcodeNoAxisWords;  // [Z axis word required]
             }
             if (gc_block.values.p <= 0.0f) {
                 return Error::GcodeValueWordMissing;  // [P word required for thread pitch]
             }
-            // I, J, K, R, Q are optional with defaults
+            if (!bitnum_is_true(value_words, GCodeWord::J) || gc_block.values.ijk[1] <= 0.0f) {
+                return Error::GcodeValueWordMissing;  // [J word required: initial cut depth > 0]
+            }
+            if (!bitnum_is_true(value_words, GCodeWord::K) || gc_block.values.ijk[2] <= 0.0f) {
+                return Error::GcodeValueWordMissing;  // [K word required: full thread depth > 0]
+            }
             clear_bits(value_words,
                        (bitnum_to_mask(GCodeWord::I) | bitnum_to_mask(GCodeWord::J) | bitnum_to_mask(GCodeWord::K) |
-                        bitnum_to_mask(GCodeWord::R) | bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P)));
+                        bitnum_to_mask(GCodeWord::R) | bitnum_to_mask(GCodeWord::Q) | bitnum_to_mask(GCodeWord::P) |
+                        bitnum_to_mask(GCodeWord::H)));
         } else {
             // Check if feed rate is defined for the motion modes that require it.
             if (gc_block.values.f == 0.0) {
@@ -1976,8 +1983,9 @@ Error gc_execute_line(const char* input_line) {
                 gc_state.spindle_speed = 0.0;
             }
             log_info("Sel:" << gc_state.selected_tool << " Cur:" << gc_state.current_tool << " Holder:P" << holder_index);
-            spindle->tool_change(gc_state.selected_tool, false, false);
-            gc_state.current_tool = gc_state.selected_tool;
+            if (spindle->tool_change(gc_state.selected_tool, false, false)) {
+                gc_state.current_tool = gc_state.selected_tool;
+            }
 
             // Apply TLO from tool table if ATC doesn't handle it internally
             bool atc_handles_tlo = false;
@@ -2050,11 +2058,11 @@ Error gc_execute_line(const char* input_line) {
         if (new_spindle) {
             gc_state.spindle_speed = 0.0;
         }
-        target_spindle->tool_change(gc_state.selected_tool, false, true);
-
-        // Only update gc_state.current_tool if we're setting it on the primary holder
-        if (holder_index == 0 || target_spindle == spindle) {
-            gc_state.current_tool = gc_block.values.q;
+        if (target_spindle->tool_change(gc_state.selected_tool, false, true)) {
+            // Only update gc_state.current_tool if we're setting it on the primary holder
+            if (holder_index == 0 || target_spindle == spindle) {
+                gc_state.current_tool = gc_block.values.q;
+            }
         }
         report_ovr_counter = 0;  // Set to report change immediately
         gc_ovr_changed();

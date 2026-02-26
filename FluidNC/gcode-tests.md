@@ -18,6 +18,7 @@ G50 - Set maximum spindle speed for CSS mode
 
 ## G97 & G50
 
+```gcode
 $H           ; Home if needed
 G97          ; Set to constant RPM mode (should be default)
 ?            ; Check modal state - should show G97
@@ -26,12 +27,14 @@ G50 S1000    ; Set max spindle speed to 1000 RPM
 M3 S500      ; Start spindle at 500 RPM
 ?            ; Verify spindle is running
 M5           ; Stop spindle
+```
 
 ## G96 - Constant Surface Speed
 
 Note that for CSS mode the centerline of the spindle has to be X=0 in MCO (!). We take the TLO into 
 account when calculating the centerline.
 
+```gcode
 $H                    ; Home
 G0 X-50               ; Move to 50mm from center (machine coordinates)
 G97                   ; Constant RPM mode
@@ -42,9 +45,11 @@ G0 X-25               ; Move to 25mm from center - should be ~200 RPM
 G0 X-10               ; Move to 10mm from center - should be ~500 RPM (capped)
 M5
 G97
+```
 
 ## G95 - Feed Per Revolution (requires spindle encoder)
 
+```gcode
 ; Simplest test first:
 M3 S100
 G95
@@ -64,18 +69,22 @@ G1 X20 F0.5  ; F is now mm/rev (0.5mm per spindle revolution)
 ?            ; Check state - should show G95
 G94          ; Back to units per minute
 M5
+```
 
 ## G33 - Spindle Synchronized Threading (requires spindle encoder)
 
+```gcode
 M3 S100      ; Start spindle at 100 RPM
 G0 X0 Z0     ; Move to start position
 G33 Z-10 K1.5 ; Thread to Z-10 with 1.5mm pitch
 ?            ; Check state during move if possible
 G0 Z0        ; Retract
 M5
+```
 
 ## G76 - Threading Cycle (requires spindle encoder)
 
+```gcode
 M3 S100      ; Start spindle
 G0 X5 Z0     ; Starting position
 G76 X0 Z-10 K1.5 P0.5 Q30 ; Multi-pass threading
@@ -87,27 +96,30 @@ G76 X0 Z-10 K1.5 P0.5 Q30 ; Multi-pass threading
 ?            ; Check state
 G0 Z0
 M5
+```
 
 # Manual rigid tapping
 
+```gcode
 M5          ; Spindle off
 G95 F1.0    ; Feed per rev, 1mm pitch
 G1 Z-15     ; Tap to depth
+```
 
 The motion system doesn't dynamically reverse direction based on encoder direction. We probably 
-want to implement that?
+want to implement that? TODO.
 
 # Test Plan for Tool Table
+
 Prerequisites
 
 * A tooltable.yaml file exists (or will be created by G10 commands)
 * Machine is homed
 * Safe Z height available for moves
 
-
 ## Basic G43 H# - Load TLO from Tool Table
 
-```
+```gcode
 ; Test 1: Load TLO from tool table
 ; Prerequisite: tool1 exists in tooltable.yaml with known Z offset (e.g., z: -50.0)
 
@@ -123,9 +135,11 @@ G49             ; Cancel TLO
 ?               ; Query position - WPos Z should return to original
 ```
 
+**Pass**
+
 ## G43.1 - Dynamic (Temporary) TLO
 
-```
+```gcode
 ; Test 2: Dynamic TLO (not stored in tool table)
 
 G49             ; Cancel any existing TLO
@@ -140,9 +154,11 @@ G49             ; Cancel
 $TT             ; Verify tool table unchanged (no new entry created)
 ```
 
+**Pass**
+
 ## G10 L1 - Set Tool Offset Directly
 
-```
+```gcode
 ; Test 3: Set absolute tool offset
 
 G10 L1 P5 Z-75.5    ; Set tool 5 Z offset to -75.5mm
@@ -154,9 +170,11 @@ G43 H5              ; Load tool 5
 G49
 ```
 
+**Pass**
+
 ## G10 L10 - Set Offset from Current Position + WCS
 
-```
+```gcode
 ; Test 4: Compute offset from probed position
 ; Scenario: Touch off on reference surface, store the offset
 
@@ -172,9 +190,11 @@ G43 H6              ; Load it
 G49
 ```
 
+**Pass**
+
 ## G10 L11 - Set Offset from Machine Position
 
-```
+```gcode
 ; Test 5: Compute offset from machine coordinates
 
 G49                 ; Cancel TLO
@@ -188,9 +208,11 @@ G43 H7
 G49
 ```
 
+**Pass**
+
 ## Persistence - save and reload
 
-```
+```gcode
 ; Test 6: Verify persistence
 
 G10 L1 P8 X1.5 Y-2.0 Z-88.8   ; Set tool 8 with X, Y, Z offsets
@@ -203,9 +225,11 @@ G43 H8
 G49
 ```
 
+**Pass**
+
 ## Non-existing tool handling
 
-```
+```gcode
 ; Test 7: Error handling for missing tool
 
 G43 H999            ; Try to load non-existent tool
@@ -213,6 +237,20 @@ G43 H999            ; Try to load non-existent tool
 
 $TT                 ; Verify table state
 ```
+
+**Pass**
+
+## Non-existing tool handling 2
+
+```gcode
+; Test 7: Error handling for missing tool
+
+T1 M6              ; Load existing tool
+T999 M6            ; Try to load non-existent tool
+T1 M6              ; Should be a no-op!
+```
+
+**Fail** -> Fixed, to test.
 
 ## Turret mapping
 
@@ -226,6 +264,10 @@ $TT                 ; Verify table state
 ; This is tested via ATC integration - M6 T1 should load tool 5's offset
 ; if position1 maps to tool 5
 ```
+
+**FAIL** -> I don't think this implementation works, nor do I think the mapping is used 
+internally. Also, I don't think we can set the turret positions. `setTurretMapping` is just 
+never called, ever.
 
 ## Console commands
 
@@ -249,6 +291,7 @@ $TTS    ; Save current tool table to file
 | Invalid H# | Error returned, state unchanged
 
 # Tool table
+
 ```
 ; --- Setup ---
 G21 G90 G54
@@ -284,7 +327,11 @@ G10 L20 P2 X0 Y0 Z0
 $#
 ; LOOK FOR: [G55:...] computed from current position
 ```
+
+**Pass**
+
 # TLO
+
 ```
 ; --- Setup: create tool offsets ---
 G10 L1 P1 X10 Z-5
@@ -318,6 +365,8 @@ $#
 ; LOOK FOR: [TLO:0.000,0.000,0.000,...]
 ```
 
+**Pass**
+
 # Cutter radius compensation (G40/G41/G42)
 
 ```gcode
@@ -347,8 +396,9 @@ G1 X10
 
 ; --- G42 D1: Right compensation ---
 G42 D1
-G1 X50 F200
-G1 Y50
+G1 X10 F200
+G1 X15 F200
+G1 Y10
 ; LOOK FOR: Offset to the right of the programmed path
 G40
 G1 X0 Y0
@@ -357,6 +407,8 @@ G1 X0 Y0
 G41 D0
 ; LOOK FOR: $G should show G40 (D0 cancels)
 ```
+
+**Pass**
 
 # G33 (Spindle Synchronized Motion) -- NEEDS ENCODER
 
@@ -382,6 +434,8 @@ G0 Z5
 M5
 ```
 
+**Pass**
+
 # G76 (Multi-pass Threading Cycle) -- NEEDS ENCODER
 
 ```gcode
@@ -392,13 +446,22 @@ G90 G21
 G0 X10 Z5
 M3 S300
 
-; G76 P(pitch) Z(end_z) I(first_cut_depth) J(cut_decrement) K(min_cut) Q(compound_angle)
-; Example: 1mm pitch thread, Z end at -20, 0.5mm first cut, 0.1mm decrement, 0.05mm min
-G76 Z-20 P1.0 I-0.5 J0.1 K0.05
-; LOOK FOR: Multiple passes in sequence
-; Each pass goes deeper by a decreasing amount
-; ? during motion shows Run state
+; LinuxCNC G76 parameters:
+;   P = pitch (mm/rev)
+;   Z = end Z position (thread length)
+;   J = initial cut depth, first pass (required, > 0)
+;   K = full thread depth from start X position (required, > 0)
+;   I = taper at Z end (optional, 0 = no taper)
+;   Q = compound infeed angle degrees (optional, 0 = straight)
+;   H = spring passes at final depth (optional, 0)
+;   R = depth degression (optional, 1.0 = constant area)
+;
+; Example: 1mm pitch, Z end at -20, 0.5mm first cut, 2mm total depth
+G76 P1.0 Z-20 J0.5 K2.0
+; LOOK FOR: Multiple passes cycling X deeper each time:
+;   rapid to depth -> thread along Z -> retract X -> rapid back to Z start
+; Each pass cuts deeper by a decreasing amount (constant chip load)
+; ? during motion shows Run state, X should vary between passes
 
-G0 X10 Z5
 M5
 ```

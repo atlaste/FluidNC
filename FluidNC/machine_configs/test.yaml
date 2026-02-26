@@ -112,8 +112,8 @@ axes:
           step_pin: i2so.22
   z:
     steps_per_mm: 640.000000
-    max_rate_mm_per_min: 4000.000000
-    acceleration_mm_per_sec2: 75.000000
+    max_rate_mm_per_min: 3000.000000
+    acceleration_mm_per_sec2: 50.000000
     max_travel_mm: 231.000000
     soft_limits: false
     homing:
@@ -128,7 +128,7 @@ axes:
           direction_pin: i2so.15
           step_pin: i2so.14
           cs_pin: i2so.13
-          run_amps: 0.5
+          run_amps: 2.5
           hold_amps: 0.5
   c:
     steps_per_mm: 80.000000
