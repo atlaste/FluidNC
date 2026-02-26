@@ -390,8 +390,8 @@ int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
     this->current_step_fp = counts_fp;
 
     auto count = getCount();
-    ets_printf("setStepAlarm: fp=%d val=%d count=%lld target=%lld\n",
-               counts_fp, value, (long long)count, (long long)(count + value));
+    // ets_printf("setStepAlarm: fp=%d val=%d count=%lld target=%lld\n",
+    //            counts_fp, value, (long long)count, (long long)(count + value));
     return count + value;
 }
 
@@ -405,8 +405,8 @@ int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {
 
     // Next revolution boundary in the counting direction
     auto target = base + dir * countPerRevolution;
-    ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld dir=%d target=%lld\n",
-               (long long)count, (int)countPerRevolution, (long long)remainder, (int)dir, (long long)target);
+    // ets_printf("setIndexAlarm: count=%lld CPR=%d rem=%lld dir=%d target=%lld\n",
+    //            (long long)count, (int)countPerRevolution, (long long)remainder, (int)dir, (long long)target);
     return target;
 }
 
