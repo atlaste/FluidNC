@@ -320,6 +320,7 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
     ets_printf("enc_wait: alarm_target=%lld\n", (long long)value);
     start_spindle_encoder(value);
 
+    ets_printf("Count before is %lld\n", (long long)theCount);
     crashThis = true;
 
     // Note: spindle speed is set, but n_step=0 so no motion occurs
@@ -337,8 +338,11 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
 bool IRAM_ATTR Stepper::pulse_func() {
     if (crashThis) {
         crashThis = false;
-        *((uint32_t*)0)=0xdeadbeef; // boom!
-        return false;
+        
+        auto theCount = spindle_encoder->getCount();
+
+        ets_printf("Count is %lld\n", (long long)theCount);
+
     }
 #ifdef DEBUG_STEPPER_ISR
     isr_count++;
