@@ -469,10 +469,11 @@ namespace Spindles {
             setSpeed(dev_speed);
         }
 
-        //if (use_delay_settings()) {
-        //    spindleDelay(state, speed);
-        //    return;
-        //}
+        // No need to sync when disabling — stop commands are already queued.
+        if (!willEnable) {
+            endRamp();
+            return;
+        }
 
         // _sync_dev_speed is set by a callback that handles
         // responses from periodic get_current_speed() requests.
