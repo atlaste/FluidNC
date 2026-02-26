@@ -377,24 +377,21 @@ void IRAM_ATTR SpindleEncoder::stopStepCallback() {
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
-    // counts_fp is always positive (encoder counts per motor step, scaled by 1024).
-    // Apply counting direction so alarm targets and re-arm logic match the PCNT direction.
-    auto dir = countDirection_;
-    int32_t signed_fp = counts_fp * dir;
-
-    int32_t value = signed_fp / 1024;
-    int32_t remainder = signed_fp - (value * 1024);
+    // counts_fp already carries the correct sign via the gear ratio from countsPerStep().
+    // Negative ratio → negative counts_fp → targets move in the negative counting direction.
+    int32_t value = counts_fp / 1024;
+    int32_t remainder = counts_fp - (value * 1024);
 
     if (value == 0) {
-        value = dir;  // At least one count in the right direction
+        value = (counts_fp < 0) ? -1 : 1;
     }
 
     this->current_step_fp_remainder = remainder;
-    this->current_step_fp = signed_fp;
+    this->current_step_fp = counts_fp;
 
     auto count = getCount();
-    ets_printf("setStepAlarm: fp=%d dir=%d signed=%d val=%d count=%lld target=%lld\n",
-               counts_fp, (int)dir, signed_fp, value, (long long)count, (long long)(count + value));
+    ets_printf("setStepAlarm: fp=%d val=%d count=%lld target=%lld\n",
+               counts_fp, value, (long long)count, (long long)(count + value));
     return count + value;
 }
 
