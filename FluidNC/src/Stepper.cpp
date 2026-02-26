@@ -320,6 +320,7 @@ void IRAM_ATTR segment_load_encoder_wait(volatile segment_t* seg) {
     ets_printf("enc_wait: alarm_target=%lld\n", (long long)value);
     start_spindle_encoder(value);
 
+    auto theCount = spindle_encoder->getCount();
     ets_printf("Count before is %lld\n", (long long)theCount);
     crashThis = true;
 
