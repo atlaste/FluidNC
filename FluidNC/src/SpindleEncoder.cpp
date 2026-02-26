@@ -392,7 +392,10 @@ int64_t IRAM_ATTR SpindleEncoder::setStepAlarmValue(int32_t counts_fp) {
     this->current_step_fp_remainder = remainder;
     this->current_step_fp = signed_fp;
 
-    return getCount() + value;
+    auto count = getCount();
+    ets_printf("setStepAlarm: fp=%d dir=%d signed=%d val=%d count=%lld target=%lld\n",
+               counts_fp, (int)dir, signed_fp, value, (long long)count, (long long)(count + value));
+    return count + value;
 }
 
 int64_t IRAM_ATTR SpindleEncoder::setIndexAlarm() {

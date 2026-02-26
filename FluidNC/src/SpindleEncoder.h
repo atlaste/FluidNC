@@ -29,8 +29,8 @@ class SpindleEncoder : public ConfigurableModule {
     int32_t countPerRevolution = 800;  // encoder CPR
 
     // For stepping we need the FP value (count per step / 1024) and the remainder to know if we should add an extra count
-    int32_t current_step_fp_remainder = 0;
-    int32_t current_step_fp           = 0;
+    volatile int32_t current_step_fp_remainder = 0;
+    volatile int32_t current_step_fp           = 0;
 
     // Encoder-driven stepping callback (for G95/G33)
     // Callback should execute one step cycle and return encoder counts until next step
