@@ -168,6 +168,7 @@ typedef struct {
     SpindleSpeed current_spindle_speed;
 
     float css_total_mm;  // Original total block distance for CSS progress calculation
+    bool  needs_index_sync;  // True when a Rigid sync block needs wait-for-index before first motion
 
 } st_prep_t;
 static st_prep_t prep;
@@ -376,6 +377,16 @@ bool IRAM_ATTR Stepper::pulse_func() {
             // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func,
             // potentially completing this segment before on_load returns!
             st.exec_segment->on_load(st.exec_segment);
+
+            // Wait segments (n_step=0): on_load configured the encoder alarm, nothing else to do.
+            // Must exit before Bresenham/decrement code — step_count is uint16_t, decrementing
+            // 0 wraps to 65535 and would generate thousands of phantom steps.
+            if (st.step_count == 0) {
+                st.exec_segment     = NULL;
+                segment_buffer_tail = segment_buffer_tail >= (Stepping::_segments - 1) ? 0 : segment_buffer_tail + 1;
+                Stepping::unstep();
+                return true;
+            }
         } else {
             // Segment buffer empty. Shutdown.
             stop_stepping();
@@ -594,6 +605,9 @@ void Stepper::prep_buffer() {
                 prep.req_mm_increment = REQ_MM_INCREMENT_SCALAR / prep.step_per_mm;
                 prep.dt_remainder     = 0.0;  // Reset for new segment block
                 prep.css_total_mm     = pl_block->millimeters;
+                prep.needs_index_sync = (pl_block->sync_mode == SpindleSyncMode::Rigid)
+                                     && spindle_encoder != nullptr
+                                     && !pl_block->motion.rapidMotion;
                 if ((sys.step_control.executeHold) || prep.recalculate_flag.decelOverride) {
                     // New block loaded mid-hold. Override planner block entry speed to enforce deceleration.
                     prep.current_speed                  = prep.exit_speed;
@@ -707,6 +721,25 @@ void Stepper::prep_buffer() {
 
         // Set new segment to point to the current segment data block.
         prep_segment->st_block_index = prep.st_block_index;
+
+        // For Rigid sync (G33/G76), insert a wait-for-index segment before the first motion segment.
+        // This ensures each threading pass starts at the same spindle angle.
+        if (prep.needs_index_sync) {
+            prep.needs_index_sync = false;
+
+            prep_segment->on_load                    = segment_load_encoder_wait;
+            prep_segment->encoder_wait.wait_for_index = 1;
+            prep_segment->encoder_wait.target_count   = 0;
+            prep_segment->n_step                      = 0;
+            prep_segment->amass_level                 = 0;
+            prep_segment->spindle_dev_speed            = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);
+
+            // Put the segment back without the bit set.
+            auto lastseg        = segment_next_head;
+            segment_next_head   = segment_next_head >= (Stepping::_segments - 1) ? 0 : segment_next_head + 1;
+            segment_buffer_head = lastseg;
+            continue;
+        }
 
         /*------------------------------------------------------------------------------------
             Compute the average velocity of this new segment by determining the total distance

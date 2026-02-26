@@ -95,8 +95,8 @@ axes:
 
   y:
     steps_per_mm: 640.000000
-    max_rate_mm_per_min: 2000.000000
-    acceleration_mm_per_sec2: 25.000000
+    max_rate_mm_per_min: 800.000000
+    acceleration_mm_per_sec2: 50.000000
     max_travel_mm: 355.000000
     soft_limits: false
     homing:
