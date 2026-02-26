@@ -754,10 +754,28 @@ namespace WebUI {
             return 2 * (RSSI + 100);
         }
 
-        static bool ConnectSTA2AP() {
+        static bool loadWifiCache(int32_t* channel, uint8_t* bssid) {
+            int32_t ch;
+            if (nvs.get_i32("wifi_ch", &ch)) {
+                return false;
+            }
+            size_t len = 6;
+            if (nvs.get_blob("wifi_bssid", bssid, &len) || len != 6) {
+                return false;
+            }
+            *channel = ch;
+            return true;
+        }
+
+        static void saveWifiCache(int32_t channel, const uint8_t* bssid) {
+            nvs.set_i32("wifi_ch", channel);
+            nvs.set_blob("wifi_bssid", bssid, 6);
+        }
+
+        static bool ConnectSTA2AP(size_t maxAttempts = 10) {
             std::string msg, msg_out;
             uint8_t     dot = 0;
-            for (size_t i = 0; i < 10; ++i) {
+            for (size_t i = 0; i < maxAttempts; ++i) {
                 switch (WiFi.status()) {
                     case WL_NO_SSID_AVAIL:
                         log_info("No SSID");
@@ -766,6 +784,7 @@ namespace WebUI {
                         log_info("Connection failed");
                         return false;
                     case WL_CONNECTED:
+                        saveWifiCache(WiFi.channel(), WiFi.BSSID());
                         log_info("Connected - IP is " << IP_string(WiFi.localIP()));
                         return true;
                     default:
@@ -780,7 +799,7 @@ namespace WebUI {
                 }
                 log_info(msg);
                 feed_WDT();
-                delay_ms(2000);  // Give it some time to connect
+                delay_ms(500);
             }
             return false;
         }
@@ -810,19 +829,41 @@ namespace WebUI {
             WiFi.setMinSecurity(static_cast<wifi_auth_mode_t>(_sta_min_security->get()));
             WiFi.setScanMethod(_fast_scan->get() ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
             WiFi.setAutoReconnect(true);
-            //Get parameters for STA
-            //password
+            WiFi.persistent(false);
+
             const char* password = _sta_password->get();
+            const char* pwd      = (strlen(password) > 0) ? password : NULL;
             int8_t      IP_mode  = _sta_mode->get();
             int32_t     IP       = _sta_ip->get();
             int32_t     GW       = _sta_gateway->get();
             int32_t     MK       = _sta_netmask->get();
-            //if not DHCP
+
             if (IP_mode != DHCP_MODE) {
                 IPAddress ip(IP), mask(MK), gateway(GW);
                 WiFi.config(ip, gateway, mask);
             }
-            if (WiFi.begin(SSID, (strlen(password) > 0) ? password : NULL)) {
+
+            // Try fast reconnect using cached channel/BSSID to skip the full scan
+            uint8_t saved_bssid[6];
+            int32_t saved_channel;
+            if (loadWifiCache(&saved_channel, saved_bssid)) {
+                log_info("Fast connect to STA SSID:" << SSID << " (ch " << saved_channel << ")");
+                if (WiFi.begin(SSID, pwd, saved_channel, saved_bssid, true)) {
+                    if (ConnectSTA2AP(6)) {
+                        return true;
+                    }
+                }
+                log_info("Fast connect failed, falling back to full scan");
+                WiFi.disconnect(true);
+                delay_ms(100);
+                WiFi.mode(WIFI_STA);
+                if (IP_mode != DHCP_MODE) {
+                    IPAddress ip(IP), mask(MK), gateway(GW);
+                    WiFi.config(ip, gateway, mask);
+                }
+            }
+
+            if (WiFi.begin(SSID, pwd)) {
                 log_info("Connecting to STA SSID:" << SSID);
                 return ConnectSTA2AP();
             } else {
