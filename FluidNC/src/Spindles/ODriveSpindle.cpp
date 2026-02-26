@@ -255,11 +255,6 @@ namespace Spindles {
                 if (mode == SpindleState::Disable) {
                     // Stop the spindle and set idle
                     setIdleControl();
-
-                    // Clear the command queue
-                    if (cmd_queue) {
-                        xQueueReset(cmd_queue);
-                    }
                 } else {
                     // Enable spindle
                     setClosedLoopControl();
