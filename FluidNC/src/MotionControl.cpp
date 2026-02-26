@@ -19,6 +19,8 @@
 #include "SoftLimits/LimitsChecker.h"  // component-based soft limits
 #include "Logging.h"         // log_debug
 
+#include "wdt.h"
+
 #include <cmath>
 
 // M_PI is not defined in standard C/C++ but some compilers
@@ -134,7 +136,11 @@ bool mc_move_motors(float* target, plan_line_data_t* pl_data) {
     // Remain in this loop until there is room in the buffer.
 
     while (plan_check_full_buffer()) {
-        protocol_auto_cycle_start();  // Auto-cycle start when buffer is full.
+        // Feed the dog.
+        feed_WDT();
+
+        // Auto-cycle start when buffer is full.
+        protocol_auto_cycle_start();  
 
         // While we are waiting for room in the buffer, look for realtime
         // commands and other situations that could cause state changes.
@@ -214,6 +220,9 @@ static void get_plane_axes(int& axis_0, int& axis_1, int& axis_linear) {
 }
 
 bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
+    // Let's feed the watchdog here.
+    feed_WDT();
+
     // Check if cutter compensation is active
     CutterCompensation comp_mode = gc_state.modal.cutter_comp;
     
@@ -958,6 +967,7 @@ void mc_threading_cycle(float* target, plan_line_data_t* pl_data, float* positio
         // 1. Rapid to cutting depth at thread start
         pl_data->sync_mode          = SpindleSyncMode::None;
         pl_data->motion.rapidMotion = 1;
+
         mc_linear(pass_target, pl_data, position);
         copyAxes(position, pass_target);
 
