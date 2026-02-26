@@ -170,24 +170,16 @@ Scheduler::Schedulable<void> SpindleEncoder::monitorSpeed() {
             continue;
         }
 
-        // Only check when not actively running motion
-        // (motion validation happens in Stepper ISR)
-        if (state_is(State::Idle) || state_is(State::Held)) {
+        {
             int64_t currentTime = Timer::currentTime();
             int32_t deltaUs     = int32_t(currentTime - lastCheckTime);
+            lastCheckTime       = currentTime;
 
-            lastCheckTime = currentTime;
-
-            if (!validateSpeed(deltaUs, false)) {  // fromISR = false
-                // Out of tolerance - trigger alarm
-                // Safe to call from here (not ISR context)
+            if (!validateSpeed(deltaUs, false)) {
                 log_error("Spindle encoder: speed out of tolerance");
                 // mc_critical(ExecAlarm::SpindleControl);
                 // TODO FIXME: Figure out a good way to do this.
             }
-        } else {
-            // Reset timing when in motion (Stepper ISR handles validation)
-            lastCheckTime = Timer::currentTime();
         }
     }
 }
