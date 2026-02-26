@@ -210,7 +210,7 @@ void StatePersistence::saveAllSections() {
     if (esp_timer_get_time() > lastSaveDbg)
     {
         lastSaveDbg = esp_timer_get_time() + 1000000;
-        log_debug("Saving state...");
+        // log_debug("Saving state...");
     }
 
     savePositionState();

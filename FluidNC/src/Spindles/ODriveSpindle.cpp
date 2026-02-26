@@ -107,19 +107,18 @@ namespace Spindles {
         }
         rpm = int(rpm * gearFactor);
 
-        // Set speed
-        log_info("Ramping to " << rpm << " RPM (" << (double(rpm) / 60.0) << " rev/s)...");
-
         double       targetVelocity = double(rpm) / 60.0;
         const double tolerance      = 100 /* slop */ / 60.0;  // +/- 250 RPM tolerance
         const int    timeout        = 15;                     // 15 seconds timeout
         bool         speedReached   = false;
 
-        // Mark speed as invalid during ramp (for encoder validation)
-        startRamp(_default_ramp_delay);  // timeout converted to milliseconds
+        if (sync) {
+            log_info("Ramping to " << rpm << " RPM (" << (double(rpm) / 60.0) << " rev/s)...");
+            startRamp(_default_ramp_delay);
+        }
 
         ODrive::Set_Input_Vel_msg_t velCmd;
-        velCmd.Input_Vel       = targetVelocity;  // 1000 RPM = 16.67 rev/s
+        velCmd.Input_Vel       = targetVelocity;
         velCmd.Input_Torque_FF = 0.0;
         send(velCmd);
 
@@ -557,9 +556,9 @@ namespace Spindles {
     }
 
     void IRAM_ATTR ODriveSpindle::setSpeedfromISR(uint32_t dev_speed) {
-        if (_current_dev_speed == dev_speed || _last_speed == dev_speed) {
-            return;
-        }
+        int32_t diff = int32_t(dev_speed) - int32_t(_last_speed);
+        if (diff < 0) diff = -diff;
+        if (diff < 5 && dev_speed != 0) return;
 
         _last_speed = dev_speed;
 

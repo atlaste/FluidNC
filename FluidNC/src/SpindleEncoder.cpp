@@ -510,20 +510,17 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
     int64_t denominator   = int64_t(usecs) * countPerRevolution * ratio;
     int32_t revsPerMinute = int32_t(numerator / denominator);
 
-    static int64_t lastLog = 0;
-    if (esp_timer_get_time() - lastLog > 10000000) {
-        lastLog = esp_timer_get_time();
-        log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
-                                            << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
-                                            << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
-                                            << ", fromISR=" << fromISR);
-    }
-
-    // log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
-    //                                     << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
-    //                                     << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
-    //                                     << ", fromISR=" << fromISR);
-
+    // Once every 10 seconds:
+    // 
+    // static int64_t lastLog = 0;
+    // if (esp_timer_get_time() - lastLog > 10000000) {
+    //     lastLog = esp_timer_get_time();
+    //     log_verbose("ValidateSpeed: delta=" << delta << ", usecs=" << usecs << ", CPR=" << countPerRevolution << ", ratio=" << ratio
+    //                                         << ", numerator=" << numerator << ", denominator=" << denominator << ", rpm_calc=" << revsPerMinute
+    //                                         << ", target_rpm=" << rpm << ", minRPM=" << minRPM << ", maxRPM=" << maxRPM
+    //                                         << ", fromISR=" << fromISR);
+    // }
+    
     lastEncoderSpeed_ = revsPerMinute;
     lastCountRef      = count;  // Update the appropriate lastCount
 
