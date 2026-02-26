@@ -1327,10 +1327,7 @@ Error gc_execute_line(const char* input_line) {
         case NonModal::SetCoordinateData: {
             // [G10 Errors]: L missing and is not 2 or 20. P word missing. (Negative P value done.)
             // [G10 L2 Errors]: R word NOT SUPPORTED. P value not 0 to nCoordSys(max 9). Axis words missing.
-            // [G10 Errors]: P and L words required. Axis words required.
-            if (!axis_words) {
-                return Error::GcodeNoAxisWords;
-            };  // [No axis words]
+            // [G10 Errors]: P and L words required.
             if (bits_are_false(value_words, (bitnum_to_mask(GCodeWord::P) | bitnum_to_mask(GCodeWord::L)))) {
                 return Error::GcodeValueWordMissing;  // [P/L word missing]
             }
@@ -1338,13 +1335,17 @@ Error gc_execute_line(const char* input_line) {
             // Check for valid L values
             uint8_t l_value = gc_block.values.l;
             if (l_value == 1 || l_value == 10 || l_value == 11) {
+                // L1/L10/L11: Tool table - axis words or R word (radius) required
+                if (!axis_words && !bitnum_is_true(value_words, GCodeWord::R)) {
+                    return Error::GcodeNoAxisWords;
+                }
                 // L1, L10, L11: Set tool table offset
                 // P word is tool number for these
                 pValue = int32_t(truncf(gc_block.values.p));
                 if (pValue <= 0) {
                     return Error::GcodeValueWordMissing;  // Tool number must be > 0
                 }
-                clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P)));
+                clear_bits(value_words, (bitnum_to_mask(GCodeWord::L) | bitnum_to_mask(GCodeWord::P) | bitnum_to_mask(GCodeWord::R)));
 
                 // Pre-calculate tool offset based on L value
                 // coord_data is reused here to store tool offset values
@@ -1370,7 +1371,10 @@ Error gc_execute_line(const char* input_line) {
                 }
                 gc_ngc_changed(CoordIndex::TLO);
             } else if (l_value == 2 || l_value == 20) {
-                // L2, L20: Set coordinate system offset (existing behavior)
+                // L2, L20: Set coordinate system offset - axis words required
+                if (!axis_words) {
+                    return Error::GcodeNoAxisWords;
+                }
                 if (l_value == 2 && bitnum_is_true(value_words, GCodeWord::R)) {
                     return Error::GcodeUnsupportedCommand;  // [G10 L2 R not supported]
                 }
@@ -2286,13 +2290,18 @@ Error gc_execute_line(const char* input_line) {
         case NonModal::SetCoordinateData: {
             uint8_t l_value = gc_block.values.l;
             if (l_value == 1 || l_value == 10 || l_value == 11) {
-                // L1, L10, L11: Set tool table offset
+                // L1, L10, L11: Set tool table offset and/or radius
                 // pValue contains tool number, coord_data contains calculated offset
                 if (toolTable != nullptr) {
                     int32_t tool_num = int32_t(truncf(gc_block.values.p));
-                    toolTable->setToolOffset(tool_num, coord_data);
-                    toolTable->save();  // Persist to tooltable.yaml
-                    log_info("Updated tool " << tool_num << " offset");
+                    if (axis_words) {
+                        toolTable->setToolOffset(tool_num, coord_data);
+                    }
+                    if (gc_block.values.r > 0.0f) {
+                        toolTable->setToolRadius(tool_num, gc_block.values.r);
+                    }
+                    toolTable->save();
+                    log_info("Updated tool " << tool_num << (axis_words ? " offset" : "") << (gc_block.values.r > 0.0f ? " radius" : ""));
                 } else {
                     log_warn("Tool table not loaded, cannot save tool offset");
                 }

@@ -265,3 +265,4 @@ performance_profiler:
   enable_pc_sampling: true
   update_rate: 1000
 
+scurve_planner:

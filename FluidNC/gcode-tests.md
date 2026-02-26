@@ -329,7 +329,7 @@ G10 L1 P1 X0 Z0
 
 ; --- G41 D1: Activate left compensation ---
 G41 D1
-; LOOK FOR: $G should show G41
+; LOOK FOR: $G should show G41 - ok
 ; NOTE: Will warn if tool 1 has no radius defined
 
 ; --- Move with compensation active ---

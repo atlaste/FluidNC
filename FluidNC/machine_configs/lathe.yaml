@@ -270,5 +270,5 @@ performance_profiler:
   enable_pc_sampling: true
   update_rate: 1000
 
-scurve_acceleration:
+scurve_planner:
   # Default settings are fine.
