@@ -283,6 +283,15 @@ void report_gcode_modes(Channel& channel) {
             break;
     }
 
+    switch (gc_state.modal.lathe_diameter_mode) {
+        case LatheDiameterMode::Diameter:
+            msg << " G7";
+            break;
+        case LatheDiameterMode::Radius:
+            msg << " G8";
+            break;
+    }
+
     switch (gc_state.modal.distance) {
         case Distance::Absolute:
             msg << " G90";

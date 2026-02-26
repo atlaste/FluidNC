@@ -31,12 +31,12 @@ M5           ; Stop spindle
 
 ## CSS and G50
 
-```
+```gcode
 G50 S500
 G96 S200
 M3
 G0 X200
-G1 X5 F100
+G1 X5 F300
 ```
 
 Expected behavior: 
@@ -46,6 +46,8 @@ At X=63.7: RPM = 500 (exactly at cap boundary)
 At X<63.7: would exceed 500, so capped at 500
 
 During the G1 move inward, you should see the speed ramp up from ~159 toward 500, then hold at 500 for the rest of the cut.
+
+**Pass**
 
 ## G96 - Constant Surface Speed
 
@@ -268,7 +270,7 @@ T999 M6            ; Try to load non-existent tool
 T1 M6              ; Should be a no-op!
 ```
 
-**Fail** -> Fixed, to test.
+**Pass**
 
 ## Turret mapping
 
@@ -289,11 +291,13 @@ never called, ever.
 
 ## Console commands
 
-```
+```gcode
 $TT     ; Display all tools and turret mapping
 $TTL    ; Reload tool table from /localfs/tooltable.yaml
 $TTS    ; Save current tool table to file
 ```
+
+**Pass**
 
 # Validation Checklist
 

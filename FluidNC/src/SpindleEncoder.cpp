@@ -531,7 +531,7 @@ bool IRAM_ATTR SpindleEncoder::validateSpeed(int32_t usecs, bool fromISR) {
             }
             return false;
         } else {
-            log_error("Ignoring error; a few errors are allowed.");
+            log_verbose("Ignoring spindle speed error; a few errors are allowed.");
             return true;
         }
     }
