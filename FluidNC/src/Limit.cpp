@@ -14,6 +14,7 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <atomic>  // fence
+#include <cmath>   // roundf
 
 QueueHandle_t limit_sw_queue;  // used by limit switch debouncing
 
@@ -98,20 +99,31 @@ void limit_error() {
     mc_critical(ExecAlarm::SoftLimit);
 }
 
+// Snap mpos to the nearest step boundary so soft limits match the actual
+// quantized home position.  Without this, the configured mpos (e.g. 88.867)
+// can be slightly below the step-rounded home position (e.g. 88.867188),
+// causing an immediate soft-limit alarm at the home position.
+static float quantize_mpos(float mpos, float stepsPerMm, int extra_steps) {
+    if (stepsPerMm > 0) {
+        return (roundf(mpos * stepsPerMm) + extra_steps) / stepsPerMm;
+    }
+    return mpos;
+}
+
 float limitsMaxPosition(axis_t axis) {
-    auto axisConfig = Axes::_axis[axis];
-    auto homing     = axisConfig->_homing;
-    auto mpos       = homing ? homing->_mpos : 0;
-    auto maxtravel  = axisConfig->_maxTravel;
+    auto  axisConfig = Axes::_axis[axis];
+    auto  homing     = axisConfig->_homing;
+    float mpos       = homing ? quantize_mpos(homing->_mpos, axisConfig->_stepsPerMm, +1) : 0;
+    auto  maxtravel  = axisConfig->_maxTravel;
 
     return (!homing || homing->_positiveDirection) ? mpos : mpos + maxtravel;
 }
 
 float limitsMinPosition(axis_t axis) {
-    auto axisConfig = Axes::_axis[axis];
-    auto homing     = axisConfig->_homing;
-    auto mpos       = homing ? homing->_mpos : 0;
-    auto maxtravel  = axisConfig->_maxTravel;
+    auto  axisConfig = Axes::_axis[axis];
+    auto  homing     = axisConfig->_homing;
+    float mpos       = homing ? quantize_mpos(homing->_mpos, axisConfig->_stepsPerMm, -1) : 0;
+    auto  maxtravel  = axisConfig->_maxTravel;
 
     return (!homing || homing->_positiveDirection) ? mpos - maxtravel : mpos;
 }
