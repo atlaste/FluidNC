@@ -127,9 +127,9 @@ axes:
           step_pin: i2so.1
   c:
     steps_per_mm: 80.000000
-    max_rate_mm_per_min: 400.000000
+    max_rate_mm_per_min: 1000.000000
     acceleration_mm_per_sec2: 15.000000
-    max_travel_mm: 1000.000000
+    max_travel_mm: 5000.000000
     soft_limits: false
     motor0:
       hard_limits: false
@@ -174,8 +174,8 @@ user_outputs:
 pneumatic_tool_turret:
   safe_x: 29
   safe_z: 0
-  offsets_per_revolution: 320
-  tool_offsets: 0 40 80 120 160 200 240 280 32 72 112 152 192 232 272 312
+  offsets_per_revolution: 80
+  tool_offsets: 0 10 20 30 40 50 60 70 8 18 28 38 48 58 68 78
   tool_types: "OOOOOOOOIIIIIIII"
   safety_margin: 5
   use_pressure_sensor: true
