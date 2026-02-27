@@ -269,9 +269,11 @@ namespace ATCs {
             run(toolChange);
 
             protocol_buffer_synchronize();  // wait for all motion to complete
+            delay_ms(500);               // Give everything a bit of time to settle.
+
             run(pneumaticActionOff);
-            protocol_buffer_synchronize();  // wait for all motion to complete
-            delay_ms(700);                  // Wait for pneumatic action to complete
+            protocol_buffer_synchronize();   // wait for all motion to complete
+            delay_ms(700);               // Wait for pneumatic action to complete
 
             // Wait till the endstop is active again
             // for (int i = 0; i < 50 && !pneumaticEndstop.read(); ++i) {
