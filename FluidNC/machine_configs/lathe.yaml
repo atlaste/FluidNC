@@ -32,11 +32,11 @@ uart_channel1:
   report_interval_ms: 75
   message_level: info
 
-ethernet:
-  cs_pin: gpio.10
-  dhcp: true
-  int_pin: gpio.4
-  spi_freq_mhz: 20
+# ethernet:
+#   cs_pin: gpio.10
+#   dhcp: true
+#   int_pin: gpio.4
+#   spi_freq_mhz: 20
 
 sdcard:
   cs_pin: gpio.0
