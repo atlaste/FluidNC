@@ -144,7 +144,11 @@ void StatePersistence::saveParameters() {
     // Write each parameter
     for (const auto& [parname, parvalue] : params) {
         if (offset >= FRAM_OVERRIDES_ADDR) {
-            log_warn("Parameter section full, skipping remaining parameters");
+            static bool warned = false;
+            if (!warned) {
+                log_warn("Parameter section full, skipping remaining parameters (" << count << " params)");
+                warned = true;
+            }
             break;
         }
 

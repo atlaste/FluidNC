@@ -137,9 +137,9 @@ namespace ATCs {
                 run("G21");
             }
 
-            run("#<start_x >= #<_x>");
-            run("#<start_y >= #<_y>");
-            run("#<start_z >= #<_z>");
+            // run("#<start_x >= #<_x>");
+            // run("#<start_y >= #<_y>");
+            // run("#<start_z >= #<_z>");
 
             // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
             bool isInsideTool = false;
