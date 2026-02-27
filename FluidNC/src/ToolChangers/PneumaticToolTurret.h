@@ -18,8 +18,8 @@ namespace ATCs {
         // Configuration things:
         int32_t        offsetsPerRevolution = 3600;  // we assume 3600 values per revolution. That should be plenty
         char           toolChangeAxis       = 'C';   // could be a string I suppose
-        const char*    pneumaticActionOn    = "M62 P1\n";
-        const char*    pneumaticActionOff   = "M63 P1\n";
+        const char*    pneumaticActionOn    = "M62 P1";
+        const char*    pneumaticActionOff   = "M63 P1";
         PressureSensor pneumaticSensor;
 
         // For each tool we need:

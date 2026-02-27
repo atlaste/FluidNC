@@ -24,14 +24,9 @@ namespace ATCs {
     // Static constexpr definitions
     void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
     {
-        auto it = str;
-        for (; *it && *it != '\r' && *it != '\n'; ++it) {}
-        std::string tmp(str, it);
-
-        log_info("ATC command: " << str);  // just for debugging.
-
         macro.erase();
-        macro.addf("%s", str);
+        log_info("ATC command: " << str);  // just for debugging.
+        macro.set(str);
         macro.run(nullptr);
         protocol_buffer_synchronize();  // wait for macro to finish
     }
@@ -223,7 +218,9 @@ namespace ATCs {
 
         // Do the tool change.
         char toolChange[100];
-        snprintf(toolChange, 100, "G92 %c0\nG0 %c%0.3f", toolChangeAxis, toolChangeAxis, diff);
+        snprintf(toolChange, 100, "G92 %c0", toolChangeAxis);
+        run(toolChange);
+        snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, diff);
         run(toolChange);
 
         protocol_buffer_synchronize();  // wait for all motion to complete
