@@ -65,7 +65,7 @@ namespace ATCs {
         setToolChangeStepperEnable(false);
 
         log_info("Current tool number: " << int(currentToolNumber));
-        
+
         // Set the correct tool length offset from tool table:
         if (currentToolNumber > 0) {
             // Use G43 H# to load TLO from tool table
@@ -113,10 +113,13 @@ namespace ATCs {
         // - Update tool number and tool offset
         // - Move to old position, keep tool offset in mind
 
+        // There's a bit of an odd issue here. Tool number #0 is reserved for 'no tool'. So we need to
+        // take this into account when accessing the tool offsets and types.
+
         try {
             protocol_buffer_synchronize();  // wait for all motion to complete
 
-            if (toolNumber <= 0 || toolNumber >= int(toolOffsets.size())) {
+            if (toolNumber <= 0 || toolNumber > int(toolOffsets.size())) {
                 log_info("Attempting to select an invalid tool.");
                 return false;
             }
@@ -141,11 +144,10 @@ namespace ATCs {
             // run("#<start_y >= #<_y>");
             // run("#<start_z >= #<_z>");
 
-
             // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
             bool isInsideTool = false;
-            if (toolTypes.size() > currentToolNumber) {
-                char toolType = std::toupper(toolTypes[currentToolNumber]);
+            if (toolTypes.size() + 1 > currentToolNumber) {
+                char toolType = std::toupper(toolTypes[currentToolNumber - 1]);
                 isInsideTool  = (toolType == 'I' || toolType == 'i');
             } else {
                 Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
@@ -163,15 +165,15 @@ namespace ATCs {
                 // If 0 <= Mpos_X <= safeX, we're safe to proceed. If not, let's error out like we do here.
 
                 // TODO FIXME: Make all the constants (-72.0f) configurable.
-                float* mpos = get_mpos();
+                float* mpos   = get_mpos();
                 float  mpos_z = mpos[Z_AXIS];
                 float  mpos_x = mpos[X_AXIS];
-            
+
                 bool z_is_safe = (mpos_z >= -72.0f);  // already cleared because a possible toolstock collision is impossible.
-                bool x_is_safe = (mpos_x >= safeX);   // already retracted in the x direction. Only possible if we're at the safe position already.
-            
-                if (!z_is_safe || !x_is_safe) 
-                {
+                bool x_is_safe =
+                    (mpos_x >= safeX);  // already retracted in the x direction. Only possible if we're at the safe position already.
+
+                if (!z_is_safe || !x_is_safe) {
                     // Inside tool: First retract Z (out of the bore), then X
                     // Use TLO + safety margin if available, otherwise use configured safeZ
                     float tlo[MAX_N_AXIS] = {};
@@ -182,12 +184,10 @@ namespace ATCs {
                         // Calculate safe Z position based on TLO + margin
                         // This ensures we clear the bore before moving X
                         float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
-                        if (safeRetractLength > -72.0f)
-                        {
+                        if (safeRetractLength > -72.0f) {
                             snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
                             run(safeRetract);
-                        }
-                        else {
+                        } else {
                             log_error("Z retraction would be too low. Cannot retract safely.");
                             return false;
                         }
@@ -251,8 +251,8 @@ namespace ATCs {
             log_info("Changing tool");
 
             // Should we move forward or backward?
-            auto offset1 = toolOffsets[currentToolNumber];
-            auto offset2 = toolOffsets[toolNumber];
+            auto offset1 = currentToolNumber == 0 ? 0 : toolOffsets[currentToolNumber - 1];
+            auto offset2 = toolNumber == 0 ? 0 : toolOffsets[toolNumber - 1];
 
             // Calculate how much we have to move.
             // Always move in the same direction to ensure we don't have to deal with backlash.
@@ -269,11 +269,11 @@ namespace ATCs {
             run(toolChange);
 
             protocol_buffer_synchronize();  // wait for all motion to complete
-            delay_ms(500);               // Give everything a bit of time to settle.
+            delay_ms(500);                  // Give everything a bit of time to settle.
 
             run(pneumaticActionOff);
-            protocol_buffer_synchronize();   // wait for all motion to complete
-            delay_ms(700);               // Wait for pneumatic action to complete
+            protocol_buffer_synchronize();  // wait for all motion to complete
+            delay_ms(700);                  // Wait for pneumatic action to complete
 
             // Wait till the endstop is active again
             // for (int i = 0; i < 50 && !pneumaticEndstop.read(); ++i) {
@@ -321,7 +321,7 @@ namespace ATCs {
     // ATC API:
     void PneumaticToolTurret::probe_notification() {}
     bool PneumaticToolTurret::tool_change(tool_t value, bool pre_select, bool set_tool) {
-        if (int(value) <= 0 || int(value) >= int(toolOffsets.size())) {
+        if (int(value) <= 0 || int(value) > int(toolOffsets.size())) {
             log_info("Attempting to select an invalid tool.");
             return false;
         }
