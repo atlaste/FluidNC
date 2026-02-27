@@ -55,14 +55,14 @@ spindle_encoder:
   pin_a: gpio.40
   pin_b: gpio.41
   cpr: 2800
-  gear_ratio: 1
+  gear_ratio: -1
   tolerance: 15
 
 odrive:
   can_tx: gpio.9
   can_rx: gpio.47
   odrive_node_id: 1
-  gear_factor: 0.777778
+  gear_factor: -0.777778
   atc: pneumatic_tool_turret
 
 kinematics:
@@ -83,7 +83,7 @@ axes:
       positive_direction: true
       mpos_mm: 29
     motor0:
-      limit_neg_pin: gpio.18:low
+      limit_neg_pin: gpio.18
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -93,7 +93,7 @@ axes:
 
   y:
     steps_per_mm: 640.000000
-    max_rate_mm_per_min: 2000.000000
+    max_rate_mm_per_min: 1000.000000
     acceleration_mm_per_sec2: 25.000000
     max_travel_mm: 355.000000
     soft_limits: true
@@ -101,7 +101,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.48:low
+      limit_neg_pin: gpio.48
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -118,7 +118,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.16:low
+      limit_neg_pin: gpio.16
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -126,9 +126,9 @@ axes:
           direction_pin: i2so.2
           step_pin: i2so.1
   c:
-    steps_per_mm: 20.000000
+    steps_per_mm: 80.000000
     max_rate_mm_per_min: 400.000000
-    acceleration_mm_per_sec2: 20.000000
+    acceleration_mm_per_sec2: 15.000000
     max_travel_mm: 1000.000000
     soft_limits: false
     motor0:
@@ -140,38 +140,17 @@ axes:
 
 control:
   # safety_door_pin: gpio.6:low
-  safety_door_pin: NO_PIN
-  reset_pin: NO_PIN
   feed_hold_pin: NO_PIN
-  cycle_start_pin: NO_PIN
-  macro0_pin: NO_PIN
-  macro1_pin: NO_PIN
-  macro2_pin: NO_PIN
-  macro3_pin: NO_PIN
   fault_pin: gpio.38:low
-  estop_pin: NO_PIN
 
 coolant:
-  flood_pin: NO_PIN
   mist_pin: NO_PIN
   delay_ms: 0
 
 probe:
-  pin: NO_PIN
-  toolsetter_pin: NO_PIN
+  pin: gpio.39:low
   check_mode_start: true
   hard_stop: false
-
-macros:
-  startup_line0:
-  startup_line1:
-  Macro0:
-  Macro1:
-  Macro2:
-  Macro3:
-  after_homing:
-  after_reset:
-  after_unlock:
 
 start:
   must_home: false
@@ -180,50 +159,17 @@ start:
 
 parking:
   enable: false
-  axis: Z
-  target_mpos_mm: -5.000000
-  rate_mm_per_min: 800.000000
-  pullout_distance_mm: 5.000000
-  pullout_rate_mm_per_min: 250.000000
 
 user_outputs:
-  analog0_pin: NO_PIN
-  analog1_pin: NO_PIN
-  analog2_pin: NO_PIN
-  analog3_pin: NO_PIN
-  analog0_hz: 5000
-  analog1_hz: 5000
-  analog2_hz: 5000
-  analog3_hz: 5000
-  digital0_pin: NO_PIN
+  # pneumatic tool turret solenoid
   digital1_pin: gpio.3
-  digital2_pin: NO_PIN
-  digital3_pin: NO_PIN
-  digital4_pin: NO_PIN
-  digital5_pin: NO_PIN
-  digital6_pin: NO_PIN
-  digital7_pin: NO_PIN
 
-user_inputs:
-  analog0_pin: NO_PIN
-  analog1_pin: NO_PIN
-  analog2_pin: NO_PIN
-  analog3_pin: NO_PIN
-  digital0_pin: NO_PIN
-  digital1_pin: NO_PIN
-  digital2_pin: NO_PIN
-  digital3_pin: NO_PIN
-  digital4_pin: NO_PIN
-  digital5_pin: NO_PIN
-  digital6_pin: NO_PIN
-  digital7_pin: NO_PIN
-
-uvc_camera:
-  enable: true
-  frame_rate_limit: 5
-  preferred_width: 640
-  preferred_height: 480
-  buffer_count: 3
+# uvc_camera:
+#   enable: true
+#   frame_rate_limit: 15
+#   preferred_width: 800
+#   preferred_height: 600
+#   buffer_count: 3
 
 pneumatic_tool_turret:
   safe_x: 29
@@ -257,7 +203,6 @@ led_strip:
     leds: 40 39 38 37 36 35 34 33 32 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0
     direction: "XXXXXXXXXXX YYYY XXXXXXXXXXX YYYY XXXXXXXXXXX"
     travel: -300 -100 300 100 -300
-
     feedback:
       enabled: true
       idle_brightness: 70
