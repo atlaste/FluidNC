@@ -65,7 +65,7 @@ namespace ATCs {
         setToolChangeStepperEnable(false);
 
         log_info("Current tool number: " << int(currentToolNumber));
-
+        
         // Set the correct tool length offset from tool table:
         if (currentToolNumber > 0) {
             // Use G43 H# to load TLO from tool table
@@ -141,6 +141,7 @@ namespace ATCs {
             // run("#<start_y >= #<_y>");
             // run("#<start_z >= #<_z>");
 
+
             // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
             bool isInsideTool = false;
             if (toolTypes.size() > currentToolNumber) {
@@ -157,25 +158,49 @@ namespace ATCs {
             // - Outside tools (turning): X first (away from OD), then Z.
             char safeRetract[100];
             if (isInsideTool) {
-                // Inside tool: First retract Z (out of the bore), then X
-                // Use TLO + safety margin if available, otherwise use configured safeZ
-                float tlo[MAX_N_AXIS] = {};
-                bool  hasTLO          = toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
-                if (hasTLO) {
-                    log_info("Retracting boring tool (Z)");
+                // Get MPOS.
+                // If 0 <= Mpos_Z <= -72, we're not going to do any Z retraction.
+                // If 0 <= Mpos_X <= safeX, we're safe to proceed. If not, let's error out like we do here.
 
-                    // Calculate safe Z position based on TLO + margin
-                    // This ensures we clear the bore before moving X
-                    float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
-                    snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
-                    run(safeRetract);
-                } else {
-                    log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
-                    return false;
+                // TODO FIXME: Make all the constants (-72.0f) configurable.
+                float* mpos = get_mpos();
+                float  mpos_z = mpos[Z_AXIS];
+                float  mpos_x = mpos[X_AXIS];
+            
+                bool z_is_safe = (mpos_z >= -72.0f);  // already cleared because a possible toolstock collision is impossible.
+                bool x_is_safe = (mpos_x >= safeX);   // already retracted in the x direction. Only possible if we're at the safe position already.
+            
+                if (!z_is_safe || !x_is_safe) 
+                {
+                    // Inside tool: First retract Z (out of the bore), then X
+                    // Use TLO + safety margin if available, otherwise use configured safeZ
+                    float tlo[MAX_N_AXIS] = {};
+                    bool  hasTLO          = toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
+                    if (hasTLO) {
+                        log_info("Retracting boring tool (Z)");
+
+                        // Calculate safe Z position based on TLO + margin
+                        // This ensures we clear the bore before moving X
+                        float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
+                        if (safeRetractLength > -72.0f)
+                        {
+                            snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
+                            run(safeRetract);
+                        }
+                        else {
+                            log_error("Z retraction would be too low. Cannot retract safely.");
+                            return false;
+                        }
+                    } else {
+                        log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
+                        return false;
+                    }
                 }
             }
 
             // fallthrough:
+            //
+            // It's fine to always do this; if we're already at the safe location it's an implicit no-op.
             {
                 log_info("Retracting turret (X)");
 
