@@ -23,7 +23,7 @@ namespace WebUI {
 
     void TelnetServer::init() {
         // Check if we have any network interface available (WiFi, Ethernet, etc.)
-        bool         has_network = needsNetworkServices;
+        bool has_network = needsNetworkServices;
         //esp_netif_t* netif = esp_netif_next_unsafe(NULL);
         //while (netif != NULL) {
         //    if (esp_netif_get_route_prio(netif) > 0) {
@@ -32,7 +32,7 @@ namespace WebUI {
         //    }
         //    netif = esp_netif_next_unsafe(netif);
         //}
-        
+
         if (!has_network) {
             return;
         }
@@ -73,6 +73,14 @@ namespace WebUI {
 
     void TelnetServer::poll() {
         if (!_setupdone || _wifiServer == NULL) {
+            return;
+        }
+
+        // Let's poll 10x per second. That's more than enough.
+        static int64_t _nextModeCheck = 0;
+        if (esp_timer_get_time() > _nextModeCheck) {
+            _nextModeCheck = esp_timer_get_time() + 100'000;
+        } else {
             return;
         }
 

@@ -33,6 +33,7 @@ namespace ATCs {
         macro.erase();
         macro.addf("%s", str);
         macro.run(nullptr);
+        protocol_buffer_synchronize();  // wait for macro to finish
     }
 
     void PneumaticToolTurret::setToolChangeStepperEnable(bool enabled) {
@@ -55,7 +56,7 @@ namespace ATCs {
         if (currentToolNumber > 0) {
             // Use G43 H# to load TLO from tool table
             char setTLO[32];
-            snprintf(setTLO, sizeof(setTLO), "G43 H%d\n", int(currentToolNumber));
+            snprintf(setTLO, sizeof(setTLO), "G43 H%d", int(currentToolNumber));
             run(setTLO);
         }
     }
@@ -118,12 +119,12 @@ namespace ATCs {
 
         bool was_inch_mode = (gc_state.modal.units == Units::Inches);
         if (was_inch_mode) {
-            run("G21\n");
+            run("G21");
         }
 
-        run("#<start_x >= #<_x>\n");
-        run("#<start_y >= #<_y>\n");
-        run("#<start_z >= #<_z>\n");
+        run("#<start_x >= #<_x>");
+        run("#<start_y >= #<_y>");
+        run("#<start_z >= #<_z>");
 
         // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
         bool isInsideTool = false;
@@ -151,7 +152,7 @@ namespace ATCs {
                 // Calculate safe Z position based on TLO + margin
                 // This ensures we clear the bore before moving X
                 float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
-                snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeRetractLength);
+                snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
                 run(safeRetract);
             } else {
                 log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
@@ -164,18 +165,19 @@ namespace ATCs {
             log_info("Retracting turret (X)");
 
             // Inside & outside tool: First retract X (away from workpiece OD), then Z
-            snprintf(safeRetract, 100, "G53 G0 X%0.4f\n", safeX);
+            snprintf(safeRetract, 100, "G53 G0 X%0.4f", safeX);
             run(safeRetract);
 
             log_info("Going to change position (Z)");
 
-            snprintf(safeRetract, 100, "G53 G0 Z%0.4f\n", safeZ);
+            snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeZ);
             run(safeRetract);
         }
 
         // Before doing the tool change, we need to check if the pressure is on:
         if (usePressureSensor) {
-            log_info("Checking pressure");
+            auto bar = pneumaticSensor.readBar(); 
+            log_info("Pressure of tool changer: " << bar << " bar.");
 
             while (pneumaticSensor.readBar() < 2.0f) {
                 log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar()
@@ -194,9 +196,11 @@ namespace ATCs {
         // Start tool change
         run(pneumaticActionOn);
 
-        // wait for pneumatic actuator
-        protocol_buffer_synchronize();  // Wait for all motion to complete
-        delay_ms(500);                  // Wait for pneumatic action to complete
+        // wait for pneumatic actuator, this takes ~2 seconds before the motion completely stops.
+        for (int i = 0; i < 20; ++i) {
+            protocol_buffer_synchronize();  // Wait for all motion to complete
+            delay_ms(100);                  // Wait for pneumatic action to complete
+        }
 
         // Assert(pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
         // for (int i = 0; i < 50 && pneumaticEndstop.read(); ++i) {
@@ -219,7 +223,7 @@ namespace ATCs {
 
         // Do the tool change.
         char toolChange[100];
-        snprintf(toolChange, 100, "G92 %c0\nG0 %c%0.3f\n", toolChangeAxis, toolChangeAxis, diff);
+        snprintf(toolChange, 100, "G92 %c0\nG0 %c%0.3f", toolChangeAxis, toolChangeAxis, diff);
         run(toolChange);
 
         protocol_buffer_synchronize();  // wait for all motion to complete
@@ -239,7 +243,7 @@ namespace ATCs {
         log_info("Setting TLO");
 
         // Load TLO from tool table using G43 H#
-        snprintf(toolChange, sizeof(toolChange), "G43 H%d\n", toolNumber);
+        snprintf(toolChange, sizeof(toolChange), "G43 H%d", toolNumber);
         run(toolChange);
 
         // DO NOT return to location before the tool change. Because you don't know the tool geometry, it
@@ -247,12 +251,12 @@ namespace ATCs {
         //
         // CAM needs to handle the approach after a tool change in lathes!
 
-        // run("G0Z#<start_z>\n");
-        // run("G0X#<start_x>\n");
+        // run("G0Z#<start_z>");
+        // run("G0X#<start_x>");
 
         // restore inch mode
         if (was_inch_mode) {
-            run("G20\n");
+            run("G20");
         }
 
         // Save the tool number.
