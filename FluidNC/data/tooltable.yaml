@@ -1,20 +1,38 @@
-tool5: 
-  name: 
-  x: 0.000000
-  y: 0.000000
-  z: 10.500000
-  a: 0.000000
-  b: 0.000000
-  c: 0.000000
-  radius: 0.000000
+# These are real probed values for the tools in the tool turret.
 
-tool1: 
-  name: 
-  x: 10.000000
-  y: 0.000000
-  z: 0.000000
-  a: 0.000000
-  b: 0.000000
-  c: 0.000000
-  radius: 0.000000
+tool1:  
+  name: SCLCR
+  x: 60.212
+  z: -0.556
+  radius: 0
+tool3:  
+  name: SDNCN
+  x: 61.908
+  z: -9.459
+  radius: 0
+tool4:  
+  name: SDJCR
+  x: 60.817
+  z: -0.359
+  radius: 0
+tool5:  
+  name: SER
+  x: 63.641
+  z: 1.313
+  radius: 0
+tool6:  
+  name: MGEHR-2
+  x: 61.727
+  z: -0.782
+  radius: 0
 
+tool13:  
+  name: CenterBore
+  x: 0
+  z: 46.677
+  radius: 0
+tool15:  
+  name: DowelPin
+  x: 0
+  z: 57.772
+  radius: 0
