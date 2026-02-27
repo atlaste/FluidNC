@@ -29,6 +29,7 @@ namespace {
     static const uint16_t FRAM_PARSER_STATE_ADDR  = 0x0050;
     static const uint16_t FRAM_ATC_ADDR           = 0x0200;
     static const uint16_t FRAM_PARAMETERS_ADDR    = 0x1000;
+    static const uint16_t FRAM_END_ADDR           = 0x2000;  // 8KB FRAM
 }
 
 extern const char* git_info;
@@ -143,7 +144,7 @@ void StatePersistence::saveParameters() {
 
     // Write each parameter
     for (const auto& [parname, parvalue] : params) {
-        if (offset >= FRAM_OVERRIDES_ADDR) {
+        if (offset >= FRAM_END_ADDR) {
             static bool warned = false;
             if (!warned) {
                 log_warn("Parameter section full, skipping remaining parameters (" << count << " params)");
@@ -301,7 +302,7 @@ void StatePersistence::restoreParameters() {
     }
 
     for (uint32_t i = 0; i < count; i++) {
-        if (offset >= FRAM_OVERRIDES_ADDR) {
+        if (offset >= FRAM_END_ADDR) {
             break;
         }
 
