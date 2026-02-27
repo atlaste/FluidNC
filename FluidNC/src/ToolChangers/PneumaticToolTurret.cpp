@@ -8,6 +8,7 @@
 #include "Pin.h"
 #include "Protocol.h"
 #include "System.h"
+#include "GCode.h"
 #include "Machine/MachineConfig.h"
 #include "NutsBolts.h"
 #include "atc.h"
@@ -20,15 +21,33 @@
 #    define M_PI 3.14159265358979323846
 #endif
 
+extern parser_block_t gc_block;
+
 namespace ATCs {
-    // Static constexpr definitions
-    void PneumaticToolTurret::run(const char* str)  // execute g-code, wait until it's done. Should be "macro.addf"
-    {
-        macro.erase();
-        log_info("ATC command: " << str);  // just for debugging.
-        macro.set(str);
-        macro.run(nullptr);
-        protocol_buffer_synchronize();  // wait for macro to finish
+    void PneumaticToolTurret::run(const char* str) {
+        log_info("ATC command: " << str);
+
+        if (sys.abort() || sys.state() == State::Alarm) {
+            throw std::runtime_error("System in alarm/abort before ATC command");
+        }
+
+        // gc_execute_line overwrites the global gc_block, so save/restore it
+        // since we're called re-entrantly from within M6 processing.
+        parser_block_t saved_block = gc_block;
+        auto           err         = gc_execute_line(str);
+        gc_block                   = saved_block;
+
+        if (err != Error::Ok) {
+            auto msg = std::string("ATC command failed (error ") + std::to_string(int(err)) + "): " + str;
+            log_error(msg);
+            throw std::runtime_error(msg);
+        }
+
+        protocol_buffer_synchronize();
+
+        if (sys.abort() || sys.state() == State::Alarm) {
+            throw std::runtime_error(std::string("Alarm/abort during ATC command: ") + str);
+        }
     }
 
     void PneumaticToolTurret::setToolChangeStepperEnable(bool enabled) {
@@ -71,7 +90,7 @@ namespace ATCs {
 
     void PneumaticToolTurret::validate() {
         Assert(toolOffsets.size() > 0, "No tool offsets are configured");
-        
+
         // If toolTypes is specified, it should match the number of tools
         if (toolTypes.size() > 0) {
             Assert(toolTypes.size() == toolOffsets.size(), "Tool types length should match the tool offsets vector length");
@@ -94,172 +113,178 @@ namespace ATCs {
         // - Update tool number and tool offset
         // - Move to old position, keep tool offset in mind
 
-        protocol_buffer_synchronize();  // wait for all motion to complete
+        try {
+            protocol_buffer_synchronize();  // wait for all motion to complete
 
-        if (toolNumber <= 0 || toolNumber >= int(toolOffsets.size())) {
-            log_info("Attempting to select an invalid tool.");
-            return false;
-        }
-
-        if (currentToolNumber == toolNumber) {
-            return true;
-        }
-
-        log_info("Starting pneumatic tool change");
-
-        // First thing we're going to do here is enable the stepper motor for the tool changer:
-        setToolChangeStepperEnable(true);
-
-        //Assert(pneumaticEndstop.read(), "Pneumatic endstop is not active. Tool is not engaged.");
-
-        bool was_inch_mode = (gc_state.modal.units == Units::Inches);
-        if (was_inch_mode) {
-            run("G21");
-        }
-
-        run("#<start_x >= #<_x>");
-        run("#<start_y >= #<_y>");
-        run("#<start_z >= #<_z>");
-
-        // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
-        bool isInsideTool = false;
-        if (toolTypes.size() > currentToolNumber) {
-            char toolType = std::toupper(toolTypes[currentToolNumber]);
-            isInsideTool  = (toolType == 'I' || toolType == 'i');
-        } else {
-            Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
-        }
-
-        log_info("Current tool is "<< (isInsideTool ? "" : "not ") << "an inside tool.");
-
-        // Safe retract sequence depends on tool type:
-        // - Inside tools (boring): Z first (out of hole, don't crash into tailstock!), then X, then more Z.
-        // - Outside tools (turning): X first (away from OD), then Z.
-        char safeRetract[100];
-        if (isInsideTool) {
-            // Inside tool: First retract Z (out of the bore), then X
-            // Use TLO + safety margin if available, otherwise use configured safeZ
-            float tlo[MAX_N_AXIS] = {};
-            bool  hasTLO          = toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
-            if (hasTLO) {
-                log_info("Retracting boring tool (Z)");
-
-                // Calculate safe Z position based on TLO + margin
-                // This ensures we clear the bore before moving X
-                float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
-                snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
-                run(safeRetract);
-            } else {
-                log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
+            if (toolNumber <= 0 || toolNumber >= int(toolOffsets.size())) {
+                log_info("Attempting to select an invalid tool.");
                 return false;
             }
-        }
 
-        // fallthrough:
-        {
-            log_info("Retracting turret (X)");
+            if (currentToolNumber == toolNumber) {
+                return true;
+            }
 
-            // Inside & outside tool: First retract X (away from workpiece OD), then Z
-            snprintf(safeRetract, 100, "G53 G0 X%0.4f", safeX);
-            run(safeRetract);
+            log_info("Starting pneumatic tool change");
 
-            log_info("Going to change position (Z)");
+            // First thing we're going to do here is enable the stepper motor for the tool changer:
+            setToolChangeStepperEnable(true);
 
-            snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeZ);
-            run(safeRetract);
-        }
+            //Assert(pneumaticEndstop.read(), "Pneumatic endstop is not active. Tool is not engaged.");
 
-        // Before doing the tool change, we need to check if the pressure is on:
-        if (usePressureSensor) {
-            auto bar = pneumaticSensor.readBar(); 
-            log_info("Pressure of tool changer: " << bar << " bar.");
+            bool was_inch_mode = (gc_state.modal.units == Units::Inches);
+            if (was_inch_mode) {
+                run("G21");
+            }
 
-            while (pneumaticSensor.readBar() < 2.0f) {
-                log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar()
-                                                                                                       << " bar.");
-                for (int i = 0; i < 40 && pneumaticSensor.readBar() < 2.0f && sys.state() != State::Alarm; ++i) {
-                    delay_ms(50);
-                    protocol_buffer_synchronize();
+            run("#<start_x >= #<_x>");
+            run("#<start_y >= #<_y>");
+            run("#<start_z >= #<_z>");
+
+            // Determine if current tool is inside (boring/drilling) or outside (turning/facing)
+            bool isInsideTool = false;
+            if (toolTypes.size() > currentToolNumber) {
+                char toolType = std::toupper(toolTypes[currentToolNumber]);
+                isInsideTool  = (toolType == 'I' || toolType == 'i');
+            } else {
+                Assert(false, "Tool type not found for tool number %d. Cannot retract safely.", currentToolNumber);
+            }
+
+            log_info("Current tool is " << (isInsideTool ? "" : "not ") << "an inside tool.");
+
+            // Safe retract sequence depends on tool type:
+            // - Inside tools (boring): Z first (out of hole, don't crash into tailstock!), then X, then more Z.
+            // - Outside tools (turning): X first (away from OD), then Z.
+            char safeRetract[100];
+            if (isInsideTool) {
+                // Inside tool: First retract Z (out of the bore), then X
+                // Use TLO + safety margin if available, otherwise use configured safeZ
+                float tlo[MAX_N_AXIS] = {};
+                bool  hasTLO          = toolTable != nullptr && toolTable->getToolOffset(currentToolNumber, tlo);
+                if (hasTLO) {
+                    log_info("Retracting boring tool (Z)");
+
+                    // Calculate safe Z position based on TLO + margin
+                    // This ensures we clear the bore before moving X
+                    float safeRetractLength = tlo[Z_AXIS] + safetyMargin;
+                    snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeRetractLength);
+                    run(safeRetract);
+                } else {
+                    log_error("TLO not found for tool number " << currentToolNumber << ". Cannot retract safely.");
+                    return false;
                 }
             }
-        }
 
-        if (sys.state() == State::Alarm) {
+            // fallthrough:
+            {
+                log_info("Retracting turret (X)");
+
+                // Inside & outside tool: First retract X (away from workpiece OD), then Z
+                snprintf(safeRetract, 100, "G53 G0 X%0.4f", safeX);
+                run(safeRetract);
+
+                log_info("Going to change position (Z)");
+
+                snprintf(safeRetract, 100, "G53 G0 Z%0.4f", safeZ);
+                run(safeRetract);
+            }
+
+            // Before doing the tool change, we need to check if the pressure is on:
+            if (usePressureSensor) {
+                auto bar = pneumaticSensor.readBar();
+                log_info("Pressure of tool changer: " << bar << " bar.");
+
+                while (pneumaticSensor.readBar() < 2.0f) {
+                    log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar()
+                                                                                                           << " bar.");
+                    for (int i = 0; i < 40 && pneumaticSensor.readBar() < 2.0f && sys.state() != State::Alarm; ++i) {
+                        delay_ms(50);
+                        protocol_buffer_synchronize();
+                    }
+                }
+            }
+
+            if (sys.state() == State::Alarm) {
+                return false;
+            }
+
+            // Start tool change
+            run(pneumaticActionOn);
+
+            // wait for pneumatic actuator, this takes ~2 seconds before the motion completely stops.
+            for (int i = 0; i < 20; ++i) {
+                protocol_buffer_synchronize();  // Wait for all motion to complete
+                delay_ms(100);                  // Wait for pneumatic action to complete
+            }
+
+            // Assert(pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
+            // for (int i = 0; i < 50 && pneumaticEndstop.read(); ++i) {
+            //     Timer::delayMillis(10);
+            // }
+            // Assert(!pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
+
+            log_info("Changing tool");
+
+            // Should we move forward or backward?
+            auto offset1 = toolOffsets[currentToolNumber];
+            auto offset2 = toolOffsets[toolNumber];
+
+            // Calculate how much we have to move.
+            // Always move in the same direction to ensure we don't have to deal with backlash.
+            auto diff = offset2 - offset1;
+            if (diff < 0) {
+                diff = offsetsPerRevolution + diff;
+            }
+
+            // Do the tool change.
+            char toolChange[100];
+            snprintf(toolChange, 100, "G92 %c0", toolChangeAxis);
+            run(toolChange);
+            snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, diff);
+            run(toolChange);
+
+            protocol_buffer_synchronize();  // wait for all motion to complete
+            run(pneumaticActionOff);
+            protocol_buffer_synchronize();  // wait for all motion to complete
+            delay_ms(700);                  // Wait for pneumatic action to complete
+
+            // Wait till the endstop is active again
+            // for (int i = 0; i < 50 && !pneumaticEndstop.read(); ++i) {
+            //     delay_ms(10);
+            // }
+            // Assert(pneumaticEndstop.read(), "Pneumatic endstop is still active. Tool change failed!");
+
+            // And disable the stepper again. Otherwise it's just going to fight the coupling.
+            setToolChangeStepperEnable(false);
+
+            log_info("Setting TLO");
+
+            // Load TLO from tool table using G43 H#
+            snprintf(toolChange, sizeof(toolChange), "G43 H%d", toolNumber);
+            run(toolChange);
+
+            // DO NOT return to location before the tool change. Because you don't know the tool geometry, it
+            // might crash the machine!!!
+            //
+            // CAM needs to handle the approach after a tool change in lathes!
+
+            // run("G0Z#<start_z>");
+            // run("G0X#<start_x>");
+
+            // restore inch mode
+            if (was_inch_mode) {
+                run("G20");
+            }
+
+            // Save the tool number.
+            currentToolNumber = toolNumber;
+
+            return true;
+        } catch (const std::exception& e) {
+            log_error("Tool change aborted: " << e.what());
+            setToolChangeStepperEnable(false);
             return false;
         }
-
-        // Start tool change
-        run(pneumaticActionOn);
-
-        // wait for pneumatic actuator, this takes ~2 seconds before the motion completely stops.
-        for (int i = 0; i < 20; ++i) {
-            protocol_buffer_synchronize();  // Wait for all motion to complete
-            delay_ms(100);                  // Wait for pneumatic action to complete
-        }
-
-        // Assert(pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
-        // for (int i = 0; i < 50 && pneumaticEndstop.read(); ++i) {
-        //     Timer::delayMillis(10);
-        // }
-        // Assert(!pneumaticEndstop.read(), "Pneumatic endstop is active. Cannot change tool.");
-
-        log_info("Changing tool");
-        
-        // Should we move forward or backward?
-        auto offset1 = toolOffsets[currentToolNumber];
-        auto offset2 = toolOffsets[toolNumber];
-
-        // Calculate how much we have to move.
-        // Always move in the same direction to ensure we don't have to deal with backlash.
-        auto diff = offset2 - offset1;
-        if (diff < 0) {
-            diff = offsetsPerRevolution - diff;
-        }
-
-        // Do the tool change.
-        char toolChange[100];
-        snprintf(toolChange, 100, "G92 %c0", toolChangeAxis);
-        run(toolChange);
-        snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, diff);
-        run(toolChange);
-
-        protocol_buffer_synchronize();  // wait for all motion to complete
-        run(pneumaticActionOff);
-        protocol_buffer_synchronize();  // wait for all motion to complete
-        delay_ms(700);                  // Wait for pneumatic action to complete
-
-        // Wait till the endstop is active again
-        // for (int i = 0; i < 50 && !pneumaticEndstop.read(); ++i) {
-        //     delay_ms(10);
-        // }
-        // Assert(pneumaticEndstop.read(), "Pneumatic endstop is still active. Tool change failed!");
-
-        // And disable the stepper again. Otherwise it's just going to fight the coupling.
-        setToolChangeStepperEnable(false);
-
-        log_info("Setting TLO");
-
-        // Load TLO from tool table using G43 H#
-        snprintf(toolChange, sizeof(toolChange), "G43 H%d", toolNumber);
-        run(toolChange);
-
-        // DO NOT return to location before the tool change. Because you don't know the tool geometry, it
-        // might crash the machine!!!
-        //
-        // CAM needs to handle the approach after a tool change in lathes!
-
-        // run("G0Z#<start_z>");
-        // run("G0X#<start_x>");
-
-        // restore inch mode
-        if (was_inch_mode) {
-            run("G20");
-        }
-
-        // Save the tool number.
-        currentToolNumber = toolNumber;
-
-        return true;
     }
 
     void PneumaticToolTurret::setTool(int32_t toolNumber) {
