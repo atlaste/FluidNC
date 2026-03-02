@@ -59,12 +59,24 @@ void uart_init(uint32_t uart_num) {
 
     uart_port_t port = (uart_port_t)uart_num;
 
+    ESP_LOGW(FNCU_TAG, "uart_init(%d) called", (int)uart_num);
+
     // We init UARTs on core 0 so the interrupt handler runs there,
     // thus avoiding conflict with the StepTimer interrupt
     esp_ipc_call_blocking(0, uart_driver_n_install, &uart_num);
 
     if (uart_num) {
         fnc_uart_set_data_callback((uart_port_t)uart_num, uart_data_callback);
+    }
+
+    if (uart_num == 0) {
+        uart_hal_context_t dbg_hal = {};
+        dbg_hal.dev                = UART_LL_GET_HW(0);
+        uint32_t int_ena           = uart_hal_get_intr_ena_status(&dbg_hal);
+        ESP_LOGW(FNCU_TAG, "UART0 post-init int_ena=0x%08x RXFULL=%d RXTOUT=%d",
+                 (unsigned)int_ena,
+                 !!(int_ena & UART_INTR_RXFIFO_FULL),
+                 !!(int_ena & UART_INTR_RXFIFO_TOUT));
     }
 }
 
@@ -122,25 +134,27 @@ int uart_read(uint32_t uart_num, uint8_t* buf, uint32_t len, uint32_t timeout_ms
 
     int result = uart_read_bytes(port, buf, len, timeout_ms);
 
-    static uint32_t rx_total    = 0;
-    static uint32_t read_calls  = 0;
+    static uint32_t rx_total   = 0;
+    static uint32_t read_calls = 0;
     if (result > 0) {
         rx_total += result;
     }
     ++read_calls;
-    if ((read_calls == 5000 || read_calls == 50000) && rx_total == 0) {
+    if (read_calls == 5000 || read_calls == 50000 || read_calls == 500000) {
         size_t buffered = 0;
         uart_get_buffered_data_len(0, &buffered);
         uart_hal_context_t dbg_hal = {};
         dbg_hal.dev                = UART_LL_GET_HW(0);
         uint32_t int_ena           = uart_hal_get_intr_ena_status(&dbg_hal);
+        uint32_t int_raw           = uart_hal_get_intraw_mask(&dbg_hal);
         ESP_LOGW(FNCU_TAG,
-                 "UART0 no input after %u reads. ring_buf=%d int_ena=0x%08x "
-                 "RXFULL=%d RXTOUT=%d RXOVF=%d",
-                 (unsigned)read_calls, (int)buffered, (unsigned)int_ena,
+                 "UART0 diag @%u reads: rx_total=%u ring_buf=%d "
+                 "int_ena=0x%08x int_raw=0x%08x "
+                 "RXFULL_ena=%d RXTOUT_ena=%d",
+                 (unsigned)read_calls, (unsigned)rx_total, (int)buffered,
+                 (unsigned)int_ena, (unsigned)int_raw,
                  !!(int_ena & UART_INTR_RXFIFO_FULL),
-                 !!(int_ena & UART_INTR_RXFIFO_TOUT),
-                 !!(int_ena & UART_INTR_RXFIFO_OVF));
+                 !!(int_ena & UART_INTR_RXFIFO_TOUT));
     }
 
     return result;
