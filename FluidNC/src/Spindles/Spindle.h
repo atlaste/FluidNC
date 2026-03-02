@@ -64,7 +64,7 @@ namespace Spindles {
         bool     _defaultedSpeeds;
         uint32_t offSpeed() { return _speeds[0].offset; }
         uint32_t maxSpeed();
-        uint32_t mapSpeed(SpindleState state, SpindleSpeed speed);
+        uint32_t mapSpeed(SpindleState state, SpindleSpeed speed, bool applyOverride = true);
         void     setupSpeeds(uint32_t max_dev_speed);
         void     shelfSpeeds(SpindleSpeed min, SpindleSpeed max);
         void     linearSpeeds(SpindleSpeed maxSpeed, float maxPercent);

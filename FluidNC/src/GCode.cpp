@@ -180,6 +180,7 @@ static Error                          gc_wait_on_input(bool is_digital, objnum_t
 //   stepper blocks will be split up in multiple blocks with the correct RPM by the planner.
 // x G43: Tool length offset H#, loads from tool table. Also G43.1 for dynamic TLO.
 // t G50: Maximum Spindle Speed. Can't be more than the config spindle speed. Just store in some g-code parser state.
+// x G96 D word: LinuxCNC-compatible max spindle speed on G96 line (alternative to G50 Sxxx).
 // x G40: Cutter compensation cancellation. We'll deal with this later.
 // x G41 / G42: Cutter compensation left/right. We'll deal with this later.
 // x G49: Tool length offset cancellation. We'll deal with this later.
@@ -874,7 +875,7 @@ Error gc_execute_line(const char* input_line) {
                         }
                         break;
 
-                    case 'D':  // Tool number for cutter radius compensation (G41/G42)
+                    case 'D':  // Tool number for cutter radius compensation (G41/G42), max spindle RPM for G96
                         axis_word_bit     = GCodeWord::D;
                         gc_block.values.d = int_value;
                         break;
@@ -1285,6 +1286,18 @@ Error gc_execute_line(const char* input_line) {
         }
         // If no D word, use current tool number
     }
+
+    // [13.5 G96 D word - Maximum spindle speed for CSS (LinuxCNC compatible)]:
+    // D word on a G96 line sets the maximum spindle RPM, equivalent to G50 Sxxx.
+    if (bitnum_is_true(value_words, GCodeWord::D) &&
+        bitnum_is_true(command_words, ModalGroup::MG14) &&
+        gc_block.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed) {
+        if (gc_block.values.d < 0) {
+            return Error::NegativeValue;
+        }
+        clear_bits(value_words, bitnum_to_mask(GCodeWord::D));
+    }
+
     // [14. Cutter length compensation ]: G43 H#, G43.1 and G49 are supported.
     // [G43 Errors]: H word must specify valid tool number in tool table.
     // [G43.1 Errors]: Motion command in same line.
@@ -1868,9 +1881,24 @@ Error gc_execute_line(const char* input_line) {
     gc_state.feed_rate = gc_block.values.f;   // Always copy this value. See feed rate error-checking.
     pl_data->feed_rate = gc_state.feed_rate;  // Record data for planner use.
 
+    // [3.4 Execute G50 early ]:
+    // G50 sets css_max_rpm which is needed by step 4 (spindle speed) and step 4.5 (CSS planner data).
+    // Non-modal commands normally execute at step 19, but G50 must run before CSS data setup
+    // so the correct max RPM is used even when G50 shares a line with motion commands.
+    if (gc_block.non_modal_command == NonModal::SetMaxSpindleSpeed) {
+        gc_state.css_max_rpm = gc_block.values.s;
+    }
+
     // [3.5 Update spindle speed mode ]:
     bool spindle_speed_mode_changed = (gc_state.modal.spindle_speed_mode != gc_block.modal.spindle_speed_mode);
     gc_state.modal.spindle_speed_mode = gc_block.modal.spindle_speed_mode;
+
+    // [3.55 G96 D word - max spindle speed ]:
+    if (bitnum_is_true(command_words, ModalGroup::MG14) &&
+        gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed &&
+        gc_block.values.d > 0) {
+        gc_state.css_max_rpm = (float)gc_block.values.d;
+    }
 
     // [3.6 Update lathe diameter mode ]:
     gc_state.modal.lathe_diameter_mode = gc_block.modal.lathe_diameter_mode;
@@ -2460,6 +2488,12 @@ Error gc_execute_line(const char* input_line) {
             gc_state.modal.coord_select = CoordIndex::G54;
             gc_state.modal.spindle      = SpindleState::Disable;
             gc_state.modal.coolant      = {};
+
+            // Reset CSS state so a stale G50/G96 from one job can't affect the next
+            gc_state.modal.spindle_speed_mode = SpindleSpeedMode::ConstantRPM;
+            gc_state.css_max_rpm              = 0;
+            gc_state.css_surface_speed        = 0;
+
             if (config->_enableParkingOverrideControl) {
                 if (config->_start->_deactivateParking) {
                     gc_state.modal.override = Override::Disabled;

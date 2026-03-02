@@ -6,7 +6,10 @@
 #include "fnc_idf_uart.h"
 #include <esp_ipc.h>
 #include "hal/uart_hal.h"
+#include <esp_log.h>
 #include "Protocol.h"
+
+static const char* FNCU_TAG = "fnc_uart";
 
 const int PINNUM_MAX                        = 64;
 InputPin* objects[UART_NUM_MAX][PINNUM_MAX] = { nullptr };
@@ -41,10 +44,14 @@ void uart_register_input_pin(uint32_t uart_num, pinnum_t pinnum, InputPin* objec
 
 static void uart_driver_n_install(void* arg) {
     uart_port_t port = *((uart_port_t*)arg);
+    esp_err_t err;
     if (port) {
-        fnc_uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+        err = fnc_uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
     } else {
-        uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+        err = uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(FNCU_TAG, "uart_driver_install(%d) FAILED: %s", (int)port, esp_err_to_name(err));
     }
 }
 
@@ -111,9 +118,32 @@ int uart_read(uint32_t uart_num, uint8_t* buf, uint32_t len, uint32_t timeout_ms
     uart_port_t port = (uart_port_t)uart_num;
     if (port) {
         return fnc_uart_read_bytes(port, buf, len, timeout_ms);
-    } else {
-        return uart_read_bytes(port, buf, len, timeout_ms);
     }
+
+    int result = uart_read_bytes(port, buf, len, timeout_ms);
+
+    static uint32_t rx_total    = 0;
+    static uint32_t read_calls  = 0;
+    if (result > 0) {
+        rx_total += result;
+    }
+    ++read_calls;
+    if ((read_calls == 5000 || read_calls == 50000) && rx_total == 0) {
+        size_t buffered = 0;
+        uart_get_buffered_data_len(0, &buffered);
+        uart_hal_context_t dbg_hal = {};
+        dbg_hal.dev                = UART_LL_GET_HW(0);
+        uint32_t int_ena           = uart_hal_get_intr_ena_status(&dbg_hal);
+        ESP_LOGW(FNCU_TAG,
+                 "UART0 no input after %u reads. ring_buf=%d int_ena=0x%08x "
+                 "RXFULL=%d RXTOUT=%d RXOVF=%d",
+                 (unsigned)read_calls, (int)buffered, (unsigned)int_ena,
+                 !!(int_ena & UART_INTR_RXFIFO_FULL),
+                 !!(int_ena & UART_INTR_RXFIFO_TOUT),
+                 !!(int_ena & UART_INTR_RXFIFO_OVF));
+    }
+
+    return result;
 }
 int uart_write(uint32_t uart_num, const uint8_t* buf, size_t len) {
     uart_port_t port = (uart_port_t)uart_num;
@@ -132,6 +162,9 @@ void uart_xoff(uint32_t uart_num) {
     uart_ll_force_xoff(port);
 }
 void uart_sw_flow_control(uint32_t uart_num, bool on, uint32_t xon_threshold, uint32_t xoff_threshold) {
+    ESP_LOGW(FNCU_TAG, "SW flow control UART%d: %s (xon=%u, xoff=%u)",
+             (int)uart_num, on ? "ENABLED" : "disabled",
+             (unsigned)xon_threshold, (unsigned)xoff_threshold);
     if (xon_threshold == 0) {
         xon_threshold = 126;
     }

@@ -118,6 +118,7 @@ int UartChannel::read() {
     if (c == 0x11) {
         // 0x11 is XON.  If we receive that, it is a request to use software flow control
         // 0 0 means use default values from uart.cpp
+        log_info("UartChannel " << name() << ": received 0x11 (XON), enabling SW flow control");
         _uart->setSwFlowControl(true, 0, 0);
         return -1;
     }
