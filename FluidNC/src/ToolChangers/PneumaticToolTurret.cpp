@@ -218,14 +218,22 @@ namespace ATCs {
             if (usePressureSensor) {
                 auto bar = pneumaticSensor.readBar();
                 log_info("Pressure of tool changer: " << bar << " bar.");
+                bool isWaiting = false;
 
-                while (pneumaticSensor.readBar() < 2.0f) {
-                    log_info("Cannot do pneumatic action; pressure is not enough. We need 2.0 bar, read: " << pneumaticSensor.readBar()
+                while (pneumaticSensor.readBar() < 3.0f) {
+                    log_info("Cannot do pneumatic action; pressure is not enough. We need 3.0 bar, read: " << pneumaticSensor.readBar()
                                                                                                            << " bar.");
-                    for (int i = 0; i < 40 && pneumaticSensor.readBar() < 2.0f && sys.state() != State::Alarm; ++i) {
-                        delay_ms(50);
+                    isWaiting = true;
+
+                    for (int i = 0; i < 40 && pneumaticSensor.readBar() < 3.0f && sys.state() != State::Alarm; ++i) {
+                        delay_ms(500);
                         protocol_buffer_synchronize();
                     }
+                }
+
+                if (isWaiting) {
+                    // If we had to wait, we'll just wait an additional 2 seconds just to be sure everything is fine.
+                    delay_ms(2000);
                 }
             }
 
