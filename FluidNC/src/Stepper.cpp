@@ -907,6 +907,8 @@ void Stepper::prep_buffer() {
                 } else if (st_prep_block->is_pwm_rate_adjusted) {
                     // NOTE: Feed and rapid overrides are independent of PWM value and do not alter laser power/rate.
                     speed *= (prep.current_speed * prep.inv_rate);
+                    // log_debug("RPM " << rpm);
+                    // log_debug("Rates CV " << prep.current_speed << " IV " << prep.inv_rate << " RPM " << rpm);
                 }
                 // If current_speed is zero, then may need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE)
                 // but this would be instantaneous only and during a motion. May not matter at all.
