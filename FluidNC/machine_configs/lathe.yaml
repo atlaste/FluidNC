@@ -63,6 +63,7 @@ odrive:
   can_rx: gpio.47
   odrive_node_id: 1
   gear_factor: -0.777778
+  max_speed: 3000
   atc: pneumatic_tool_turret
 
 kinematics:
@@ -129,7 +130,7 @@ axes:
   c:
     steps_per_mm: 80.000000
     max_rate_mm_per_min: 1000.000000
-    acceleration_mm_per_sec2: 25.000000
+    acceleration_mm_per_sec2: 75.000000
     max_travel_mm: 5000.000000
     soft_limits: false
     motor0:

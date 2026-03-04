@@ -3,27 +3,22 @@
 tool1:  
   name: SCLCR
   x: 60.212
-  z: -0.556
   radius: 0
 tool3:  
   name: SDNCN
   x: 61.908
-  z: -9.459
   radius: 0
 tool4:  
   name: SDJCR
   x: 60.817
-  z: -0.359
   radius: 0
 tool5:  
   name: SER
   x: 63.641
-  z: 1.313
   radius: 0
 tool6:  
   name: MGEHR-2
   x: 61.727
-  z: -0.782
   radius: 0
 
 tool13:  
