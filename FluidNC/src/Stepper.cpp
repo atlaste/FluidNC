@@ -860,6 +860,7 @@ void Stepper::prep_buffer() {
         /* -----------------------------------------------------------------------------------
           Compute spindle speed PWM output for step segment
         */
+        bool css_override_applied = false;
         if (st_prep_block->is_pwm_rate_adjusted || sys.step_control.updateSpindleSpeed || pl_block->css_mode) {
             if (pl_block->spindle != SpindleState::Disable) {
                 float speed = pl_block->spindle_speed;
@@ -890,13 +891,18 @@ void Stepper::prep_buffer() {
                         }
                         float diameter = 2.0f * radius;
 
-                        // RPM = (surface_speed_m_per_min * 1000) / (π * diameter_mm)
-                        speed = (pl_block->css_surface_speed * 1000.0f) / (M_PI * diameter);
+                        // Apply spindle speed override to surface speed BEFORE RPM calculation
+                        // so the G50 max RPM limit (css_max_rpm) is never exceeded by override.
+                        float effective_surface_speed = pl_block->css_surface_speed * sys.spindle_speed_ovr() / 100.0f;
 
-                        // Clamp to max RPM
+                        // RPM = (surface_speed_m_per_min * 1000) / (π * diameter_mm)
+                        speed = (effective_surface_speed * 1000.0f) / (M_PI * diameter);
+
+                        // Clamp to max RPM (G50 limit) - override cannot exceed this
                         if (speed > pl_block->css_max_rpm) {
                             speed = pl_block->css_max_rpm;
                         }
+                        css_override_applied = true;
                     }
                 } else if (st_prep_block->is_pwm_rate_adjusted) {
                     // NOTE: Feed and rapid overrides are independent of PWM value and do not alter laser power/rate.
@@ -914,7 +920,8 @@ void Stepper::prep_buffer() {
             }
             sys.step_control.updateSpindleSpeed = false;
         }
-        prep_segment->spindle_dev_speed = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed);
+        // For CSS mode, override was already applied above; don't double-apply in mapSpeed
+        prep_segment->spindle_dev_speed = spindle->mapSpeed(pl_block->spindle, prep.current_spindle_speed, !css_override_applied);
 
         // Set segment mode based on sync_mode from planner block
         // Use encoder mode only if:

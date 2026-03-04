@@ -244,15 +244,21 @@ namespace ATCs {
                 bool waited = false;
                 auto bar = pneumaticSensor.readBar();
                 log_info("Pressure of tool changer: " << bar << " bar.");
+                bool isWaiting = false;
 
                 while (pneumaticSensor.readBar() < 2.7f) {
                     log_info("Cannot do pneumatic action; pressure is not enough. We need 2.7 bar, read: " << pneumaticSensor.readBar()
                                                                                                            << " bar.");
+                    waited = true;
                     for (int i = 0; i < 40 && pneumaticSensor.readBar() < 2.7f && sys.state() != State::Alarm; ++i) {
                         delay_ms(50);
-                        waited = true;
                         protocol_buffer_synchronize();
                     }
+                }
+
+                if (isWaiting) {
+                    // If we had to wait, we'll just wait an additional 2 seconds just to be sure everything is fine.
+                    delay_ms(2000);
                 }
 
                 if (waited) {

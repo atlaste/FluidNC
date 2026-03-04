@@ -843,11 +843,14 @@ namespace WebUI {
                 WiFi.config(ip, gateway, mask);
             }
 
-            // Try fast reconnect using cached channel/BSSID to skip the full scan
+            // Try fast reconnect using cached channel/BSSID to skip the full scan.
+            // WIFI_FAST_SCAN is required here so the stack goes directly to the
+            // specified channel/BSSID instead of scanning all channels first.
             uint8_t saved_bssid[6];
             int32_t saved_channel;
             if (loadWifiCache(&saved_channel, saved_bssid)) {
                 log_info("Fast connect to STA SSID:" << SSID << " (ch " << saved_channel << ")");
+                WiFi.setScanMethod(WIFI_FAST_SCAN);
                 if (WiFi.begin(SSID, pwd, saved_channel, saved_bssid, true)) {
                     if (ConnectSTA2AP(6)) {
                         return true;
@@ -857,6 +860,7 @@ namespace WebUI {
                 WiFi.disconnect(true);
                 delay_ms(100);
                 WiFi.mode(WIFI_STA);
+                WiFi.setScanMethod(_fast_scan->get() ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
                 if (IP_mode != DHCP_MODE) {
                     IPAddress ip(IP), mask(MK), gateway(GW);
                     WiFi.config(ip, gateway, mask);

@@ -6,7 +6,10 @@
 #include "fnc_idf_uart.h"
 #include <esp_ipc.h>
 #include "hal/uart_hal.h"
+#include <esp_log.h>
 #include "Protocol.h"
+
+static const char* FNCU_TAG = "fnc_uart";
 
 const int PINNUM_MAX                        = 64;
 InputPin* objects[UART_NUM_MAX][PINNUM_MAX] = { nullptr };
@@ -41,10 +44,14 @@ void uart_register_input_pin(uint32_t uart_num, pinnum_t pinnum, InputPin* objec
 
 static void uart_driver_n_install(void* arg) {
     uart_port_t port = *((uart_port_t*)arg);
+    esp_err_t err;
     if (port) {
-        fnc_uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+        err = fnc_uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
     } else {
-        uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+        err = uart_driver_install(port, 256, 0, 0, NULL, ESP_INTR_FLAG_IRAM);
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(FNCU_TAG, "uart_driver_install(%d) FAILED: %s", (int)port, esp_err_to_name(err));
     }
 }
 
@@ -111,7 +118,8 @@ int uart_read(uint32_t uart_num, uint8_t* buf, uint32_t len, uint32_t timeout_ms
     uart_port_t port = (uart_port_t)uart_num;
     if (port) {
         return fnc_uart_read_bytes(port, buf, len, timeout_ms);
-    } else {
+    }
+    else {
         return uart_read_bytes(port, buf, len, timeout_ms);
     }
 }
@@ -131,7 +139,7 @@ void uart_xoff(uint32_t uart_num) {
     uart_port_t port = (uart_port_t)uart_num;
     uart_ll_force_xoff(port);
 }
-void uart_sw_flow_control(uint32_t uart_num, bool on, uint32_t xon_threshold, uint32_t xoff_threshold) {
+void uart_sw_flow_control(uint32_t uart_num, bool on, uint32_t xon_threshold, uint32_t xoff_threshold) {    
     if (xon_threshold == 0) {
         xon_threshold = 126;
     }
