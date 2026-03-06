@@ -62,7 +62,7 @@ namespace ATCs {
     void PneumaticToolTurret::init() {
         log_info("Initializing Pneumatic Tool Turret. Disabling tool change stepper.");
         // disable the tool change stepper:
-        setToolChangeStepperEnable(false);
+        // setToolChangeStepperEnable(false);
 
         log_info("Current tool number: " << int(currentToolNumber));
 
@@ -131,13 +131,38 @@ namespace ATCs {
             log_info("Starting pneumatic tool change");
 
             // First thing we're going to do here is enable the stepper motor for the tool changer:
-            setToolChangeStepperEnable(true);
+            // setToolChangeStepperEnable(true);
 
             //Assert(pneumaticEndstop.read(), "Pneumatic endstop is not active. Tool is not engaged.");
 
-            bool was_inch_mode = (gc_state.modal.units == Units::Inches);
+            // Save modal states that we might change during the tool change sequence.
+            // gc_execute_line() modifies gc_state, so we need to restore these after.
+            bool was_inch_mode        = (gc_state.modal.units == Units::Inches);
+            bool was_incremental_mode = (gc_state.modal.distance == Distance::Incremental);
+            bool was_css_mode         = (gc_state.modal.spindle_speed_mode == SpindleSpeedMode::ConstantSurfaceSpeed);
+            bool was_feed_per_rev     = (gc_state.modal.feed_rate == FeedRate::UnitsPerRev);
+            bool was_diameter_mode    = (gc_state.modal.lathe_diameter_mode == LatheDiameterMode::Diameter);
+
+            // Switch to safe modal states for tool change operations:
+            // - G21 (mm mode) for consistent units
+            // - G90 (absolute mode) so our coordinates are interpreted correctly
+            // - G97 (constant RPM) to avoid CSS complications
+            // - G94 (feed per minute) for consistent feed rates
+            // - G8 (radius mode) so X coordinates are not doubled
             if (was_inch_mode) {
                 run("G21");
+            }
+            if (was_incremental_mode) {
+                run("G90");
+            }
+            if (was_css_mode) {
+                run("G97");
+            }
+            if (was_feed_per_rev) {
+                run("G94");
+            }
+            if (was_diameter_mode) {
+                run("G8");
             }
 
             // run("#<start_x >= #<_x>");
@@ -216,17 +241,17 @@ namespace ATCs {
 
             // Before doing the tool change, we need to check if the pressure is on:
             if (usePressureSensor) {
+                bool waited = false;
                 auto bar = pneumaticSensor.readBar();
                 log_info("Pressure of tool changer: " << bar << " bar.");
                 bool isWaiting = false;
 
-                while (pneumaticSensor.readBar() < 3.0f) {
-                    log_info("Cannot do pneumatic action; pressure is not enough. We need 3.0 bar, read: " << pneumaticSensor.readBar()
+                while (pneumaticSensor.readBar() < 2.7f) {
+                    log_info("Cannot do pneumatic action; pressure is not enough. We need 2.7 bar, read: " << pneumaticSensor.readBar()
                                                                                                            << " bar.");
-                    isWaiting = true;
-
-                    for (int i = 0; i < 40 && pneumaticSensor.readBar() < 3.0f && sys.state() != State::Alarm; ++i) {
-                        delay_ms(500);
+                    waited = true;
+                    for (int i = 0; i < 40 && pneumaticSensor.readBar() < 2.7f && sys.state() != State::Alarm; ++i) {
+                        delay_ms(50);
                         protocol_buffer_synchronize();
                     }
                 }
@@ -234,6 +259,14 @@ namespace ATCs {
                 if (isWaiting) {
                     // If we had to wait, we'll just wait an additional 2 seconds just to be sure everything is fine.
                     delay_ms(2000);
+                }
+
+                if (waited) {
+                    // Wait a bit just to be sure we have enough pressure. Let's just take ~2 seconds to be sure.
+                    for (int i = 0; i < 20; ++i) {
+                        protocol_buffer_synchronize();  // Wait for all motion to complete
+                        delay_ms(100);                  // Wait for pneumatic action to complete
+                    }
                 }
             }
 
@@ -273,7 +306,12 @@ namespace ATCs {
             char toolChange[100];
             snprintf(toolChange, 100, "G92 %c0", toolChangeAxis);
             run(toolChange);
-            snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, diff);
+
+            // Tool changers like these have massive backlash. We just assume that backlash here, 
+            // instead of being stupid about it.
+            snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, (diff + 0.5f));
+            run(toolChange);
+            snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, (diff - 0.2f));
             run(toolChange);
 
             protocol_buffer_synchronize();  // wait for all motion to complete
@@ -283,6 +321,9 @@ namespace ATCs {
             protocol_buffer_synchronize();  // wait for all motion to complete
             delay_ms(700);                  // Wait for pneumatic action to complete
 
+            snprintf(toolChange, 100, "G0 %c%0.3f", toolChangeAxis, diff);
+            run(toolChange);
+
             // Wait till the endstop is active again
             // for (int i = 0; i < 50 && !pneumaticEndstop.read(); ++i) {
             //     delay_ms(10);
@@ -290,7 +331,7 @@ namespace ATCs {
             // Assert(pneumaticEndstop.read(), "Pneumatic endstop is still active. Tool change failed!");
 
             // And disable the stepper again. Otherwise it's just going to fight the coupling.
-            setToolChangeStepperEnable(false);
+            // setToolChangeStepperEnable(false);
 
             log_info("Setting TLO");
 
@@ -309,6 +350,20 @@ namespace ATCs {
             // restore inch mode
             if (was_inch_mode) {
                 run("G20");
+            }
+
+            // Restore other modal states that were changed
+            if (was_incremental_mode) {
+                run("G91");
+            }
+            if (was_css_mode) {
+                run("G96");
+            }
+            if (was_feed_per_rev) {
+                run("G95");
+            }
+            if (was_diameter_mode) {
+                run("G7");
             }
 
             // Save the tool number.

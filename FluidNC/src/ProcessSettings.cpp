@@ -29,6 +29,7 @@
 
 #include "FluidPath.h"
 #include "HashFS.h"
+#include "wdt.h"
 
 #include <cstring>
 #include <string_view>
@@ -427,6 +428,7 @@ static Error home(AxisMask axisMask, Channel& out) {
     Machine::Homing::run_cycles(axisMask);
 
     do {
+        feed_WDT();
         protocol_execute_realtime();
     } while (state_is(State::Homing));
 

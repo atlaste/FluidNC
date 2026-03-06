@@ -130,7 +130,7 @@ axes:
   c:
     steps_per_mm: 80.000000
     max_rate_mm_per_min: 1000.000000
-    acceleration_mm_per_sec2: 25.000000
+    acceleration_mm_per_sec2: 75.000000
     max_travel_mm: 5000.000000
     soft_limits: false
     motor0:
