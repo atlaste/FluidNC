@@ -296,7 +296,7 @@ void SpindleEncoder::init() {
     log_info("Spindle encoder monitoring task scheduled");
 }
 
-void SpindleEncoder::registerStepCallback(encoder_step_callback_t callback) {
+void IRAM_ATTR SpindleEncoder::registerStepCallback(encoder_step_callback_t callback) {
     encoder_callback = callback;
 }
 

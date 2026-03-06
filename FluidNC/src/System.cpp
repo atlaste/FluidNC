@@ -139,7 +139,8 @@ const std::map<State, const char*> StateName = {
 void set_state(State s) {
     sys.set_state(s);
 }
-bool state_is(State s) {
+
+bool IRAM_ATTR state_is(State s) {
     return sys.state() == s;
 }
 

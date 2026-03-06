@@ -112,7 +112,7 @@ namespace Pins {
         _attributes = _attributes | value;
 
         if (value.has(PinAttributes::PWM)) {
-            _pwm = new PwmPin(_index, _attributes.has(PinAttributes::ActiveLow), frequency);
+            _pwm = new (ram) PwmPin(_index, _attributes.has(PinAttributes::ActiveLow), frequency);
             // _pwm->setDuty(0);  // Unnecessary since new PwmPins start at 0 duty
             return;
         }

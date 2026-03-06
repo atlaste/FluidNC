@@ -7,10 +7,41 @@
 // #define true 1
 
 #include <cstdint>
+#include <cstddef>
 #include <string_view>
 #include "Types.h"
 #include "Logging.h"
 #include "Driver/delay_usecs.h"
+
+// Placement new tag for allocating in internal SRAM (never PSRAM).
+// Guarantees the allocation stays in directly-addressable RAM, safe for ISR access.
+// Usage:  auto p = new (ram) MyType(...);   auto a = new (ram) MyType[n];
+// Free with regular delete / delete[] (ESP-IDF's unified heap manager handles it).
+struct InternalRAMAllocator {};
+inline constexpr InternalRAMAllocator ram {};
+
+#ifdef ESP_PLATFORM
+#    include <esp_heap_caps.h>
+inline void* operator new(std::size_t size, InternalRAMAllocator) {
+    void* p = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!p)
+        __builtin_abort();
+    return p;
+}
+inline void* operator new[](std::size_t size, InternalRAMAllocator) {
+    void* p = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!p)
+        __builtin_abort();
+    return p;
+}
+inline void operator delete(void* p, InternalRAMAllocator) noexcept { heap_caps_free(p); }
+inline void operator delete[](void* p, InternalRAMAllocator) noexcept { heap_caps_free(p); }
+#else
+inline void* operator new(std::size_t size, InternalRAMAllocator) { return ::operator new(size); }
+inline void* operator new[](std::size_t size, InternalRAMAllocator) { return ::operator new[](size); }
+inline void  operator delete(void* p, InternalRAMAllocator) noexcept { ::operator delete(p); }
+inline void  operator delete[](void* p, InternalRAMAllocator) noexcept { ::operator delete[](p); }
+#endif
 
 enum class DwellMode : uint8_t {
     Dwell      = 0,  // (Default: Must be zero)
