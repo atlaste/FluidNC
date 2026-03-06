@@ -169,8 +169,7 @@ bool ToolTable::load(const std::string& filename) {
                     ToolEntry* entry = new ToolEntry(toolNum);
                     handler.enterSection(key.c_str(), entry);
                     _tools.push_back(entry);
-                } else {
-                    // Skip unknown section
+                } else if (!key.empty()) {
                     log_warn("Unknown section in tool table: " << key);
                     parser.Tokenize();
                 }
