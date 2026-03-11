@@ -29,6 +29,7 @@
 #include "HashFS.h"
 #include <list>
 #include <cstring>
+#include <ff.h>
 
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -1131,31 +1132,80 @@ namespace WebUI {
         j.begin();
 
         if (list_files) {
-            auto iter = stdfs::directory_iterator { fpath, ec };
-            if (!ec) {
-                j.begin_array("files");
-                for (auto const& dir_entry : iter) {
-                    feed_WDT();
-
-                    j.begin_object();
-                    j.member("name", dir_entry.path().filename().string());
-                    j.member("shortname", dir_entry.path().filename().string());
-
-                    // Use error_code versions to avoid crashes on SD card errors
-                    std::error_code size_ec;
-                    bool            is_dir = dir_entry.is_directory(size_ec);
-                    if (!size_ec && !is_dir) {
-                        auto size = stdfs::file_size(dir_entry.path(), size_ec);
-                        j.member("size", size_ec ? -1 : size);
-                    } else {
-                        j.member("size", -1);
-                    }
-
-                    j.member("datetime", "");
-                    j.end_object();
+            j.begin_array("files");
+            if (!strcmp(fs, sdName)) {
+                // SD fast path: fetch file size from directory scan metadata.
+                FF_DIR   dir;
+                FILINFO  fno;
+                FRESULT  fres;
+                std::string fatpath = "0:/";
+                if (!path.empty()) {
+                    fatpath += path;
                 }
-                j.end_array();
+                fres = f_opendir(&dir, fatpath.c_str());
+                if (fres == FR_OK) {
+                    for (;;) {
+                        feed_WDT();
+                        fres = f_readdir(&dir, &fno);
+                        if (fres != FR_OK || fno.fname[0] == 0) {
+                            break;
+                        }
+
+                        std::string entry_name = fno.fname;
+                        if (entry_name == "." || entry_name == "..") {
+                            continue;
+                        }
+
+                        j.begin_object();
+                        j.member("name", entry_name);
+                        j.member("shortname", entry_name);
+                        j.member("size", (fno.fattrib & AM_DIR) ? -1 : static_cast<int64_t>(fno.fsize));
+                        j.member("datetime", "");
+                        j.end_object();
+                    }
+                    f_closedir(&dir);
+                } else {
+                    // Fall back if direct FAT access fails for any reason.
+                    auto iter = stdfs::directory_iterator { fpath, ec };
+                    if (!ec) {
+                        for (auto const& dir_entry : iter) {
+                            feed_WDT();
+
+                            const auto entry_name = dir_entry.path().filename().string();
+                            j.begin_object();
+                            j.member("name", entry_name);
+                            j.member("shortname", entry_name);
+
+                            std::error_code entry_ec;
+                            auto            size = dir_entry.file_size(entry_ec);
+                            j.member("size", entry_ec ? -1 : size);
+
+                            j.member("datetime", "");
+                            j.end_object();
+                        }
+                    }
+                }
+            } else {
+                auto iter = stdfs::directory_iterator { fpath, ec };
+                if (!ec) {
+                    for (auto const& dir_entry : iter) {
+                        feed_WDT();
+
+                        const auto entry_name = dir_entry.path().filename().string();
+                        j.begin_object();
+                        j.member("name", entry_name);
+                        j.member("shortname", entry_name);
+
+                        std::error_code entry_ec;
+                        auto            size = dir_entry.file_size(entry_ec);
+                        j.member("size", entry_ec ? -1 : size);
+
+                        j.member("datetime", "");
+                        j.end_object();
+                    }
+                }
             }
+            j.end_array();
         }
 
         auto space = stdfs::fnc_space(fpath, ec);
