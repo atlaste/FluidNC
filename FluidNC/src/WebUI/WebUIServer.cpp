@@ -82,6 +82,36 @@ namespace WebUI {
     uint64_t    WebUI_Server::_nextModeCheck = 0;
     wifi_mode_t WebUI_Server::_lastMode      = wifi_mode_t::WIFI_MODE_NULL;
 
+    struct FsSpaceCache {
+        bool     valid = false;
+        uint64_t total = 0;
+        uint64_t used  = 0;
+    };
+
+    static FsSpaceCache sd_space_cache;
+    static FsSpaceCache localfs_space_cache;
+
+    static FsSpaceCache* getSpaceCache(const char* fs) {
+        if (!strcmp(fs, sdName)) {
+            return &sd_space_cache;
+        }
+        if (!strcmp(fs, localfsName)) {
+            return &localfs_space_cache;
+        }
+        return nullptr;
+    }
+
+    static void invalidateSpaceCache(const char* fs) {
+        if (auto* cache = getSpaceCache(fs)) {
+            cache->valid = false;
+        }
+    }
+
+    static void invalidateAllSpaceCaches() {
+        sd_space_cache.valid      = false;
+        localfs_space_cache.valid = false;
+    }
+
     WebUI_Server::~WebUI_Server() {
         deinit();
     }
@@ -335,10 +365,44 @@ namespace WebUI {
     }
     // Send a file, either the specified path or path.gz
     bool WebUI_Server::myStreamFile(AsyncWebServerRequest* request, const char* path, bool download, bool setSession) {
+        std::filesystem::path path_obj(path);
+        auto                  it                 = path_obj.begin();
+        bool                  has_explicit_mount = false;
+        bool                  is_localfs         = true;
+        if (it != path_obj.end()) {
+            ++it;  // Skip leading "/" component
+            if (it != path_obj.end()) {
+                const auto mount = it->string();
+                if (mount == localfsName || mount == sdName || mount == spiffsName || mount == littlefsName) {
+                    has_explicit_mount = true;
+                    is_localfs         = (mount == localfsName);
+                }
+            }
+        }
+
         std::error_code ec;
-        FluidPath       fpath { path, localfsName, ec };
-        if (ec) {
-            return false;
+        std::filesystem::path full_path(path_obj);
+        if (!has_explicit_mount) {
+            FluidPath local_path { path, localfsName, ec };
+            if (ec) {
+                return false;
+            }
+            full_path = local_path;
+        }
+
+        // Fast negative lookup for root localfs files: HashFS cache acts as an
+        // existence index and avoids repeated failed fopen()/stat() on 404 paths.
+        std::string cached_hash;
+        if (is_localfs && HashFS::file_is_hashable(full_path)) {
+            cached_hash = HashFS::hash(full_path, true);
+            if (!cached_hash.length()) {
+                auto gzpath = full_path;
+                gzpath += ".gz";
+                cached_hash = HashFS::hash(gzpath, true);
+                if (!cached_hash.length()) {
+                    return false;
+                }
+            }
         }
 
         std::string hash;
@@ -352,11 +416,13 @@ namespace WebUI {
         // way to trigger such problems is to refresh WebUI during motion.
         if (http_block_during_motion->get() && inMotionState()) {
             // Check to see if we have a cached hash of the file that can be retrieved without accessing FLASH
-            hash = HashFS::hash(fpath, true);
-            if (!hash.length()) {
-                std::filesystem::path gzpath(fpath);
-                gzpath += ".gz";
-                hash = HashFS::hash(gzpath, true);
+            if (is_localfs && !download) {
+                hash = HashFS::hash(full_path, true);
+                if (!hash.length()) {
+                    std::filesystem::path gzpath(full_path);
+                    gzpath += ".gz";
+                    hash = HashFS::hash(gzpath, true);
+                }
             }
 
             if (hash.length() && request->hasHeader("If-None-Match") &&
@@ -370,11 +436,15 @@ namespace WebUI {
         }
 
         // Check for browser cache match
-        hash = HashFS::hash(fpath);
-        if (!hash.length()) {
-            std::filesystem::path gzpath(fpath);
-            gzpath += ".gz";
-            hash = HashFS::hash(gzpath);
+        // Only compute ETag hashes for localfs content. Hashing SD files forces
+        // a full file read before transfer and is expensive.
+        if (is_localfs && !download) {
+            hash = cached_hash.length() ? cached_hash : HashFS::hash(full_path);
+            if (!hash.length()) {
+                std::filesystem::path gzpath(full_path);
+                gzpath += ".gz";
+                hash = HashFS::hash(gzpath);
+            }
         }
         if (hash.length() && request->hasHeader("If-None-Match") &&
             std::string(request->getHeader("If-None-Match")->value().c_str()) == hash) {
@@ -395,7 +465,7 @@ namespace WebUI {
             file = new FileStream(path, "r", "");
         } catch (const Error err) {
             try {
-                std::filesystem::path gzpath(fpath);
+                std::filesystem::path gzpath(full_path);
                 gzpath += ".gz";
                 file   = new FileStream(gzpath, "r", "");
                 isGzip = true;
@@ -404,23 +474,25 @@ namespace WebUI {
                 return false;
             }
         }
+        const size_t file_size = file->size();
 
         AsyncWebServerResponse* response = request->beginResponse(
-            getContentType(path), file->size(), [file, request](uint8_t* buffer, size_t maxLen, size_t total) mutable -> size_t {
+            getContentType(path), file_size, [file, request, file_size](uint8_t* buffer, size_t maxLen, size_t total) mutable -> size_t {
                 if (!file) {
                     request->client()->close();
                     return 0;  //RESPONSE_TRY_AGAIN; // This only works for ChunkedResponse
                 }
-                if (total >= file->size() || strcmp(request->methodToString(), "GET")) {
+                if (total >= file_size || strcmp(request->methodToString(), "GET")) {
                     file = nullptr;
                     return 0;
                 }
-                int bytes = int(min(file->size(), maxLen));
-                /*int actual = */ file->read(buffer, bytes);  // return 0 even when no bytes were loaded
-                if (bytes == 0 || (bytes + total) >= file->size()) {
+                const size_t remaining = file_size - total;
+                const size_t want      = min(remaining, maxLen);
+                int          actual    = file->read(buffer, want);  // return 0 even when no bytes were loaded
+                if (actual <= 0 || (size_t(actual) + total) >= file_size) {
                     file = nullptr;
                 }
-                return bytes;
+                return actual > 0 ? size_t(actual) : 0;
             });
 
         request->onDisconnect([request, file]() { delete file; });
@@ -1073,6 +1145,8 @@ namespace WebUI {
             return;
         }
 
+        bool fs_changed = false;
+
         // Handle deletions and directory creation
         if (request->hasParam("action") && request->hasParam("filename")) {
             std::string action(request->getParam("action")->value().c_str());
@@ -1081,6 +1155,7 @@ namespace WebUI {
                 if (stdfs::remove(fpath / filename, ec)) {
                     sstatus = filename + " deleted";
                     HashFS::delete_file(fpath / filename);
+                    fs_changed = true;
                 } else {
                     sstatus = "Cannot delete ";
                     sstatus += filename + " " + ec.message();
@@ -1092,6 +1167,7 @@ namespace WebUI {
                 if (count > 0) {
                     sstatus = filename + " deleted";
                     HashFS::report_change();
+                    fs_changed = true;
                 } else {
                     log_debug("remove_all returned " << count);
                     sstatus = "Cannot delete ";
@@ -1101,6 +1177,7 @@ namespace WebUI {
                 if (stdfs::create_directory(fpath / filename, ec)) {
                     sstatus = filename + " created";
                     HashFS::report_change();
+                    fs_changed = true;
                 } else {
                     sstatus = "Cannot create ";
                     sstatus += filename + " " + ec.message();
@@ -1117,9 +1194,13 @@ namespace WebUI {
                     } else {
                         sstatus = filename + " renamed to " + newname;
                         HashFS::rename_file(fpath / filename, fpath / newname);
+                        fs_changed = true;
                     }
                 }
             }
+        }
+        if (fs_changed) {
+            invalidateSpaceCache(fs);
         }
 
         //check if no need build file list
@@ -1208,18 +1289,29 @@ namespace WebUI {
             j.end_array();
         }
 
-        auto space = stdfs::fnc_space(fpath, ec);
-        if (!ec) {
-            totalspace = space.capacity;
-            usedspace  = totalspace - space.available;
+        bool space_ok = false;
+        if (auto* cache = getSpaceCache(fs); cache && cache->valid) {
+            totalspace = cache->total;
+            usedspace  = cache->used;
+            space_ok   = true;
         } else {
-            totalspace = 0;
-            usedspace  = 0;
+            std::error_code space_ec;
+            auto            space = stdfs::fnc_space(fpath, space_ec);
+            if (!space_ec) {
+                totalspace = space.capacity;
+                usedspace  = totalspace - space.available;
+                space_ok   = true;
+                if (auto* cache = getSpaceCache(fs)) {
+                    cache->total = totalspace;
+                    cache->used  = usedspace;
+                    cache->valid = true;
+                }
+            }
         }
 
         j.member("path", path.c_str());
 
-        if (!ec) {
+        if (space_ok) {
             j.member("total", formatBytes(totalspace));
             j.member("used", formatBytes(usedspace + 1));
             uint8_t percent = totalspace ? (usedspace * 100) / totalspace : 100;
@@ -1312,6 +1404,7 @@ namespace WebUI {
             FluidPath filepath { pathname, "" };
 
             HashFS::rehash_file(filepath);
+            invalidateAllSpaceCaches();
 
             // Check size
             if (filesize) {
@@ -1346,6 +1439,7 @@ namespace WebUI {
             delete _uploadFile;
             _uploadFile = nullptr;
             HashFS::rehash_file(filepath);
+            invalidateAllSpaceCaches();
         }
     }
     void WebUI_Server::uploadCheck(AsyncWebServerRequest* request) {
@@ -1358,6 +1452,7 @@ namespace WebUI {
                 _uploadFile = nullptr;
                 stdfs::remove(filepath, error_code);
                 HashFS::rehash_file(filepath);
+                invalidateAllSpaceCaches();
             }
         }
     }
