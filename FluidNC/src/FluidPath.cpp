@@ -10,6 +10,7 @@
 #include "HashFS.h"
 
 uint32_t FluidPath::_refcnt = 0;
+static bool sd_is_mounted   = false;
 
 FluidPath::FluidPath(const char* name, const char* fs, std::error_code* ecptr) : std::filesystem::path(canonicalPath(name, fs)) {
     auto mount = *(++begin());  // Use the path iterator to get the first component
@@ -24,7 +25,10 @@ FluidPath::FluidPath(const char* name, const char* fs, std::error_code* ecptr) :
             }
             throw stdfs::filesystem_error { "SD card is inaccessible", name, ec };
         }
-        if (_refcnt == 0) {
+        // Keep SD mounted between requests to avoid expensive remount latency
+        // in web/file operations. We still use _refcnt for object lifetime
+        // tracking but no longer tie unmount to transient path scopes.
+        if (!sd_is_mounted) {
             auto ec = sd_mount();
             if (ec) {
                 if (ecptr) {
@@ -33,6 +37,7 @@ FluidPath::FluidPath(const char* name, const char* fs, std::error_code* ecptr) :
                 }
                 throw stdfs::filesystem_error { "SD card is inaccessible", name, ec };
             }
+            sd_is_mounted = true;
         }
         ++_refcnt;
     }
@@ -75,7 +80,7 @@ FluidPath& FluidPath::operator=(FluidPath&& o) {
 
 FluidPath::~FluidPath() {
     // log_debug("~ refcnt " << _isSD << " " << _refcnt);
-    if (_isSD && (_refcnt && --_refcnt == 0)) {
-        sd_unmount();
+    if (_isSD && _refcnt) {
+        --_refcnt;
     }
 }

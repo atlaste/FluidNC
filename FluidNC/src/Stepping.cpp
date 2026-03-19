@@ -87,7 +87,7 @@ Stepping::motor_pins_t* Stepping::axis_motors[MAX_N_AXIS][MAX_MOTORS_PER_AXIS] =
 void Stepping::assignMotor(axis_t axis, motor_t motor, pinnum_t step_pin, bool step_invert, pinnum_t dir_pin, bool dir_invert) {
     step_pin = step_engine->init_step_pin(step_pin, step_invert);
 
-    auto m                   = new motor_pins_t;
+    auto m                   = new (ram) motor_pins_t;
     axis_motors[axis][motor] = m;
     m->step_pin              = step_pin;
     m->step_invert           = step_invert;
@@ -206,8 +206,8 @@ void IRAM_ATTR Stepping::setTimerPeriod(uint32_t ticks) {
     step_engine->set_timer_ticks((uint32_t)ticks);
 }
 
-// Called only from Stepper::wake_up which is not used in ISR context
-void Stepping::startTimer() {
+// Called from Stepper::wake_up and from segment_load_timer (ISR context)
+void IRAM_ATTR Stepping::startTimer() {
     step_engine->start_timer();
 }
 

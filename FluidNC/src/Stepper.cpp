@@ -91,11 +91,11 @@ void Stepper::init() {
     if (st_block_buffer) {
         delete[] st_block_buffer;
     }
-    st_block_buffer = new st_block_t[Stepping::_segments - 1];
+    st_block_buffer = new (ram) st_block_t[Stepping::_segments - 1];
     if (segment_buffer) {
         delete[] segment_buffer;
     }
-    segment_buffer = new segment_t[Stepping::_segments];
+    segment_buffer = new (ram) segment_t[Stepping::_segments];
 }
 
 // Update the cached ISR-safe spindle callback. Call this when the spindle changes.

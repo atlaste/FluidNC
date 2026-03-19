@@ -18,8 +18,8 @@
 #include <charconv>
 #include "Pins/ExtPinDetail.h"
 
-Pins::PinDetail* Pin::undefinedPin = new Pins::VoidPinDetail();
-Pins::PinDetail* Pin::errorPin     = new Pins::ErrorPinDetail("unknown");
+Pins::PinDetail* Pin::undefinedPin = new (ram) Pins::VoidPinDetail();
+Pins::PinDetail* Pin::errorPin     = new (ram) Pins::ErrorPinDetail("unknown");
 
 static constexpr bool verbose_debugging = false;
 
@@ -62,12 +62,12 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
 
     // Build this pin:
     if (string_util::equal_ignore_case(pin_type, "gpio")) {
-        pinImplementation = new Pins::GPIOPinDetail(static_cast<pinnum_t>(pin_number), parser);
+        pinImplementation = new (ram) Pins::GPIOPinDetail(static_cast<pinnum_t>(pin_number), parser);
         return nullptr;
     }
 #if MAX_N_I2SO
     if (string_util::equal_ignore_case(pin_type, "i2so")) {
-        pinImplementation = new Pins::I2SOPinDetail(static_cast<pinnum_t>(pin_number), parser);
+        pinImplementation = new (ram) Pins::I2SOPinDetail(static_cast<pinnum_t>(pin_number), parser);
         return nullptr;
     }
 #endif
@@ -82,7 +82,7 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
             return "uart_channel is not configured";
         }
 
-        pinImplementation = new Pins::ChannelPinDetail(config->_uart_channels[channel_num], pin_number, parser);
+        pinImplementation = new (ram) Pins::ChannelPinDetail(config->_uart_channels[channel_num], pin_number, parser);
         return nullptr;
     }
 
@@ -93,14 +93,14 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
 
     if (string_util::equal_ignore_case(pin_type, "void")) {
         // Note: having multiple void pins has its uses for debugging.
-        pinImplementation = new Pins::VoidPinDetail();
+        pinImplementation = new (ram) Pins::VoidPinDetail();
         return nullptr;
     }
 
     if (string_util::starts_with_ignore_case(pin_type, "pinext")) {
         if (pin_type.length() == 7 && isdigit(pin_type[6])) {
             auto deviceId     = pin_type[6] - '0';
-            pinImplementation = new Pins::ExtPinDetail(deviceId, pinnum_t(pin_number), parser);
+            pinImplementation = new (ram) Pins::ExtPinDetail(deviceId, pinnum_t(pin_number), parser);
         } else {
             // For now this should be sufficient, if not we can easily change it to 100 extenders:
             return "Incorrect pin extender specification. Expected 'pinext[0-9].[port number]'.";
@@ -112,7 +112,7 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
         return "Unknown pin type";
     }
 #ifdef DEBUG_PIN_DUMP
-    pinImplementation = new Pins::DebugPinDetail(pinImplementation);
+    pinImplementation = new (ram) Pins::DebugPinDetail(pinImplementation);
     return nullptr;
 #else
     return "Unknown pin type";
@@ -129,7 +129,7 @@ Pin Pin::create(std::string_view str) {
             }
 
             log_error("Setting up pin: " << str << " failed:" << err);
-            return Pin(new Pins::ErrorPinDetail(str));
+            return Pin(new (ram) Pins::ErrorPinDetail(str));
         } else {
             return Pin(pinImplementation);
         }
