@@ -59,6 +59,7 @@ private:
     std::string             _filename;          // Path to tooltable.yaml
     bool                    _loaded = false;
     bool                    _dirty  = false;  // True if changes need to be saved
+    int32_t                 _nextToolIdx = 1;   // Auto-incrementing counter for unique tool names
 
     // Parse a tool section name like "tool1" -> 1, "tool10" -> 10
     static int32_t parseToolNumber(const char* sectionName);
@@ -69,6 +70,9 @@ private:
     // Find tool by number (linear scan), returns nullptr if not found
     ToolEntry*       findTool(int32_t toolNum);
     const ToolEntry* findTool(int32_t toolNum) const;
+
+    // Assign a unique auto-generated name to a tool entry
+    void assignAutoName(ToolEntry* entry);
 
 public:
     ToolTable();

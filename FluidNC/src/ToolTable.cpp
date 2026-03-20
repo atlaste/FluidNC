@@ -90,6 +90,10 @@ void ToolTable::clearTools() {
     _tools.clear();
 }
 
+void ToolTable::assignAutoName(ToolEntry* entry) {
+    entry->_name = "tool_idx_" + std::to_string(_nextToolIdx++);
+}
+
 ToolEntry* ToolTable::findTool(int32_t toolNum) {
     for (auto tool : _tools) {
         if (tool && tool->_number == toolNum) {
@@ -161,6 +165,8 @@ bool ToolTable::load(const std::string& filename) {
             if (parser.is("turret")) {
                 // Parse turret mapping section
                 handler.enterSection("turret", _turret);
+            } else if (parser.is("next_tool_idx")) {
+                _nextToolIdx = parser.intValue();
             } else {
                 // Check if it's a tool section
                 int32_t toolNum = parseToolNumber(key.c_str());
@@ -176,6 +182,14 @@ bool ToolTable::load(const std::string& filename) {
             }
 
             parser.Tokenize();
+        }
+
+        // Auto-assign names to any tools that don't have one
+        for (auto tool : _tools) {
+            if (tool && tool->_name.empty()) {
+                assignAutoName(tool);
+                _dirty = true;
+            }
         }
 
         _loaded = true;
@@ -205,6 +219,9 @@ bool ToolTable::save() {
 
         // Use the Generator to write the YAML
         Configuration::Generator generator(file, 0);
+
+        // Persist the auto-name counter so it survives across loads
+        generator.send_item("next_tool_idx", std::to_string(_nextToolIdx));
 
         // Write tool entries
         for (auto tool : _tools) {
@@ -250,6 +267,7 @@ void ToolTable::setToolOffset(int32_t toolNum, const float* offset) {
     if (tool == nullptr) {
         // Create new entry
         tool = new ToolEntry(toolNum);
+        assignAutoName(tool);
         for (int i = 0; i < MAX_N_AXIS; i++) {
             tool->_offset[i] = offset[i];
         }
@@ -276,6 +294,7 @@ void ToolTable::setToolRadius(int32_t toolNum, float radius) {
     if (tool == nullptr) {
         // Create new entry with just radius
         tool          = new ToolEntry(toolNum);
+        assignAutoName(tool);
         tool->_radius = radius;
         _tools.push_back(tool);
     } else {

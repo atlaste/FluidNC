@@ -989,7 +989,8 @@ static Error showToolTable(const char* value, AuthenticationLevel auth_level, Ch
         }
         ss << "X:" << tool->_offset[X_AXIS] 
            << " Y:" << tool->_offset[Y_AXIS] 
-           << " Z:" << tool->_offset[Z_AXIS];
+           << " Z:" << tool->_offset[Z_AXIS]
+           << " R:" << tool->_radius;
     }
     
     // Show turret mapping if any
