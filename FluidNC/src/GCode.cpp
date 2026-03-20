@@ -2094,6 +2094,34 @@ Error gc_execute_line(const char* input_line) {
                 gc_state.current_tool = gc_block.values.q;
             }
         }
+
+        // Apply TLO from tool table if ATC doesn't handle it internally
+        if (holder_index == 0 || target_spindle == spindle) {
+            bool atc_handles_tlo = false;
+            if (target_spindle->atc() != nullptr) {
+                atc_handles_tlo = target_spindle->atc()->handles_tlo();
+            }
+            if (!atc_handles_tlo && toolTable != nullptr) {
+                if (gc_state.current_tool > 0) {
+                    float offset[MAX_N_AXIS] = {};
+                    if (toolTable->getToolOffset(gc_state.current_tool, offset)) {
+                        for (size_t idx = 0; idx < n_axis; idx++) {
+                            gc_state.tool_length_offset[idx] = offset[idx];
+                        }
+                        gc_state.modal.tool_length = ToolLengthOffset::Enable;
+                        coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
+                        log_info("Applied TLO from tool table for tool " << gc_state.current_tool);
+                    }
+                } else {
+                    for (size_t idx = 0; idx < n_axis; idx++) {
+                        gc_state.tool_length_offset[idx] = 0.0;
+                    }
+                    gc_state.modal.tool_length = ToolLengthOffset::Cancel;
+                    coords[CoordIndex::TLO]->set(gc_state.tool_length_offset);
+                }
+            }
+        }
+
         report_ovr_counter = 0;  // Set to report change immediately
         gc_ovr_changed();
     }
