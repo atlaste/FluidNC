@@ -185,24 +185,23 @@ void StatePersistence::saveOverrides() {
     _fram->WriteBlock(offset, sizeof(spindle_ovr), 1, (uint8_t*)&spindle_ovr);
 }
 
-void StatePersistence::saveSpindleState()
-{
+void StatePersistence::saveSpindleState() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
     }
-    
+
     auto                 atcs = ATCs::ATCFactory::objects();
     std::vector<uint8_t> atcData;
-    
+
     atcData.resize(4);
-    
+
     for (auto it : atcs) {
         it->save_atc_data(atcData);
     }
-    
+
     uint32_t size = atcData.size();
     memcpy(atcData.data(), &size, 4);
-    
+
     _fram->WriteBlock(FRAM_ATC_ADDR, atcData.size(), 1, atcData.data());
 }
 
@@ -212,8 +211,7 @@ void StatePersistence::saveAllSections() {
     }
 
     static int64_t lastSaveDbg = 0;
-    if (esp_timer_get_time() > lastSaveDbg)
-    {
+    if (esp_timer_get_time() > lastSaveDbg) {
         lastSaveDbg = esp_timer_get_time() + 1000000;
         // log_debug("Saving state...");
     }
@@ -272,6 +270,9 @@ void StatePersistence::restoreParserState() {
 
     // WCS offsets (G54-G59.3) are NVS-backed; reload the active one.
     coords[gc_state.modal.coord_select]->get(gc_state.coord_system);
+
+    // Assume we're in the running state (e.g. idle or waiting).
+    gc_state.modal.program_flow = ProgramFlow::Running;
 
     // Recompute position from the motor steps restored by restorePositionState()
     // rather than trusting the FRAM-saved position which may be slightly stale.
@@ -349,27 +350,27 @@ void StatePersistence::restoreSpindleState() {
     if (!_fram || !_fram->IsInitialized()) {
         return;
     }
-    
+
     // Read the size first
     uint32_t length;
     // ReadBlock signature: ReadBlock(address, blockSize, numBlocks, data)
     _fram->ReadBlock(FRAM_ATC_ADDR, 4, 1, (uint8_t*)&length);
-    
+
     // Sanity check
     if (length == 0 || length > 4096) {  // Reasonable upper limit
         log_debug("Invalid ATC data length: " << length);
         return;
     }
-    
+
     // Read the entire ATC data block
     std::vector<uint8_t> atcData;
     atcData.resize(length);
     _fram->ReadBlock(FRAM_ATC_ADDR, length, 1, atcData.data());
-    
+
     // Restore ATC data directly to ATC objects (not through spindles,
     // because spindle->_atc isn't set until spindle init runs later).
     size_t index = 4;
-    auto atcs = ATCs::ATCFactory::objects();
+    auto   atcs  = ATCs::ATCFactory::objects();
     for (auto it : atcs) {
         if (index >= length) {
             break;
@@ -385,7 +386,7 @@ void StatePersistence::restoreAllSections() {
 
     log_info("Restoring state")
 
-    restorePositionState();
+        restorePositionState();
     restoreParserState();
     restoreParameters();
     restoreOverrides();
