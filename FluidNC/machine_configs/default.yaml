@@ -82,7 +82,7 @@ axes:
       cycle: 1
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.18
+      limit_neg_pin: gpio.18:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -100,7 +100,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.48
+      limit_neg_pin: gpio.48:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
@@ -117,7 +117,7 @@ axes:
       cycle: 2
       positive_direction: true
     motor0:
-      limit_neg_pin: gpio.16
+      limit_neg_pin: gpio.16:low
       hard_limits: false
       pulloff_mm: 1.000000
       standard_stepper:
