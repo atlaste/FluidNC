@@ -1,0 +1,81 @@
+board: FluidNC-S3
+name: Lathe
+meta: 
+stepping:
+  engine: I2S_STREAM
+  idle_ms: 255
+  pulse_us: 4
+  dir_delay_us: 0
+  disable_delay_us: 0
+  segments: 12
+
+spi:
+  miso_pin: gpio.13
+  mosi_pin: gpio.11
+  sck_pin: gpio.12
+
+i2so:
+  bck_pin: gpio.8
+  data_pin: gpio.14
+  ws_pin: gpio.21
+
+ethernet:
+  cs_pin: gpio.10
+  dhcp: true
+  int_pin: gpio.4
+  spi_freq_mhz: 20
+
+state_persistence:
+  cs_pin: gpio.5
+  save_interval_ms: 100
+  spi_freq_mhz: 20
+  save_parameters: true
+
+kinematics:
+  Cartesian:
+
+axes:
+  shared_stepper_disable_pin: NO_PIN
+  shared_stepper_reset_pin: NO_PIN
+  homing_runs: 2
+  z:
+    steps_per_mm: 640.000000
+    max_rate_mm_per_min: 800.000000
+    acceleration_mm_per_sec2: 40.000000
+    max_travel_mm: 231.000000
+    soft_limits: false
+    homing:
+      cycle: 2
+      positive_direction: true
+    motor0:
+      limit_all_pin: gpio.17:low
+      hard_limits: false
+      pulloff_mm: 1.000000
+      tmc_5160:
+          disable_pin: i2so.12
+          direction_pin: i2so.15
+          step_pin: i2so.14
+          cs_pin: i2so.13
+          run_amps: 1.0
+          hold_amps: 0.2
+
+start:
+  must_home: false
+  deactivate_parking: false
+  check_limits: true
+
+arc_tolerance_mm: 0.002000
+junction_deviation_mm: 0.010000
+verbose_errors: true
+report_inches: false
+enable_parking_override_control: false
+use_line_numbers: false
+planner_blocks: 16
+
+performance_profiler:
+  enable: true
+  enable_pc_sampling: true
+  update_rate: 1000
+
+scurve_planner:
+  # Default settings are fine.
