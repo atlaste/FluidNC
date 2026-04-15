@@ -227,19 +227,7 @@ namespace Extra {
         }
     }
 
-    void LedStripRMT::setPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
-        if (!ledStripHandle_ || index >= numberLeds_) {
-            return;
-        }
-
-        // Map logical index to physical LED index
-        int32_t physicalIndex = leds_[index];
-
-        auto     strip = static_cast<led_strip_t*>(ledStripHandle_);
-        // Write to the buffer we're currently modifying
-        uint8_t* pixel = strip->buffer[strip->writeBuffer] + (physicalIndex * bytesPerLed_);
-
-        // Set color based on color order
+    void LedStripRMT::writePixelToBuffer(uint8_t* pixel, uint8_t r, uint8_t g, uint8_t b) {
         switch (colorOrder_) {
             case LedStripColorOrder::RGB:
                 pixel[0] = r;
@@ -261,9 +249,28 @@ namespace Extra {
                 pixel[0] = g;
                 pixel[1] = r;
                 pixel[2] = b;
-                pixel[3] = 0;  // White channel = 0 for RGB mode
+                pixel[3] = 0;
                 break;
         }
+    }
+
+    void LedStripRMT::setPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
+        if (!ledStripHandle_ || index >= numberLeds_) {
+            return;
+        }
+        auto    strip  = static_cast<led_strip_t*>(ledStripHandle_);
+        size_t  offset = leds_[index] * bytesPerLed_;
+        writePixelToBuffer(strip->buffer[strip->writeBuffer] + offset, r, g, b);
+    }
+
+    void LedStripRMT::setPixelAllBuffers(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
+        if (!ledStripHandle_ || index >= numberLeds_) {
+            return;
+        }
+        auto   strip  = static_cast<led_strip_t*>(ledStripHandle_);
+        size_t offset = leds_[index] * bytesPerLed_;
+        writePixelToBuffer(strip->buffer[0] + offset, r, g, b);
+        writePixelToBuffer(strip->buffer[1] + offset, r, g, b);
     }
 
     void LedStripRMT::refresh() {
@@ -545,7 +552,7 @@ namespace Extra {
                     continue;
                 }
                 if (virtualPixel == -1 || vp == virtualPixel) {
-                    strip->setPixel(i, r, g, b);
+                    strip->setPixelAllBuffers(i, r, g, b);
                 }
             }
         }

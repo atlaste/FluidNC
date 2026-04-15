@@ -74,7 +74,9 @@ namespace Extra {
         uint8_t              bytesPerLed_ = 0;  // 3 for RGB, 4 for RGBW
         LedStripTiming       timing_;
 
+        void writePixelToBuffer(uint8_t* pixel, uint8_t r, uint8_t g, uint8_t b);
         void setPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
+        void setPixelAllBuffers(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
         void refresh();
         void clear();
 
