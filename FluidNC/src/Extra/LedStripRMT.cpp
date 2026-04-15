@@ -539,7 +539,6 @@ namespace Extra {
         }
 
         for (auto strip : m150Strips_) {
-            bool changed = false;
             for (size_t i = 0; i < strip->m150_.size() && i < strip->leds_.size(); i++) {
                 int32_t vp = strip->m150_[i];
                 if (vp < 0) {
@@ -547,12 +546,7 @@ namespace Extra {
                 }
                 if (virtualPixel == -1 || vp == virtualPixel) {
                     strip->setPixel(i, r, g, b);
-                    changed = true;
                 }
-            }
-
-            if (changed) {
-                strip->refresh();
             }
         }
     }
