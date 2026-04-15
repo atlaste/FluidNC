@@ -187,6 +187,12 @@ enum class IoControl : gcodenum_t {
     SetAnalogImmediate  = 7,  // M68
 };
 
+// Modal Group MM10: User-defined M-codes (M100-M199)
+enum class UserMCode : gcodenum_t {
+    None      = 0,
+    SetRGBLed = 150,  // M150
+};
+
 // {M66} L word value, indicates wait mode
 enum class WaitOnInputMode : int8_t {
     Immediate,
@@ -301,6 +307,7 @@ struct gc_modal_t {
     SetToolNumber set_tool_number;
     IoControl     io_control;  // {M62, M63, M67}
     Override      override;    // {M56}
+    UserMCode     user_mcode;  // {M150}
 };
 
 struct gc_values_t {

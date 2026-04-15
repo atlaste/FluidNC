@@ -68,6 +68,7 @@ namespace Extra {
         LedStripType         type_       = LedStripType::WS2812;
         LedStripColorOrder   colorOrder_ = LedStripColorOrder::UseDefault;
         std::vector<int32_t> leds_;  // Physical LED indices to use (e.g., [10,11,12...])
+        std::vector<int32_t> m150_;  // Virtual pixel mapping: m150_[logical_led] = virtual pixel number, -1 = unused
         std::vector<int32_t> travel_;
         std::string          direction_;
         uint8_t              bytesPerLed_ = 0;  // 3 for RGB, 4 for RGBW
@@ -76,6 +77,9 @@ namespace Extra {
         void setPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
         void refresh();
         void clear();
+
+        // M150 G-code dispatch: sets virtual pixel(s) across all strips with m150 config
+        static void m150Execute(int virtualPixel, uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t brightness);
 
         // Position mapping API
         const std::vector<LedPosition>& getLedPositions() const { return ledPositions_; }

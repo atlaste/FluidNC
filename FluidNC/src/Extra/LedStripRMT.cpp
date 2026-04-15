@@ -1,10 +1,13 @@
 #include "LedStripRMT.h"
 #include "LedStripFeedback.h"
 
+#include <algorithm>
 #include <esp_err.h>
 #include <memory>
 
 namespace Extra {
+    static std::vector<LedStripRMT*> m150Strips_;
+
     namespace {
         EnumItem LedStripTypeDescr[] = {
             { uint32_t(LedStripType::WS2812), "WS2812" },            // 5V, most common
@@ -195,9 +198,18 @@ namespace Extra {
             feedback_ = new LedStripFeedback();
         }
         feedback_->init(this);
+
+        if (!m150_.empty()) {
+            m150Strips_.push_back(this);
+        }
     }
 
     void LedStripRMT::deinit() {
+        auto it = std::find(m150Strips_.begin(), m150Strips_.end(), this);
+        if (it != m150Strips_.end()) {
+            m150Strips_.erase(it);
+        }
+
         if (feedback_) {
             feedback_->deinit();
             delete feedback_;
@@ -309,6 +321,7 @@ namespace Extra {
             colorOrder_ = LedStripColorOrder(v);
         }
         handler.item("leds", leds_);
+        handler.item("m150", m150_);
         handler.item("travel", travel_);
         handler.item("direction", direction_);
         handler.item("bytes_per_led", bytesPerLed_);
@@ -515,6 +528,33 @@ namespace Extra {
         }
 
         log_info("Calculated positions for " << ledPositions_.size() << " LEDs.");
+    }
+
+    void LedStripRMT::m150Execute(int virtualPixel, uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t brightness) {
+        if (brightness > 0) {
+            r = uint8_t(uint16_t(r) * brightness / 255);
+            g = uint8_t(uint16_t(g) * brightness / 255);
+            b = uint8_t(uint16_t(b) * brightness / 255);
+            w = uint8_t(uint16_t(w) * brightness / 255);
+        }
+
+        for (auto strip : m150Strips_) {
+            bool changed = false;
+            for (size_t i = 0; i < strip->m150_.size() && i < strip->leds_.size(); i++) {
+                int32_t vp = strip->m150_[i];
+                if (vp < 0) {
+                    continue;
+                }
+                if (virtualPixel == -1 || vp == virtualPixel) {
+                    strip->setPixel(i, r, g, b);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                strip->refresh();
+            }
+        }
     }
 
     // Configuration registration

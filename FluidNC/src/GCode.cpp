@@ -14,6 +14,7 @@
 #include "MotionControl.h"        // mc_override_ctrl_update
 #include "Machine/UserOutputs.h"  // setAnalogPercent
 #include "Machine/UserInputs.h"   // read digital/analog inputs
+#include "Extra/LedStripRMT.h"    // m150Execute
 #include "Platform.h"             // WEAK_LINK
 #include "Job.h"                  // Job::active() and Job::channel()
 
@@ -69,7 +70,8 @@ gc_modal_t modal_defaults = {
     ToolChange::Disable,
     SetToolNumber::Disable,
     IoControl::None,
-    Override::ParkingMotion
+    Override::ParkingMotion,
+    UserMCode::None
 };
 // clang-format on
 
@@ -303,6 +305,7 @@ Error gc_execute_line(const char* input_line) {
     uint32_t command_words = 0;  // Tracks G and M command words. Also used for modal group violations.
     uint32_t value_words   = 0;  // Tracks value words.
 
+    bool line_has_m150        = (strstr(line, "M150") != nullptr);
     bool jogMotion            = false;
     bool clockwiseArc         = false;
     bool probeExplicit        = false;
@@ -829,6 +832,10 @@ Error gc_execute_line(const char* input_line) {
                         gc_block.modal.io_control = IoControl::SetAnalogImmediate;
                         mg_word_bit               = ModalGroup::MM5;
                         break;
+                    case 150:
+                        gc_block.modal.user_mcode = UserMCode::SetRGBLed;
+                        mg_word_bit               = ModalGroup::MM10;
+                        break;
                     default:
                         return Error::GcodeUnsupportedCommand;  // [Unsupported M command]
                 }
@@ -861,6 +868,9 @@ Error gc_execute_line(const char* input_line) {
                             axis_word_bit               = GCodeWord::B;
                             gc_block.values.xyz[B_AXIS] = value;
                             set_bitnum(axis_words, B_AXIS);
+                        } else if (line_has_m150) {
+                            axis_word_bit               = GCodeWord::B;
+                            gc_block.values.xyz[B_AXIS] = value;
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -950,6 +960,9 @@ Error gc_execute_line(const char* input_line) {
                             axis_word_bit               = GCodeWord::U;
                             gc_block.values.xyz[U_AXIS] = value;
                             set_bitnum(axis_words, U_AXIS);
+                        } else if (line_has_m150) {
+                            axis_word_bit               = GCodeWord::U;
+                            gc_block.values.xyz[U_AXIS] = value;
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -968,6 +981,9 @@ Error gc_execute_line(const char* input_line) {
                             axis_word_bit               = GCodeWord::W;
                             gc_block.values.xyz[W_AXIS] = value;
                             set_bitnum(axis_words, W_AXIS);
+                        } else if (line_has_m150) {
+                            axis_word_bit               = GCodeWord::W;
+                            gc_block.values.xyz[W_AXIS] = value;
                         } else {
                             return Error::GcodeUnsupportedCommand;
                         }
@@ -1228,6 +1244,16 @@ Error gc_execute_line(const char* input_line) {
             }
         }
         clear_bitnum(value_words, GCodeWord::Q);
+    }
+    bool m150_has_i = false;
+    if (gc_block.modal.user_mcode == UserMCode::SetRGBLed) {
+        m150_has_i = bitnum_is_true(value_words, GCodeWord::I);
+        clear_bitnum(value_words, GCodeWord::R);
+        clear_bitnum(value_words, GCodeWord::U);
+        clear_bitnum(value_words, GCodeWord::B);
+        clear_bitnum(value_words, GCodeWord::W);
+        clear_bitnum(value_words, GCodeWord::P);
+        clear_bitnum(value_words, GCodeWord::I);
     }
     if (gc_block.modal.set_tool_number == SetToolNumber::Enable) {
         if (bitnum_is_false(value_words, GCodeWord::Q)) {
@@ -2245,6 +2271,17 @@ Error gc_execute_line(const char* input_line) {
         auto const wait_mode    = *validate_wait_on_input_mode_value(gc_block.values.l);
         auto const timeout      = gc_block.values.q;
         gc_wait_on_input(isWaitOnInputDigital, input_number, wait_mode, timeout);
+    }
+
+    if (gc_block.modal.user_mcode == UserMCode::SetRGBLed) {
+        uint8_t r          = (uint8_t)gc_block.values.r;
+        uint8_t g          = (uint8_t)gc_block.values.xyz[U_AXIS];
+        uint8_t b          = (uint8_t)gc_block.values.xyz[B_AXIS];
+        uint8_t w          = (uint8_t)gc_block.values.xyz[W_AXIS];
+        uint8_t brightness = (uint8_t)gc_block.values.p;
+        int     pixel      = m150_has_i ? (int)gc_block.values.ijk[0] : -1;
+        Extra::LedStripRMT::m150Execute(pixel, r, g, b, w, brightness);
+        gc_state.modal.user_mcode = UserMCode::None;
     }
 
     // [9. Override control ]: NOT SUPPORTED. Always enabled, except for parking control.
