@@ -78,6 +78,8 @@ namespace Extra {
         void refresh();
         void clear();
 
+        inline bool isM150Led(int index) const { return index >= 0 && size_t(index) < m150_.size() && m150_[index] >= 0; }
+
         // M150 G-code dispatch: sets virtual pixel(s) across all strips with m150 config
         static void m150Execute(int virtualPixel, uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t brightness);
 

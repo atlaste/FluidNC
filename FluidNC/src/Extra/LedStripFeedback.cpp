@@ -229,7 +229,13 @@ namespace Extra {
         uint8_t baseHue    = (animationCounter_ / 2) & 0xFF;  // Slow rotation
         uint8_t brightness = (idleBrightness_ * 255) / 100;
 
-        for (int i = 0; i < numLeds; i++) {
+        for (int i = 0; i < numLeds; i++) 
+        {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
+
             // Each LED offset in hue creates the wave
             uint8_t hue   = baseHue + ((i * 256) / numLeds);
             Color   color = hsvToRgb(hue, 255, brightness);
@@ -261,6 +267,10 @@ namespace Extra {
         // Apply position-based boost to each LED
         int numLeds = strip_->numberLeds_;
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
             uint8_t boost = getPositionBoost(i);
 
             // Add boost while respecting maximum brightness
@@ -295,6 +305,10 @@ namespace Extra {
             int fillLeds = static_cast<int>(progressPercent_ * numLeds);
 
             for (int i = 0; i < numLeds; i++) {
+                if (strip_->isM150Led(i))
+                {
+                    continue;
+                }
                 if (i < fillLeds) {
                     // Add green boost
                     uint8_t r = std::min(255, baseColor.r + boostColor.r);
@@ -310,6 +324,10 @@ namespace Extra {
             uint8_t phase = (animationCounter_ / 4) & 0xFF;  // Slower wave
 
             for (int i = 0; i < numLeds; i++) {
+                if (strip_->isM150Led(i))
+                {
+                    continue;
+                }
                 uint8_t ledPhase = (phase + (i * 256) / numLeds) & 0xFF;
                 uint8_t wave     = fastSine(ledPhase);
 
@@ -338,6 +356,9 @@ namespace Extra {
         Color   color          = getHomingColor(baseBrightness);
 
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i)) {
+                continue;
+            }
             uint8_t ledPhase = (phase + (i * 256) / numLeds) & 0xFF;
             uint8_t wave     = fastSine(ledPhase);
 
@@ -374,6 +395,10 @@ namespace Extra {
             pulseLed = numLeds - 1;
 
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
             if (i == pulseLed) {
                 strip_->setPixel(i, pulseColor.r, pulseColor.g, pulseColor.b);
             } else {
@@ -397,6 +422,10 @@ namespace Extra {
         Color   color      = getAlarmColor(brightness);
 
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
             strip_->setPixel(i, color.r, color.g, color.b);
         }
 
@@ -414,6 +443,10 @@ namespace Extra {
         Color   color      = getAlarmColor(brightness);
 
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
             strip_->setPixel(i, color.r, color.g, color.b);
         }
 
@@ -430,6 +463,10 @@ namespace Extra {
         uint8_t brightness = (255 * probeFlashCounter_) / PROBE_FLASH_DURATION;
 
         for (int i = 0; i < numLeds; i++) {
+            if (strip_->isM150Led(i))
+            {
+                continue;
+            }
             strip_->setPixel(i, brightness, brightness, brightness);
         }
 
