@@ -1,5 +1,5 @@
 board: FluidNC-S3
-name: Lathe
+name: ICT
 meta: 
 stepping:
   engine: I2S_STREAM
@@ -37,7 +37,7 @@ kinematics:
 axes:
   shared_stepper_disable_pin: NO_PIN
   shared_stepper_reset_pin: NO_PIN
-  homing_runs: 2
+  homing_runs: 1
   z:
     steps_per_mm: 640.000000
     max_rate_mm_per_min: 800.000000
@@ -45,10 +45,10 @@ axes:
     max_travel_mm: 231.000000
     soft_limits: false
     homing:
-      cycle: 2
-      positive_direction: true
+      cycle: 1
+      positive_direction: false
     motor0:
-      limit_all_pin: gpio.17:low
+      limit_all_pin: gpio.17
       hard_limits: false
       pulloff_mm: 1.000000
       tmc_5160:
