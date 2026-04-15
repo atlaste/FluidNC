@@ -46,12 +46,12 @@ This document describes every feature, enhancement, and system-level change made
 
 ## 1. Lathe G-Code: CSS, Threading, Feed-Per-Rev, Diameter Mode
 
-A complete set of lathe-oriented G-codes has been added, bringing FluidNC to feature parity with industrial lathe controllers (LinuxCNC/Fanuc-style).
+A complete set of lathe-oriented G-codes has been added, bringing FluidNC to feature parity with industrial lathe controllers.
 
 ### G96 / G97 — Constant Surface Speed (CSS) / Constant RPM
 
 - **G96 S\<speed\>** — Enables Constant Surface Speed mode. `S` is the desired surface speed in meters per minute. The controller dynamically adjusts spindle RPM based on the current cutting radius so the surface speed at the tool tip stays constant.
-- **G96 D\<max_rpm\>** — Optionally sets a maximum RPM cap on the same line (LinuxCNC convention).
+- **G96 D\<max_rpm\>** — Optionally sets a maximum RPM cap on the same line.
 - **G97** — Returns to Constant RPM mode (the default). `S` is interpreted as RPM directly.
 - **G50 S\<max_rpm\>** — Sets the maximum spindle speed for CSS mode. This prevents the spindle from exceeding a safe speed when cutting near the centerline.
 

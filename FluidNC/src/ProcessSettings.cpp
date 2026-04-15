@@ -970,6 +970,13 @@ static Error showHeap(const char* value, AuthenticationLevel auth_level, Channel
     return Error::Ok;
 }
 
+static Error crash(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    log_error("Deliberate crash via $Crash command");
+    delay_ms(100);
+    *((volatile int*)0) = 0xdeadbeef;
+    return Error::Ok;  // unreachable
+}
+
 // Tool table commands
 static Error showToolTable(const char* value, AuthenticationLevel auth_level, Channel& out) {
     if (toolTable == nullptr) {
@@ -1273,6 +1280,7 @@ void make_user_commands() {
 
     new UserCommand("SA", "Alarm/Send", sendAlarm, anyState);
     new UserCommand("Heap", "Heap/Show", showHeap, anyState);
+    new UserCommand("", "Crash", crash, anyState);
     new UserCommand("SS", "Startup/Show", showStartupLog, anyState);
     new UserCommand("UP", "Uart/Passthrough", uartPassthrough, notIdleOrAlarm);
 
