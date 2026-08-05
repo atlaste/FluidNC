@@ -25,11 +25,6 @@ float limitsMinPosition(axis_t axis);
 
 // Private
 
-#ifdef LATER  // We need to rethink debouncing
-// A task that runs after a limit switch interrupt.
-void limitCheckTask(void* pvParameters);
-#endif
-
 // True if an axis is reporting engaged limits on both ends.  This
 // typically happens when the same pin is used for a pair of switches,
 // so you cannot tell which one is triggered.  In that case, automatic

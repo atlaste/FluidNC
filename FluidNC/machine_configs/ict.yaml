@@ -25,6 +25,11 @@ ethernet:
   int_pin: gpio.4
   spi_freq_mhz: 20
 
+sdcard:
+  cs_pin: gpio.0
+  card_detect_pin: NO_PIN
+  frequency_hz: 8000000
+
 state_persistence:
   cs_pin: gpio.5
   save_interval_ms: 100

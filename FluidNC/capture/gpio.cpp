@@ -89,6 +89,18 @@ static void gpio_send_event(int32_t gpio_num, bool active) {
 #endif
 }
 
+bool gpio_debounce_config(uint32_t sample_us, uint32_t samples) {
+    return true;
+}
+
+uint32_t gpio_glitch_count(int32_t gpio_num) {
+    return 0;
+}
+uint32_t gpio_glitch_total(void) {
+    return 0;
+}
+void gpio_glitch_reset(void) {}
+
 void poll_gpios() {
     gpio_mask_t gpios_active  = get_gpios();
     gpio_mask_t gpios_changed = (gpios_active ^ gpios_current) & gpios_interest;

@@ -26,6 +26,21 @@ void gpio_set_event(int32_t gpio_num, void* arg, bool invert);
 void gpio_clear_event(int32_t gpio_num);
 void poll_gpios();
 
+// Input debouncing.  A level must be seen on "samples" consecutive samples,
+// taken every "sample_us" microseconds, before an event is sent.  Passing
+// sample_us == 0 disables debouncing and restores unfiltered polling.
+// "samples" is rounded up to a power of two, at most 8.  Returns false if the
+// requested filtering could not be started, in which case polling is
+// unfiltered.
+bool gpio_debounce_config(uint32_t sample_us, uint32_t samples);
+
+// Number of times a partially accumulated level change was abandoned because
+// the input went back to its previous state, i.e. the count of rejected
+// glitches.  A steadily climbing count means the input is picking up noise.
+uint32_t gpio_glitch_count(int32_t gpio_num);
+uint32_t gpio_glitch_total(void);
+void     gpio_glitch_reset(void);
+
 #ifdef __cplusplus
 }
 #endif

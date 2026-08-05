@@ -113,3 +113,16 @@ void poll_gpios() {
     // Events are delivered immediately via the SoftwareGPIO ISR chain,
     // so explicit polling is not needed in the test environment.
 }
+
+bool gpio_debounce_config(uint32_t sample_us, uint32_t samples) {
+    // Mock - SoftwareGPIO delivers clean transitions, so there is nothing to filter
+    return true;
+}
+
+uint32_t gpio_glitch_count(int32_t gpio_num) {
+    return 0;
+}
+uint32_t gpio_glitch_total(void) {
+    return 0;
+}
+void gpio_glitch_reset(void) {}

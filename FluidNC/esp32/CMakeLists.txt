@@ -1,4 +1,5 @@
 idf_component_register(SRCS AssertionFailed.cpp
+                            DebounceTimer.cpp
                             delay_usecs.cpp
                             esp_error.cpp
                             gpio.cpp

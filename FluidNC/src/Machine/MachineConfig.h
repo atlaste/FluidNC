@@ -60,6 +60,38 @@ namespace Machine {
         ~Start() = default;
     };
 
+    // Software filtering of endstop, probe and control inputs.  See
+    // esp32/gpio.cpp for how the filter itself works.
+    class Debounce : public Configuration::Configurable {
+    public:
+        // Sampling interval.  0 means derive it from _maxErrorMm and the
+        // configured homing rates; -1 disables debouncing entirely.
+        int32_t _sampleUs = 0;
+
+        // How many consecutive samples must agree before a level is believed.
+        // Rounded up to a power of two, at most 8.
+        int32_t _samples = 8;
+
+        // Position error budget used to derive _sampleUs.  A real edge can fall
+        // anywhere within one sampling interval, so the interval is chosen such
+        // that the resulting position uncertainty stays under this figure at
+        // the fastest configured homing rate.
+        float _maxErrorMm = 0.005f;
+
+        Debounce() {}
+
+        void group(Configuration::HandlerBase& handler) {
+            handler.item("sample_us", _sampleUs, -1, 20000);
+            handler.item("samples", _samples, 1, 8);
+            handler.item("max_error_mm", _maxErrorMm, 0.0001f, 1.0f);
+        }
+
+        // Derives the sampling interval if needed, then starts the sampler.
+        void init();
+
+        ~Debounce() = default;
+    };
+
     class MachineConfig : public Configuration::Configurable {
     public:
         MachineConfig() = default;
@@ -84,6 +116,7 @@ namespace Machine {
         Macros*         _macros      = nullptr;
         Start*          _start       = nullptr;
         Parking*        _parking     = nullptr;
+        Debounce*       _debounce    = nullptr;
 
         //        Listeners::SysListenerList _sysListeners;
         //        Spindles::SpindleList      _spindles;

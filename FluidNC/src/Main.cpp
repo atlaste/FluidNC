@@ -132,6 +132,10 @@ void setup() {
 
         limits_init();
 
+        // Starts the input sampler.  Must follow the pin initialization above so
+        // that it begins from the real pin states.
+        config->_debounce->init();
+
         // Initialize system state.
         int current = 0;
         int next    = 0;

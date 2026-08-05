@@ -16,26 +16,9 @@
 #include <atomic>  // fence
 #include <cmath>   // roundf
 
-QueueHandle_t limit_sw_queue;  // used by limit switch debouncing
-
-void limits_init() {
-#ifdef LATER  // We need to rethink debouncing
-    if (Machine::Axes::limitMask) {
-        if (limit_sw_queue == NULL && config->_softwareDebounceMs != 0) {
-            // setup task used for debouncing
-            if (limit_sw_queue == NULL) {
-                limit_sw_queue = xQueueCreate(10, sizeof(int));
-                xTaskCreate(limitCheckTask,
-                            "limitCheckTask",
-                            2048,
-                            NULL,
-                            5,  // priority
-                            NULL);
-            }
-        }
-    }
-#endif
-}
+// Debouncing is done by the input sampler; see Machine::Debounce and
+// esp32/gpio.cpp.
+void limits_init() {}
 
 // Returns limit state as a bit-wise uint32 variable. Each bit indicates an axis limit, where
 // triggered is 1 and not triggered is 0. Invert mask is applied. Axes are defined by their

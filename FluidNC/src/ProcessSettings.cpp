@@ -20,6 +20,7 @@
 #include "FileStream.h"           // FileStream()
 #include "StartupLog.h"           // startupLog
 #include "Driver/gpio_dump.h"     // gpio_dump()
+#include "Driver/fluidnc_gpio.h"  // gpio_glitch_count()
 #include "FileCommands.h"         // make_file_commands()
 #include "Job.h"                  // Job::active()
 #include "ToolTable.h"            // toolTable
@@ -759,6 +760,29 @@ static Error showGPIOs(const char* value, AuthenticationLevel auth_level, Channe
     return Error::Ok;
 }
 
+// Rejected glitches per input.  A count that climbs while a VFD or other noisy
+// load is running says the debounce filter is earning its keep on that pin; a
+// count that climbs fast enough to let false triggers through means the
+// sampling interval is colliding with the noise and should be changed.
+static Error showGlitches(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (value) {
+        gpio_glitch_reset();
+        log_string(out, "Glitch counters cleared");
+        return Error::Ok;
+    }
+    uint32_t total = gpio_glitch_total();
+    log_stream(out, "Rejected input glitches: " << total);
+    if (total) {
+        for (int32_t gpio_num = 0; gpio_num <= MAX_N_GPIO; gpio_num++) {
+            uint32_t count = gpio_glitch_count(gpio_num);
+            if (count) {
+                log_stream(out, "  gpio." << gpio_num << " " << count);
+            }
+        }
+    }
+    return Error::Ok;
+}
+
 #include "UartTypes.h"
 
 static Error uartPassthrough(const char* value, AuthenticationLevel auth_level, Channel& out) {
@@ -1228,6 +1252,7 @@ void make_user_commands() {
     new UserCommand("G+", "GPIO/On", writeGPIOOn, anyState);
     new UserCommand("G-", "GPIO/Off", writeGPIOOff, anyState);
     new UserCommand("GR", "GPIO/Read", readGPIO, anyState);
+    new UserCommand("GG", "GPIO/Glitches", showGlitches, anyState);
 
     new UserCommand("CI", "Channel/Info", showChannelInfo, anyState);
     new UserCommand("CD", "Config/Dump", dump_config, anyState);

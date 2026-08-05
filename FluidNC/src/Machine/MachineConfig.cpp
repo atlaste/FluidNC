@@ -27,17 +27,63 @@
 
 #include "Driver/restart.h"
 #include "Stepper.h"  // for updateSpindleCallback()
+#include "Driver/fluidnc_gpio.h"  // gpio_debounce_config()
 
 #include <cstdio>
 #include <cstring>
 #include <atomic>
 #include <memory>
+#include <algorithm>
 
 Machine::MachineConfig* config;
 
 // TODO FIXME: Split this file up into several files, perhaps put it in some folder and namespace Machine?
 
 namespace Machine {
+    void Debounce::init() {
+        if (_sampleUs < 0) {
+            log_info("Input debounce: disabled");
+            gpio_debounce_config(0, 0);
+            return;
+        }
+
+        // Round to the power of two that the filter actually implements, so the
+        // logged value is the one in effect rather than the one asked for.
+        uint32_t samples = 1;
+        while (samples < uint32_t(_samples) && samples < 8) {
+            samples *= 2;
+        }
+
+        uint32_t sample_us = uint32_t(_sampleUs);
+        if (sample_us == 0) {
+            // The fastest rate at which any axis approaches a switch while
+            // homing, in mm/sec.  A real edge can fall anywhere within one
+            // sampling interval, so that interval bounds the uncertainty in the
+            // position at which the input is reported.
+            float fastest = 0.0f;
+            for (axis_t axis = X_AXIS; axis < Axes::_numberAxis; axis++) {
+                auto a = Axes::_axis[axis];
+                if (a && a->_homing) {
+                    fastest = std::max(fastest, std::max(a->_homing->_seekRate, a->_homing->_feedRate) / 60.0f);
+                }
+            }
+
+            // Prefer the longest interval that still fits the error budget.  A
+            // longer interval is better at rejecting periodic noise such as VFD
+            // switching, because a spurious level then has to survive a
+            // proportionally longer stretch of resampling to be believed.
+            sample_us = (fastest > 0.0f) ? uint32_t(_maxErrorMm / fastest * 1e6f) : 1000u;
+            sample_us = std::min<uint32_t>(std::max<uint32_t>(sample_us, 50), 2000);
+        }
+
+        if (!gpio_debounce_config(sample_us, samples)) {
+            log_error("Input debounce: could not start the sampler; inputs are unfiltered");
+            return;
+        }
+
+        log_info("Input debounce: " << samples << " samples every " << sample_us << "us (" << (samples * sample_us) << "us to confirm)");
+    }
+
     void MachineConfig::group(Configuration::HandlerBase& handler) {
         handler.item("board", _board);
         handler.item("name", _name);
@@ -73,6 +119,7 @@ namespace Machine {
         handler.section("extenders", _extenders);
         handler.section("start", _start);
         handler.section("parking", _parking);
+        handler.section("debounce", _debounce);
 
         handler.section("user_outputs", _userOutputs);
         handler.section("user_inputs", _userInputs);
@@ -156,6 +203,10 @@ namespace Machine {
 
         if (_parking == nullptr) {
             _parking = new Parking();
+        }
+
+        if (_debounce == nullptr) {
+            _debounce = new Debounce();
         }
 
         auto spindles = Spindles::SpindleFactory::objects();

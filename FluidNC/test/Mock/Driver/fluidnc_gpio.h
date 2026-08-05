@@ -27,6 +27,11 @@ void gpio_set_event(int32_t gpio_num, void* arg, bool invert);
 void gpio_clear_event(int32_t gpio_num);
 void poll_gpios();
 
+bool     gpio_debounce_config(uint32_t sample_us, uint32_t samples);
+uint32_t gpio_glitch_count(int32_t gpio_num);
+uint32_t gpio_glitch_total(void);
+void     gpio_glitch_reset(void);
+
 #ifdef __cplusplus
 }
 #endif

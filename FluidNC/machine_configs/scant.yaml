@@ -1,0 +1,169 @@
+board: FluidNC-S3
+name: Scant
+meta: 
+stepping:
+  engine: I2S_STREAM
+  idle_ms: 255
+  pulse_us: 4
+  dir_delay_us: 0
+  disable_delay_us: 0
+  segments: 12
+
+spi:
+  miso_pin: gpio.13
+  mosi_pin: gpio.11
+  sck_pin: gpio.12
+
+i2so:
+  bck_pin: gpio.8
+  data_pin: gpio.14
+  ws_pin: gpio.21
+
+uart2:
+  rxd_pin: gpio.15
+  txd_pin: gpio.7
+  rts_pin: NO_PIN
+  cts_pin: NO_PIN
+  baud: 1000000
+  mode: 8N1
+
+uart_channel1:
+  uart_num: 2
+  report_interval_ms: 75
+  message_level: info
+
+ethernet:
+  cs_pin: gpio.10
+  dhcp: true
+  int_pin: gpio.4
+  spi_freq_mhz: 20
+
+sdcard:
+  cs_pin: gpio.0
+  card_detect_pin: NO_PIN
+  frequency_hz: 8000000
+
+state_persistence:
+  cs_pin: gpio.5
+  save_interval_ms: 100
+  spi_freq_mhz: 20
+  save_parameters: true
+
+# Note: pin 40/41 have 390 ohm resistors and no cap. This is important for spindles!
+# Also note that the max freq of a typical optical encoder is 50 kHz. In our case we get to 45 kHz max.
+# spindle_encoder:
+#   pin_a: gpio.40
+#   pin_b: gpio.41
+#   cpr: 2800
+#   gear_ratio: -1
+#   tolerance: 15
+
+kinematics:
+  Cartesian:
+
+axes:
+  shared_stepper_disable_pin: NO_PIN
+  shared_stepper_reset_pin: NO_PIN
+  homing_runs: 2
+  x:
+    steps_per_mm: 640.000000
+    max_rate_mm_per_min: 4000.000000
+    acceleration_mm_per_sec2: 25.000000
+    max_travel_mm: 96.000000
+    soft_limits: true
+    homing:
+      cycle: 1
+      positive_direction: true
+      mpos_mm: 1
+    motor0:
+      limit_neg_pin: gpio.40
+      hard_limits: false
+      pulloff_mm: 1.000000
+      standard_stepper:
+          disable_pin: i2so.11
+          direction_pin: i2so.10
+          step_pin: i2so.9
+          cs_pin: i2so.8
+          run_amps: 0.5
+          hold_amps: 0.5
+          microsteps: 64
+
+  y:
+    steps_per_mm: 640.000000
+    max_rate_mm_per_min: 4000.000000
+    acceleration_mm_per_sec2: 25.000000
+    max_travel_mm: 355.000000
+    soft_limits: true
+    homing:
+      cycle: 2
+      positive_direction: true
+    motor0:
+      limit_neg_pin: gpio.41
+      hard_limits: false
+      pulloff_mm: 1.000000
+      standard_stepper:
+          disable_pin: i2so.20
+          direction_pin: i2so.23
+          step_pin: i2so.22
+          cs_pin: i2so.21
+          run_amps: 0.5
+          hold_amps: 0.5
+          microsteps: 64
+     
+  z:
+    steps_per_mm: 640.000000
+    max_rate_mm_per_min: 4000.000000
+    acceleration_mm_per_sec2: 75.000000
+    max_travel_mm: 10000.000000
+    soft_limits: true
+    motor0:
+      hard_limits: false
+      standard_stepper:
+          disable_pin: i2so.19
+          direction_pin: i2so.18
+          step_pin: i2so.17
+          cs_pin: i2so.16
+          run_amps: 0.5
+          hold_amps: 0.5
+          microsteps: 64
+  a: 
+    steps_per_mm: 640.000000
+    max_rate_mm_per_min: 4000.000000
+    acceleration_mm_per_sec2: 75.000000
+    max_travel_mm: 10000.000000
+    soft_limits: true
+    motor0:
+      hard_limits: false
+      tmc_2130:
+          disable_pin: i2so.12
+          direction_pin: i2so.15
+          step_pin: i2so.14
+          cs_pin: i2so.13
+          run_amps: 0.5
+          hold_amps: 0.5
+          microsteps: 64
+
+start:
+  must_home: false
+  deactivate_parking: false
+  check_limits: true
+
+user_outputs:
+  digital1_pin: gpio.3
+  digital2_pin: i2so.30
+
+arc_tolerance_mm: 0.002000
+junction_deviation_mm: 0.010000
+verbose_errors: true
+report_inches: false
+enable_parking_override_control: false
+use_line_numbers: false
+planner_blocks: 16
+
+performance_profiler:
+  enable: true
+  enable_pc_sampling: true
+  update_rate: 1000
+
+scurve_planner:
+  # Default settings are fine.

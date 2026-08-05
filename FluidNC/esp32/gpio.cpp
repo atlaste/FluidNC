@@ -10,6 +10,10 @@
 #include "driver/gpio.h"
 #include "hal/gpio_hal.h"
 #include "rom/gpio.h"  // gpio_matrix_*
+#include "DebounceTimer.h"
+
+#include <freertos/FreeRTOS.h>  // portMUX_TYPE, portENTER_CRITICAL_SAFE
+#include <freertos/task.h>      // xTaskGetTickCount()
 
 static gpio_dev_t* _gpio_dev = GPIO_HAL_GET_HW(GPIO_PORT_0);
 
@@ -85,7 +89,7 @@ static int32_t gpio_deltat_ticks[MAX_N_GPIO + 1]     = { 0 };
 
 // Do not send events for changes that occur too soon
 static void gpio_set_rate_limit(int32_t gpio_num, uint32_t ms) {
-    gpio_deltat_ticks[gpio_num] = ms * portTICK_PERIOD_MS;
+    gpio_deltat_ticks[gpio_num] = pdMS_TO_TICKS(ms);
 }
 
 static inline gpio_mask_t get_gpios() {
@@ -105,6 +109,159 @@ static void gpios_update(volatile gpio_mask_t& gpios, int32_t gpio_num, bool act
     }
 }
 
+// ---------------------------------------------------------------------------
+// Input debouncing
+//
+// VFD switching noise couples sub-microsecond spikes into opto-isolated
+// endstop, probe and input lines.  A periodic sampler filters every GPIO that
+// has a registered event: a level must be observed on a fixed number of
+// consecutive samples before it is believed.  Because both the sample period
+// and the required count are fixed, the delay from a real edge to the event is
+// a constant, which keeps the machine position at which an input trips
+// repeatable.  Only the phase of the real edge within one sample period
+// remains uncertain, so the sample period sets the position jitter.
+//
+// That argument only holds if the samples really are equally spaced, so the
+// sampler runs from a hardware timer interrupt rather than a task; see
+// DebounceTimer.h.  A sample delayed by the scheduler would silently widen the
+// confirmation window and with it the position spread.  The sampler only
+// filters and never dispatches, which is what keeps it short enough to belong
+// in an ISR; poll_gpios turns the confirmed changes into events.
+//
+// The counters are packed four bits per GPIO: GPIO p uses nibble (p / 4) of
+// word (p % 4).  Shifting the raw GPIO word right by the word index and
+// masking with 0x1111... leaves each surviving bit already sitting on a nibble
+// boundary, so the same value doubles as the addend that increments all 16
+// lanes of a word in a single add.  Rounding the required count to a power of
+// two makes the threshold test a single mask as well, so a full pass over all
+// 64 possible GPIOs costs about thirty branchless operations.
+// ---------------------------------------------------------------------------
+
+static const int      NIBBLE_LANES = 4;
+static const uint64_t NIBBLE_LSB   = 0x1111111111111111ULL;
+
+// One entry per bit of gpio_mask_t rather than per real GPIO, so an index
+// derived from the mask can never run off the end.
+static const int32_t N_MASK_BITS = 64;
+
+static uint64_t             debounce_count[NIBBLE_LANES] = { 0 };
+static uint32_t             debounce_threshold_bit       = 3;  // log2 of the required sample count
+static volatile gpio_mask_t gpios_debounced              = 0;  // Filtered levels, owned by the sampler
+static volatile bool        debounce_running             = false;
+
+// gpio_mask_t is wider than a machine word, so reads and writes of the filtered
+// levels are not atomic.  The sampler runs in interrupt context, which means a
+// torn read elsewhere could momentarily invent a level change and dispatch an
+// event for it.  The guarded regions are only a few instructions long, and the
+// _SAFE variants disable interrupts on the current core, so the sampler cannot
+// deadlock against a holder running on that same core.
+static portMUX_TYPE gpios_debounced_mux = portMUX_INITIALIZER_UNLOCKED;
+
+static inline gpio_mask_t gpios_debounced_get() {
+    portENTER_CRITICAL_SAFE(&gpios_debounced_mux);
+    const gpio_mask_t levels = gpios_debounced;
+    portEXIT_CRITICAL_SAFE(&gpios_debounced_mux);
+    return levels;
+}
+
+static uint32_t gpio_glitches[N_MASK_BITS] = { 0 };
+static uint32_t gpio_glitches_total        = 0;
+
+static void IRAM_ATTR gpio_debounce_sample(void) {
+    const gpio_mask_t raw  = get_gpios();
+    const gpio_mask_t diff = (raw ^ gpios_debounced_get()) & gpios_interest;
+
+    const uint64_t threshold = NIBBLE_LSB << debounce_threshold_bit;
+
+    gpio_mask_t settled = 0;
+    gpio_mask_t aborted = 0;
+
+    for (int lane = 0; lane < NIBBLE_LANES; lane++) {
+        uint64_t c = debounce_count[lane];
+
+        // One bit per GPIO of this lane, on the nibble boundary, set where the
+        // raw level disagrees with the level we currently believe.
+        const uint64_t advance = (diff >> lane) & NIBBLE_LSB;
+
+        // A counter that had started accumulating but now agrees again saw a
+        // glitch.  Fold each nibble down onto its low bit to find those lanes.
+        uint64_t nonzero = c | (c >> 1);
+        nonzero |= nonzero >> 2;
+        nonzero &= NIBBLE_LSB;
+        aborted |= (nonzero & ~advance) << lane;
+
+        // Zero the lanes that agree, then increment the rest.  Multiplying by
+        // 0xF spreads each nibble's low bit across the whole nibble without
+        // carrying into its neighbour, because 1 * 15 still fits in four bits.
+        c &= advance * 0xF;
+        c += advance;
+
+        // A power-of-two threshold is reached exactly when one known bit sets.
+        const uint64_t hit = (c & threshold) >> debounce_threshold_bit;
+        settled |= hit << lane;
+        c &= ~(hit * 0xF);
+
+        debounce_count[lane] = c;
+    }
+
+    // Only bits we have been counting can appear here, and a pin cannot be
+    // counting until it has an interest bit, so this cannot collide with a pin
+    // being registered concurrently.
+    if (settled) {
+        portENTER_CRITICAL_SAFE(&gpios_debounced_mux);
+        gpios_debounced ^= settled;
+        portEXIT_CRITICAL_SAFE(&gpios_debounced_mux);
+    }
+
+    // Normally empty, so this loop costs nothing unless an input is noisy.
+    while (aborted) {
+        const int32_t gpio_num = 63 - __builtin_clzll(aborted);
+        ++gpio_glitches[gpio_num];
+        ++gpio_glitches_total;
+        aborted &= ~gpio_mask(gpio_num);
+    }
+}
+
+bool gpio_debounce_config(uint32_t sample_us, uint32_t samples) {
+    // Stop before touching the shared state below, so the sampler cannot fire
+    // partway through the reset and count against a half-updated threshold.
+    debounceTimerStop();
+    debounce_running = false;
+
+    if (sample_us == 0) {
+        return true;
+    }
+
+    uint32_t bit = 0;
+    while ((1u << bit) < samples && bit < 3) {
+        ++bit;
+    }
+    debounce_threshold_bit = bit;
+
+    for (int lane = 0; lane < NIBBLE_LANES; lane++) {
+        debounce_count[lane] = 0;
+    }
+    portENTER_CRITICAL_SAFE(&gpios_debounced_mux);
+    gpios_debounced = get_gpios();
+    portEXIT_CRITICAL_SAFE(&gpios_debounced_mux);
+
+    debounce_running = debounceTimerInit(sample_us, gpio_debounce_sample);
+    return debounce_running;
+}
+
+uint32_t gpio_glitch_count(int32_t gpio_num) {
+    return (gpio_num >= 0 && gpio_num < N_MASK_BITS) ? gpio_glitches[gpio_num] : 0;
+}
+uint32_t gpio_glitch_total(void) {
+    return gpio_glitches_total;
+}
+void gpio_glitch_reset(void) {
+    for (int32_t i = 0; i < N_MASK_BITS; i++) {
+        gpio_glitches[i] = 0;
+    }
+    gpio_glitches_total = 0;
+}
+
 static void* gpioArgs[MAX_N_GPIO + 1];
 
 void gpio_set_event(int32_t gpio_num, void* arg, bool invert) {
@@ -114,6 +271,12 @@ void gpio_set_event(int32_t gpio_num, void* arg, bool invert) {
     gpios_update(gpios_inverted, gpio_num, invert);
     gpio_set_rate_limit(gpio_num, 5);
     auto active = gpio_is_active(gpio_num);
+
+    // The sampler must start from the real level, otherwise it would spend the
+    // first few samples confirming a state it never actually saw.
+    portENTER_CRITICAL_SAFE(&gpios_debounced_mux);
+    gpios_update(gpios_debounced, gpio_num, active);
+    portEXIT_CRITICAL_SAFE(&gpios_debounced_mux);
 
     // Set current to the opposite of the current state so the first poll will send the current state
     gpios_update(gpios_current, gpio_num, !active);
@@ -126,7 +289,11 @@ void gpio_clear_event(int32_t gpio_num) {
 static void gpio_send_event(int32_t gpio_num, bool active) {
     auto    end_ticks  = gpio_next_event_ticks[gpio_num];
     int32_t this_ticks = int32_t(xTaskGetTickCount());
-    if (end_ticks == 0 || ((this_ticks - end_ticks) > 0)) {
+    // The rate limiter is a crude stand-in for debouncing that lets the first
+    // edge through unfiltered.  When the sampler is running it has already
+    // vetted this change, and the lockout would only delay a legitimate
+    // release, so skip it.
+    if (debounce_running || end_ticks == 0 || ((this_ticks - end_ticks) > 0)) {
         end_ticks = this_ticks + gpio_deltat_ticks[gpio_num];
         if (end_ticks == 0) {
             end_ticks = 1;
@@ -142,9 +309,11 @@ static void gpio_send_event(int32_t gpio_num, bool active) {
 }
 
 void poll_gpios() {
-    gpio_mask_t gpios_active  = get_gpios();
+    // With the sampler running, it owns the filtered levels and this only has
+    // to turn confirmed changes into events.  Without it, read the pins here.
+    gpio_mask_t gpios_active  = debounce_running ? gpios_debounced_get() : get_gpios();
     gpio_mask_t gpios_changed = (gpios_active ^ gpios_current) & gpios_interest;
-    
+
     // Process each changed GPIO. We check gpios_changed != 0 explicitly because
     // __builtin_clzll(0) is undefined behavior - the optimizer can assume it never
     // happens and turn this into an infinite loop in release builds.
