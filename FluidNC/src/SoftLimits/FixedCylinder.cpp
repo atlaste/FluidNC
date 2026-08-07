@@ -59,10 +59,15 @@ void FixedCylinder::getAxisIndices(int& axisIdx, int& perpIdx1, int& perpIdx2) c
     }
 }
 
-bool FixedCylinder::TestLimit(const float* from, const float* to) {
+bool FixedCylinder::TestLimit(const LimitContext& ctx) {
     if (!_enabled || _radius <= 0 || _length == 0) {
         return false;
     }
+
+    // A chuck or fixture is fixed to the machine, so the cutting edge is what
+    // has to clear it.
+    const float* from = ctx.tipFrom;
+    const float* to   = ctx.tipTo;
 
     int axisIdx, perpIdx1, perpIdx2;
     getAxisIndices(axisIdx, perpIdx1, perpIdx2);

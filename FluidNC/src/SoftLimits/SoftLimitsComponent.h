@@ -7,9 +7,41 @@
 #include <algorithm>
 #include <cmath>
 
+// One motion segment, described in both of the frames a component might need.
+//
+// The two frames differ by the tool length offset, so which one to test against
+// is a real decision rather than a detail.  A keep-out volume around a fixture
+// constrains where the cutting edge may go, so it belongs in tip space and its
+// protection must follow tool changes.  A volume bolted to the gantry travels
+// with the spindle whatever tool is fitted, so it belongs in spindle space.
+// Testing the wrong frame fails silently, and for a fixture it fails by
+// permitting a crash, so components should pick deliberately.
+//
+// The tip trails the spindle reference point by the offset: tip = MPos - TLO.
+// This is the LinuxCNC convention that the rest of FluidNC follows; see the CSS
+// code in GCode.cpp.  LimitsChecker does the conversion once so that there is a
+// single definition of it.
+struct LimitContext {
+    const float* spindleFrom;  // Segment start, spindle reference point
+    const float* spindleTo;    // Segment end, spindle reference point
+    const float* tipFrom;      // Segment start, tool tip
+    const float* tipTo;        // Segment end, tool tip
+    const float* tlo;          // Active tool length offset per axis, never null
+    int          nAxis;        // Count of axes valid in the arrays above
+
+    // A G38 probing move rather than a positioning move.  A component guarding
+    // hardware that is deliberately touched while probing, such as a
+    // toolsetter, should stand down for these and only these.  Note that the
+    // rapids that position the tool above the setter are not probing moves, so
+    // they stay guarded.
+    bool isProbe;
+
+    bool isJog;
+};
+
 // Base interface for components that can impose soft limits on motion.
-// Components implementing this interface can test line segments (in machine position space)
-// and report whether the motion would violate their limits.
+// Components implementing this interface can test line segments and report
+// whether the motion would violate their limits.
 //
 // Examples:
 // - Tool turret checking if tool path would collide with tailstock
@@ -20,10 +52,9 @@ class SoftLimitsComponent {
 public:
     virtual ~SoftLimitsComponent() = default;
 
-    // Test if line segment from->to violates this component's limits.
-    // Coordinates are in machine position (MPos) space - physical Cartesian coordinates.
+    // Test if the segment described by ctx violates this component's limits.
     // Returns true if limit violated (motion should be blocked).
-    virtual bool TestLimit(const float* from, const float* to) = 0;
+    virtual bool TestLimit(const LimitContext& ctx) = 0;
 
     // Name for error reporting
     virtual const char* componentName() const { return "unknown"; }

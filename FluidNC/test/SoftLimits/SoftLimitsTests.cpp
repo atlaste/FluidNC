@@ -15,13 +15,36 @@ inline bool floatEquals(float a, float b, float tolerance = 0.0001f) {
     return fabsf(a - b) <= tolerance;
 }
 
+// Assembles a LimitContext the same way LimitsChecker does, so component tests
+// exercise the frames that production code actually supplies. With no offset the
+// tip and spindle frames coincide, which is the case for most tests below.
+class TestContext {
+public:
+    TestContext(const float* from, const float* to, const float* tlo = nullptr) {
+        for (int axis = 0; axis < 3; axis++) {
+            _tlo[axis]     = tlo ? tlo[axis] : 0.0f;
+            _tipFrom[axis] = from[axis] - _tlo[axis];
+            _tipTo[axis]   = to[axis] - _tlo[axis];
+        }
+        _ctx = LimitContext { from, to, _tipFrom, _tipTo, _tlo, 3, false, false };
+    }
+
+    operator const LimitContext&() const { return _ctx; }
+
+private:
+    float        _tlo[3];
+    float        _tipFrom[3];
+    float        _tipTo[3];
+    LimitContext _ctx;
+};
+
 // ============================================================================
 // Test implementation of SoftLimitsComponent to access protected static methods
 // ============================================================================
 
 class TestSoftLimitsHelper : public SoftLimitsComponent {
 public:
-    bool TestLimit(const float* from, const float* to) override { return false; }
+    bool TestLimit(const LimitContext& ctx) override { return false; }
     const char* componentName() const override { return "TestHelper"; }
     
     // Expose protected static methods for testing
@@ -357,8 +380,17 @@ public:
     TestComponent(const char* name, bool shouldBlock = false) 
         : _name(name), _shouldBlock(shouldBlock), _callCount(0) {}
     
-    bool TestLimit(const float* from, const float* to) override {
+    bool TestLimit(const LimitContext& ctx) override {
         _callCount++;
+        _lastCtxValid = true;
+        for (int axis = 0; axis < 3; axis++) {
+            _lastTipFrom[axis]     = ctx.tipFrom[axis];
+            _lastTipTo[axis]       = ctx.tipTo[axis];
+            _lastSpindleFrom[axis] = ctx.spindleFrom[axis];
+            _lastSpindleTo[axis]   = ctx.spindleTo[axis];
+        }
+        _lastIsProbe = ctx.isProbe;
+        _lastIsJog   = ctx.isJog;
         return _shouldBlock;
     }
     
@@ -367,11 +399,27 @@ public:
     int getCallCount() const { return _callCount; }
     void resetCallCount() { _callCount = 0; }
     void setBlock(bool block) { _shouldBlock = block; }
-    
+
+    bool  sawContext() const { return _lastCtxValid; }
+    float tipFrom(int axis) const { return _lastTipFrom[axis]; }
+    float tipTo(int axis) const { return _lastTipTo[axis]; }
+    float spindleFrom(int axis) const { return _lastSpindleFrom[axis]; }
+    float spindleTo(int axis) const { return _lastSpindleTo[axis]; }
+    bool  sawProbe() const { return _lastIsProbe; }
+    bool  sawJog() const { return _lastIsJog; }
+
 private:
     const char* _name;
     bool _shouldBlock;
     int _callCount;
+
+    bool  _lastCtxValid = false;
+    float _lastTipFrom[3] {};
+    float _lastTipTo[3] {};
+    float _lastSpindleFrom[3] {};
+    float _lastSpindleTo[3] {};
+    bool  _lastIsProbe = false;
+    bool  _lastIsJog   = false;
 };
 
 // Tests that a registered component is called during TestMotion
@@ -535,7 +583,7 @@ Test(FixedBoundingBox, TestLimit_MotionThroughBox) {
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
     
-    Assert(box.TestLimit(from, to), "Motion through box should be blocked");
+    Assert(box.TestLimit(TestContext(from, to)), "Motion through box should be blocked");
 }
 
 // Tests that motion outside box is allowed
@@ -546,7 +594,7 @@ Test(FixedBoundingBox, TestLimit_MotionOutsideBox) {
     float from[3] = {10.0f, 10.0f, 10.0f};
     float to[3] = {20.0f, 20.0f, 20.0f};
     
-    Assert(!box.TestLimit(from, to), "Motion outside box should be allowed");
+    Assert(!box.TestLimit(TestContext(from, to)), "Motion outside box should be allowed");
 }
 
 // Tests that disabled box does not block
@@ -558,7 +606,7 @@ Test(FixedBoundingBox, TestLimit_DisabledBox) {
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
     
-    Assert(!box.TestLimit(from, to), "Disabled box should not block");
+    Assert(!box.TestLimit(TestContext(from, to)), "Disabled box should not block");
 }
 
 // Tests motion starting inside box
@@ -569,7 +617,7 @@ Test(FixedBoundingBox, TestLimit_StartInside) {
     float from[3] = {0.0f, 0.0f, 0.0f};
     float to[3] = {20.0f, 0.0f, 0.0f};
     
-    Assert(box.TestLimit(from, to), "Motion starting inside should be blocked");
+    Assert(box.TestLimit(TestContext(from, to)), "Motion starting inside should be blocked");
 }
 
 // Tests zero-length motion inside box
@@ -580,7 +628,7 @@ Test(FixedBoundingBox, TestLimit_ZeroLengthInside) {
     float from[3] = {0.0f, 0.0f, 0.0f};
     float to[3] = {0.0f, 0.0f, 0.0f};
     
-    Assert(box.TestLimit(from, to), "Zero-length motion inside should be blocked");
+    Assert(box.TestLimit(TestContext(from, to)), "Zero-length motion inside should be blocked");
 }
 
 // ============================================================================
@@ -620,7 +668,7 @@ Test(FixedCylinder, TestLimit_ThroughZCylinder) {
     float from[3] = {-10.0f, 0.0f, -10.0f};  // Start left of cylinder
     float to[3] = {10.0f, 0.0f, -10.0f};     // End right of cylinder
     
-    Assert(cyl.TestLimit(from, to), "Motion through cylinder should be blocked");
+    Assert(cyl.TestLimit(TestContext(from, to)), "Motion through cylinder should be blocked");
 }
 
 // Tests motion outside Z-axis cylinder
@@ -631,7 +679,7 @@ Test(FixedCylinder, TestLimit_OutsideZCylinder) {
     float from[3] = {20.0f, 0.0f, -10.0f};  // Outside radius
     float to[3] = {30.0f, 0.0f, -10.0f};
     
-    Assert(!cyl.TestLimit(from, to), "Motion outside cylinder should be allowed");
+    Assert(!cyl.TestLimit(TestContext(from, to)), "Motion outside cylinder should be allowed");
 }
 
 // Tests motion above Z-axis cylinder (outside Z range)
@@ -642,7 +690,7 @@ Test(FixedCylinder, TestLimit_AboveZCylinder) {
     float from[3] = {-10.0f, 0.0f, 10.0f};  // Above cylinder
     float to[3] = {10.0f, 0.0f, 10.0f};
     
-    Assert(!cyl.TestLimit(from, to), "Motion above cylinder Z range should be allowed");
+    Assert(!cyl.TestLimit(TestContext(from, to)), "Motion above cylinder Z range should be allowed");
 }
 
 // Tests disabled cylinder
@@ -654,7 +702,7 @@ Test(FixedCylinder, TestLimit_Disabled) {
     float from[3] = {-10.0f, 0.0f, -10.0f};
     float to[3] = {10.0f, 0.0f, -10.0f};
     
-    Assert(!cyl.TestLimit(from, to), "Disabled cylinder should not block");
+    Assert(!cyl.TestLimit(TestContext(from, to)), "Disabled cylinder should not block");
 }
 
 // Tests cylinder with zero radius
@@ -665,7 +713,7 @@ Test(FixedCylinder, TestLimit_ZeroRadius) {
     float from[3] = {-10.0f, 0.0f, -10.0f};
     float to[3] = {10.0f, 0.0f, -10.0f};
     
-    Assert(!cyl.TestLimit(from, to), "Zero radius cylinder should not block");
+    Assert(!cyl.TestLimit(TestContext(from, to)), "Zero radius cylinder should not block");
 }
 
 // Tests cylinder with zero length
@@ -676,7 +724,7 @@ Test(FixedCylinder, TestLimit_ZeroLength) {
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
     
-    Assert(!cyl.TestLimit(from, to), "Zero length cylinder should not block");
+    Assert(!cyl.TestLimit(TestContext(from, to)), "Zero length cylinder should not block");
 }
 
 // Tests X-axis cylinder
@@ -689,7 +737,7 @@ Test(FixedCylinder, TestLimit_XAxisCylinder) {
     float to[3] = {-10.0f, 10.0f, 0.0f};
     
     // This tests the perpendicular plane (Y-Z for X-axis cylinder)
-    Assert(cyl.TestLimit(from, to), "Motion through X-axis cylinder should be blocked");
+    Assert(cyl.TestLimit(TestContext(from, to)), "Motion through X-axis cylinder should be blocked");
 }
 
 // Tests Y-axis cylinder
@@ -701,7 +749,7 @@ Test(FixedCylinder, TestLimit_YAxisCylinder) {
     float from[3] = {-10.0f, -10.0f, 0.0f};
     float to[3] = {10.0f, -10.0f, 0.0f};
     
-    Assert(cyl.TestLimit(from, to), "Motion through Y-axis cylinder should be blocked");
+    Assert(cyl.TestLimit(TestContext(from, to)), "Motion through Y-axis cylinder should be blocked");
 }
 
 // ============================================================================
@@ -752,7 +800,7 @@ Test(MovingBoundingBox, TestLimit_NoTies) {
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
     
-    Assert(box.TestLimit(from, to), "Non-tied box should act like fixed box");
+    Assert(box.TestLimit(TestContext(from, to)), "Non-tied box should act like fixed box");
 }
 
 // Tests X-tied box position calculation
@@ -798,7 +846,7 @@ Test(MovingBoundingBox, TestLimit_Disabled) {
     float from[3] = {-10.0f, 0.0f, 0.0f};
     float to[3] = {10.0f, 0.0f, 0.0f};
     
-    Assert(!box.TestLimit(from, to), "Disabled moving box should not block");
+    Assert(!box.TestLimit(TestContext(from, to)), "Disabled moving box should not block");
 }
 
 // Tests that moving box checks at both from and to positions
@@ -818,6 +866,139 @@ Test(MovingBoundingBox, TestLimit_ChecksBothPositions) {
     // Box at from: [-50,-5,-5] to [-40,5,5] - doesn't intersect line
     // Box at to: [50,-5,-5] to [60,5,5] - intersects line at X=50-60
     
-    bool result = box.TestLimit(from, to);
+    bool result = box.TestLimit(TestContext(from, to));
     Assert(result, "Should detect collision at 'to' position box");
+}
+
+// ============================================================================
+// Tool length offset frame tests
+//
+// These pin the sign of the conversion between the spindle reference point and
+// the tool tip. Getting it backwards is not a symmetric mistake: it relaxes
+// keep-out zones as the tool gets longer, so a crash is the failure mode. The
+// assertions below are written so that flipping the sign breaks them.
+// ============================================================================
+
+// Tests that the tip trails the spindle by the offset, i.e. tip = MPos - TLO
+Test(LimitsCheckerTLO, TipIsSpindleMinusOffset) {
+    TestComponent comp("observer", false);
+    LimitsChecker::instance().Register(&comp);
+
+    float from[3] = { 0.0f, 0.0f, 0.0f };
+    float to[3]   = { 10.0f, 20.0f, 30.0f };
+    float tlo[3]  = { 1.0f, 2.0f, 3.0f };
+
+    LimitsChecker::instance().TestMotion(from, to, tlo, 3);
+
+    Assert(comp.sawContext(), "Component should have received a context");
+    Assert(floatEquals(comp.tipFrom(0), -1.0f), "tipFrom X should be spindle minus TLO");
+    Assert(floatEquals(comp.tipFrom(1), -2.0f), "tipFrom Y should be spindle minus TLO");
+    Assert(floatEquals(comp.tipFrom(2), -3.0f), "tipFrom Z should be spindle minus TLO");
+    Assert(floatEquals(comp.tipTo(0), 9.0f), "tipTo X should be spindle minus TLO");
+    Assert(floatEquals(comp.tipTo(1), 18.0f), "tipTo Y should be spindle minus TLO");
+    Assert(floatEquals(comp.tipTo(2), 27.0f), "tipTo Z should be spindle minus TLO");
+
+    LimitsChecker::instance().Unregister(&comp);
+}
+
+// Tests that the spindle frame is handed through untouched alongside the tip frame
+Test(LimitsCheckerTLO, SpindleFrameIsUnmodified) {
+    TestComponent comp("observer", false);
+    LimitsChecker::instance().Register(&comp);
+
+    float from[3] = { 5.0f, 6.0f, 7.0f };
+    float to[3]   = { 15.0f, 16.0f, 17.0f };
+    float tlo[3]  = { 100.0f, 100.0f, 100.0f };
+
+    LimitsChecker::instance().TestMotion(from, to, tlo, 3);
+
+    Assert(floatEquals(comp.spindleFrom(2), 7.0f), "spindleFrom should not have the offset applied");
+    Assert(floatEquals(comp.spindleTo(2), 17.0f), "spindleTo should not have the offset applied");
+
+    LimitsChecker::instance().Unregister(&comp);
+}
+
+// Tests that the two frames coincide when no offset is supplied
+Test(LimitsCheckerTLO, NullOffsetLeavesFramesEqual) {
+    TestComponent comp("observer", false);
+    LimitsChecker::instance().Register(&comp);
+
+    float from[3] = { 1.0f, 2.0f, 3.0f };
+    float to[3]   = { 4.0f, 5.0f, 6.0f };
+
+    LimitsChecker::instance().TestMotion(from, to);
+
+    for (int axis = 0; axis < 3; axis++) {
+        Assert(floatEquals(comp.tipFrom(axis), comp.spindleFrom(axis)), "Frames should match with no offset");
+        Assert(floatEquals(comp.tipTo(axis), comp.spindleTo(axis)), "Frames should match with no offset");
+    }
+
+    LimitsChecker::instance().Unregister(&comp);
+}
+
+// Tests that the probe and jog flags reach the components
+Test(LimitsCheckerTLO, FlagsArePropagated) {
+    TestComponent comp("observer", false);
+    LimitsChecker::instance().Register(&comp);
+
+    float from[3] = {};
+    float to[3]   = {};
+
+    LimitsChecker::instance().TestMotion(from, to, nullptr, 3, true, false);
+    Assert(comp.sawProbe(), "isProbe should reach the component");
+    Assert(!comp.sawJog(), "isJog should reach the component");
+
+    LimitsChecker::instance().TestMotion(from, to, nullptr, 3, false, true);
+    Assert(!comp.sawProbe(), "isProbe should reach the component");
+    Assert(comp.sawJog(), "isJog should reach the component");
+
+    LimitsChecker::instance().Unregister(&comp);
+}
+
+// Tests that a fixture keep-out zone follows the cutting edge, so a tool long
+// enough to reach into it is blocked even though the spindle nose clears it
+Test(FixedBoundingBoxTLO, LongToolReachesIntoFixture) {
+    TestableFixedBoundingBox box;
+    box.setBounds(-100.0f, -100.0f, -10.0f, 100.0f, 100.0f, -5.0f);
+
+    float from[3] = { -50.0f, 0.0f, 0.0f };
+    float to[3]   = { 50.0f, 0.0f, 0.0f };
+
+    Assert(!box.TestLimit(TestContext(from, to)), "Spindle at Z=0 clears a fixture spanning Z=-10..-5");
+
+    float tlo[3] = { 0.0f, 0.0f, 8.0f };
+    Assert(box.TestLimit(TestContext(from, to, tlo)), "An 8mm tool puts the tip at Z=-8, inside the fixture");
+}
+
+// Tests that a longer tool can only ever restrict a fixture zone, never relax it
+Test(FixedBoundingBoxTLO, LongToolNeverUnblocks) {
+    TestableFixedBoundingBox box;
+    box.setBounds(-100.0f, -100.0f, -10.0f, 100.0f, 100.0f, -5.0f);
+
+    float from[3] = { -50.0f, 0.0f, -7.0f };
+    float to[3]   = { 50.0f, 0.0f, -7.0f };
+
+    Assert(box.TestLimit(TestContext(from, to)), "Spindle inside the fixture zone is blocked");
+
+    // With the sign inverted the tip would land at Z=+1 and the motion would be
+    // allowed, which is exactly the crash this convention prevents.
+    float tlo[3] = { 0.0f, 0.0f, 8.0f };
+    Assert(box.TestLimit(TestContext(from, to, tlo)), "Fitting a longer tool must not release the block");
+}
+
+// Tests that a volume carried by the machine is placed from the spindle frame,
+// since where the hardware sits does not change when a tool is swapped
+Test(MovingBoundingBoxTLO, BoxIsPlacedFromSpindleFrame) {
+    TestableMovingBoundingBox box;
+    box.setBounds(-1000.0f, -1000.0f, -2.0f, 1000.0f, 1000.0f, 2.0f);
+    box.setTies(false, false, true);  // Tie Z only
+
+    float from[3] = { 0.0f, 0.0f, 50.0f };
+    float to[3]   = { 0.0f, 0.0f, 50.0f };
+    float tlo[3]  = { 0.0f, 0.0f, 50.0f };
+
+    // Box rides the spindle at Z=50, so it spans Z=48..52. The tip sits at Z=0
+    // and is clear of it. Placing the box in tip space instead would put it at
+    // Z=-2..2 and wrongly report a collision.
+    Assert(!box.TestLimit(TestContext(from, to, tlo)), "Carried volume should be positioned by the spindle, not the tip");
 }

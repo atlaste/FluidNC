@@ -31,7 +31,7 @@ public:
     void init() override;
 
     // SoftLimitsComponent interface
-    bool TestLimit(const float* from, const float* to) override;
+    bool TestLimit(const LimitContext& ctx) override;
     const char* componentName() const override { return name(); }
 
 protected:

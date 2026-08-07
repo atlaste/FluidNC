@@ -268,15 +268,16 @@ namespace Kinematics {
             DynamicLimits::getEffectiveLimits(current_position, gc_state.tool_length_offset, axis_min, axis_max);
             
             for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-                // Account for TLO when checking limits
-                float effective_target = target[axis] + gc_state.tool_length_offset[axis];
-                
+                // Dynamic limits are expressed at the tool tip, so convert into
+                // that frame to compare and back out of it to clamp.
+                float effective_target = target[axis] - gc_state.tool_length_offset[axis];
+
                 if (!std::isnan(axis_min[axis]) && effective_target < axis_min[axis]) {
-                    target[axis] = axis_min[axis] - gc_state.tool_length_offset[axis];
+                    target[axis] = axis_min[axis] + gc_state.tool_length_offset[axis];
                     log_debug("Jog constrained by dynamic min limit on " << Machine::Axes::axisName(axis));
                 }
                 if (!std::isnan(axis_max[axis]) && effective_target > axis_max[axis]) {
-                    target[axis] = axis_max[axis] - gc_state.tool_length_offset[axis];
+                    target[axis] = axis_max[axis] + gc_state.tool_length_offset[axis];
                     log_debug("Jog constrained by dynamic max limit on " << Machine::Axes::axisName(axis));
                 }
             }

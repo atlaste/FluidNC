@@ -58,20 +58,14 @@ namespace ATCs {
         DynamicLimits::unregisterProvider(this);
     }
 
-    void Tailstock::getDynamicLimits(
-        const float* current_mpos,
-        const float* active_tlo,
-        float* axis_min,
-        float* axis_max
-    ) {
+    bool Tailstock::computeLimit(float& limit) const {
         // Only impose limits if we're extended and have a tool loaded
         if (!_extended || _loaded_tool <= 0) {
-            return;
+            return false;
         }
 
-        auto n_axis = Machine::Axes::_numberAxis;
-        if (_axis >= n_axis) {
-            return;  // Invalid axis
+        if (_axis >= Machine::Axes::_numberAxis) {
+            return false;  // Invalid axis
         }
 
         // Get the tailstock tool's TLO from the tool table
@@ -80,40 +74,39 @@ namespace ATCs {
             toolTable->getToolOffset(_loaded_tool, tailstock_tlo);
         }
 
-        // Calculate the tailstock tool tip position
-        float tailstock_tip = _position + tailstock_tlo[_axis];
+        // The point of the live center, in the same tip frame the turret tool is
+        // measured in: tip = MPos - TLO.  Subtracting is what makes a longer
+        // center reach further towards the turret and therefore restrict travel
+        // more; adding would relax the limit as the center gets longer, which is
+        // the wrong way round and would let the turret drive into it.
+        const float tailstock_tip = _position - tailstock_tlo[_axis];
 
-        // The turret (on the same axis) must stay below the tailstock tip
-        float limit = tailstock_tip - _safety_margin;
-        axis_max[_axis] = limit;
+        // The turret tool tip must stay below the tailstock tip
+        limit = tailstock_tip - _safety_margin;
 
-        log_debug("Tailstock dynamic limit: " << Machine::Axes::axisName(_axis)
-                  << " max=" << limit
-                  << " (tailstock_pos=" << _position
-                  << ", tailstock_tlo=" << tailstock_tlo[_axis]
-                  << ", margin=" << _safety_margin << ")");
+        log_debug("Tailstock limit: " << Machine::Axes::axisName(_axis) << " max=" << limit << " (tailstock_pos=" << _position
+                                      << ", tailstock_tlo=" << tailstock_tlo[_axis] << ", margin=" << _safety_margin << ")");
+        return true;
     }
 
-    bool Tailstock::TestLimit(const float* from, const float* to) {
-        if (!_extended || _loaded_tool <= 0) {
+    void Tailstock::getDynamicLimits(const float* current_mpos, const float* active_tlo, float* axis_min, float* axis_max) {
+        // active_tlo is deliberately unused: the limit is published in tip space
+        // and DynamicLimits converts the move into that frame before comparing.
+        float limit;
+        if (computeLimit(limit)) {
+            axis_max[_axis] = limit;
+        }
+    }
+
+    bool Tailstock::TestLimit(const LimitContext& ctx) {
+        float limit;
+        if (!computeLimit(limit)) {
             return false;
         }
 
-        auto n_axis = Machine::Axes::_numberAxis;
-        if (_axis >= n_axis) {
-            return false;
-        }
-
-        float tailstock_tlo[MAX_N_AXIS] = {};
-        if (toolTable != nullptr) {
-            toolTable->getToolOffset(_loaded_tool, tailstock_tlo);
-        }
-
-        float tailstock_tip = _position + tailstock_tlo[_axis];
-        float limit = tailstock_tip - _safety_margin;
-
-        // Block if the segment crosses into or through the forbidden zone (beyond limit)
-        float seg_max = std::max(from[_axis], to[_axis]);
+        // computeLimit works in tip space, so the turret tool tip is what gets
+        // compared against it.
+        float seg_max = std::max(ctx.tipFrom[_axis], ctx.tipTo[_axis]);
         if (seg_max >= limit) {
             log_debug("Tailstock: Motion blocked, segment max " << seg_max << " >= limit " << limit);
             return true;

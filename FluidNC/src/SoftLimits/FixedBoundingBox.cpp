@@ -36,7 +36,7 @@ void FixedBoundingBox::init() {
     }
 }
 
-bool FixedBoundingBox::TestLimit(const float* from, const float* to) {
+bool FixedBoundingBox::TestLimit(const LimitContext& ctx) {
     if (!_enabled) {
         return false;
     }
@@ -44,7 +44,9 @@ bool FixedBoundingBox::TestLimit(const float* from, const float* to) {
     float boxMin[3] = { _minX, _minY, _minZ };
     float boxMax[3] = { _maxX, _maxY, _maxZ };
 
-    if (lineIntersectsAABB(from, to, boxMin, boxMax)) {
+    // The box guards something bolted to the table, so what must stay out of it
+    // is the cutting edge, not the spindle nose.
+    if (lineIntersectsAABB(ctx.tipFrom, ctx.tipTo, boxMin, boxMax)) {
         log_debug("SoftLimits: Motion blocked by bounding box '" << name() << "'");
         return true;
     }

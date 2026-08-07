@@ -49,21 +49,25 @@ void MovingBoundingBox::getBoxAtPosition(const float* pos, float* boxMin, float*
     boxMax[2] = _maxZ + (_tieZ ? pos[2] : 0.0f);
 }
 
-bool MovingBoundingBox::TestLimit(const float* from, const float* to) {
+bool MovingBoundingBox::TestLimit(const LimitContext& ctx) {
     if (!_enabled) {
         return false;
     }
 
+    // The box is a piece of hardware carried by the tied axes, so it is placed
+    // from the spindle frame and does not shift when a longer tool is fitted.
+    // What may collide with it is the cutting edge, hence the tip frame for the
+    // segment.  With no tool offset loaded the two frames coincide.
     float fromMin[3], fromMax[3], toMin[3], toMax[3];
-    getBoxAtPosition(from, fromMin, fromMax);
-    getBoxAtPosition(to, toMin, toMax);
+    getBoxAtPosition(ctx.spindleFrom, fromMin, fromMax);
+    getBoxAtPosition(ctx.spindleTo, toMin, toMax);
 
     // Segment intersects the moving volume if it hits the box at start or at end
-    if (lineIntersectsAABB(from, to, fromMin, fromMax)) {
+    if (lineIntersectsAABB(ctx.tipFrom, ctx.tipTo, fromMin, fromMax)) {
         log_debug("SoftLimits: Motion blocked by moving box '" << name() << "' (at from)");
         return true;
     }
-    if (lineIntersectsAABB(from, to, toMin, toMax)) {
+    if (lineIntersectsAABB(ctx.tipFrom, ctx.tipTo, toMin, toMax)) {
         log_debug("SoftLimits: Motion blocked by moving box '" << name() << "' (at to)");
         return true;
     }

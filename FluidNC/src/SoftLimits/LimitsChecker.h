@@ -21,8 +21,17 @@ public:
 
     // Test motion segment against all registered components.
     // Returns true if ANY component reports a limit violation.
-    // Coordinates are in machine position (MPos) space.
-    bool TestMotion(const float* from, const float* to);
+    //
+    // "from" and "to" are spindle reference points in machine position (MPos)
+    // space, as the planner works in.  The tool tip frame is derived here from
+    // "tlo" so that every component sees the same conversion; pass a null tlo
+    // only when there genuinely is no tool offset in play.
+    bool TestMotion(const float* from,
+                    const float* to,
+                    const float* tlo     = nullptr,
+                    int          n_axis  = 3,
+                    bool         isProbe = false,
+                    bool         isJog   = false);
 
     // Get the name of the component that caused the last limit violation
     const char* lastViolationComponent() const { return _lastViolation; }

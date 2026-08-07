@@ -83,12 +83,15 @@ bool DynamicLimits::checkMove(const float* current_mpos, const float* target_mpo
 
     getEffectiveLimits(current_mpos, active_tlo, axis_min, axis_max);
 
-    // Check target position against dynamic limits
-    // Account for tool length offset: the tool tip is at target_mpos + active_tlo
+    // Check target position against dynamic limits.  Providers publish their
+    // limits in tip space, so the target has to be converted into it first:
+    // tip = MPos - TLO, matching the convention used everywhere else in FluidNC.
+    // Adding instead of subtracting relaxes the limit as the tool gets longer,
+    // which defeats the point of the check.
     for (size_t i = 0; i < n_axis; i++) {
         float tool_tip = target_mpos[i];
         if (active_tlo != nullptr) {
-            tool_tip += active_tlo[i];
+            tool_tip -= active_tlo[i];
         }
 
         if (!std::isnan(axis_min[i]) && tool_tip < axis_min[i]) {

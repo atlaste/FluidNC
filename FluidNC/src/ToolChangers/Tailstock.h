@@ -31,6 +31,10 @@ namespace ATCs {
         // For motorized tailstock, the spindle index that controls it
         int32_t _spindle_index = 1;         // Default to spindle/holder 1
 
+        // Furthest the turret tool tip may travel along _axis, in tip space.
+        // Returns false when the tailstock imposes no limit at all.
+        bool computeLimit(float& limit) const;
+
     public:
         explicit Tailstock(const char* name) : ConfigurableModule(name) {}
 
@@ -54,7 +58,7 @@ namespace ATCs {
         bool isActive() override { return _extended && _loaded_tool > 0; }
 
         // SoftLimitsComponent interface
-        bool TestLimit(const float* from, const float* to) override;
+        bool TestLimit(const LimitContext& ctx) override;
         const char* componentName() const override { return name(); }
 
         // Tailstock control

@@ -180,6 +180,18 @@ static bool mc_linear_no_check(float* target, plan_line_data_t* pl_data, float* 
 static void mc_comp_corner_arc(float cx, float cy, float start_x, float start_y, float end_x, float end_y,
                                int axis_0, int axis_1, float* position, plan_line_data_t* pl_data, bool is_left);
 
+// Component-based soft limits check, in physical Cartesian space. Every branch
+// of mc_linear has to do this, so the context the components need is assembled
+// in one place. Returns true when the motion must not proceed.
+static bool mc_soft_limits_violated(const float* position, const float* target, const plan_line_data_t* pl_data) {
+    if (LimitsChecker::instance().TestMotion(
+            position, target, gc_state.tool_length_offset, Machine::Axes::_numberAxis, pl_data->is_probe, pl_data->is_jog)) {
+        limit_error();
+        return true;
+    }
+    return false;
+}
+
 // Internal function to emit a compensated line segment
 static bool mc_linear_compensated(float* target, plan_line_data_t* pl_data, float* position) {
     if (!pl_data->is_jog && !pl_data->limits_checked) {
@@ -188,9 +200,7 @@ static bool mc_linear_compensated(float* target, plan_line_data_t* pl_data, floa
         }
     }
 
-    // Component-based soft limits check (in physical Cartesian space)
-    if (LimitsChecker::instance().TestMotion(position, target)) {
-        limit_error();
+    if (mc_soft_limits_violated(position, target, pl_data)) {
         return false;
     }
 
@@ -254,9 +264,7 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
             }
         }
 
-        // Component-based soft limits check (in physical Cartesian space)
-        if (LimitsChecker::instance().TestMotion(position, target)) {
-            limit_error();
+        if (mc_soft_limits_violated(position, target, pl_data)) {
             return false;
         }
 
@@ -278,9 +286,7 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
                 }
             }
 
-            // Component-based soft limits check (in physical Cartesian space)
-            if (LimitsChecker::instance().TestMotion(position, target)) {
-                limit_error();
+            if (mc_soft_limits_violated(position, target, pl_data)) {
                 return false;
             }
 
@@ -294,9 +300,7 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
             }
         }
 
-        // Component-based soft limits check (in physical Cartesian space)
-        if (LimitsChecker::instance().TestMotion(position, target)) {
-            limit_error();
+        if (mc_soft_limits_violated(position, target, pl_data)) {
             return false;
         }
 
@@ -339,9 +343,7 @@ bool mc_linear(float* target, plan_line_data_t* pl_data, float* position) {
             }
         }
 
-        // Component-based soft limits check (in physical Cartesian space)
-        if (LimitsChecker::instance().TestMotion(position, target)) {
-            limit_error();
+        if (mc_soft_limits_violated(position, target, pl_data)) {
             return false;
         }
 
@@ -788,6 +790,10 @@ GCUpdatePos mc_probe_cycle(float* target, plan_line_data_t* pl_data, bool away, 
         return GCUpdatePos::None;  // Nothing else to do but bail.
     }
     // Setup and queue probing motion. Auto cycle-start should not start the cycle.
+    // Flagged before planning because the global "probing" below is only set once
+    // the move is queued, which is too late for the soft limits check inside
+    // mc_linear to see it.
+    pl_data->is_probe = true;
     mc_linear(target, pl_data, gc_state.position);
     // Activate the probing state monitor in the stepper module.
     probing = true;

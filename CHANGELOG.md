@@ -321,7 +321,7 @@ Integrates a tailstock into the soft limits system to prevent turret–tailstock
 ### Features
 
 - When the tailstock is extended and a tool is loaded, it dynamically adjusts the maximum travel on the tailstock axis.
-- The limit is: `max_position = tailstock_position + tool_tlo - safety_margin`.
+- The limit is: `max_position = tailstock_position - tool_tlo - safety_margin`, expressed at the tool tip. The offset is subtracted because a longer live center reaches further towards the turret and so must restrict travel more.
 - Implements the `DynamicLimitProvider` interface, so it works with the broader dynamic limits system.
 - Tailstock position and extended state are set programmatically (e.g., via macros).
 
@@ -407,11 +407,22 @@ A modular, extensible soft limits framework supporting multiple geometric shapes
 
 | Component | Description |
 |-----------|-------------|
-| **SoftLimitsComponent** | Abstract base class. Defines `TestLimit(from, to)` interface. |
-| **FixedBoundingBox** | Rectangular exclusion zone in machine coordinates. Uses slab method for line-AABB intersection testing. |
-| **FixedCylinder** | Cylindrical exclusion zone (e.g., chuck, spindle housing). Tests line-circle intersection in 2D + Z range. |
-| **MovingBoundingBox** | Bounding box that moves with one or more axes (e.g., a gang tool holder). Tied axes shift the box position. |
+| **SoftLimitsComponent** | Abstract base class. Defines the `TestLimit(ctx)` interface. |
+| **FixedBoundingBox** | Rectangular exclusion zone in machine coordinates. Uses slab method for line-AABB intersection testing. Tested against the tool tip. |
+| **FixedCylinder** | Cylindrical exclusion zone (e.g., chuck, spindle housing). Tests line-circle intersection in 2D + Z range. Tested against the tool tip. |
+| **MovingBoundingBox** | Bounding box that moves with one or more axes (e.g., a gang tool holder). Tied axes shift the box position. The box is placed from the spindle position, since the hardware does not move when a tool is swapped, and the tool tip is what is tested against it. |
 | **LimitsChecker** | Central registry. All soft limit components register here. Every motion command is tested against all registered components before execution. |
+
+### Coordinate frames
+
+Components receive a `LimitContext` describing the segment in both frames, because the right one depends on what is being guarded:
+
+- **Tip frame** (`tipFrom` / `tipTo`) is `MPos - TLO`, following the same convention as the rest of FluidNC. Keep-out zones around fixtures belong here so that their protection scales with tool length.
+- **Spindle frame** (`spindleFrom` / `spindleTo`) is the raw machine position. Volumes bolted to the machine belong here, as they travel with the spindle whatever tool is fitted.
+
+The conversion happens once in `LimitsChecker::TestMotion`, so there is a single definition of the sign. Inverting it is not a symmetric mistake: it relaxes keep-out zones as tools get longer, and the failure mode is a crash. Tests in `SoftLimitsTests.cpp` pin the sign for this reason.
+
+`LimitContext` also carries an `isProbe` flag, set only for the touch-off move of a G38 cycle and not for the rapids that position the tool beforehand. A component guarding hardware that is deliberately touched, such as a toolsetter, can use it to stand down for exactly that move.
 
 ### Configuration
 
@@ -453,7 +464,7 @@ A system for axis travel limits that change at runtime.
 - `DynamicLimitProvider` interface with `getDynamicLimits()`, `isActive()`, and `limitProviderName()`.
 - Multiple providers can be registered (e.g., tailstock, gang tool).
 - `getEffectiveLimits()` merges all active providers, taking the most restrictive limit for each axis.
-- `checkMove()` and `checkPosition()` validate motion including tool length offset.
+- `checkMove()` and `checkPosition()` validate motion including tool length offset. Providers publish their limits at the tool tip, and the target is converted with `tip = MPos - TLO` before comparison.
 - Uses NAN to indicate "no limit" on a given axis/direction.
 
 ---

@@ -98,6 +98,12 @@ struct plan_line_data_t {
     int32_t      line_number;     // Desired line number to report when executing.
     bool         is_jog;          // true if this was generated due to a jog command
     bool         limits_checked;  // true if soft limits already checked
+
+    // True only for the touch-off move of a G38 probing cycle, not for the
+    // rapids that position the tool beforehand. Soft limits components guarding
+    // hardware that is meant to be touched, such as a toolsetter, use this to
+    // stand down for exactly that move.
+    bool is_probe;
     
     // Spindle synchronization data
     SpindleSyncMode sync_mode;           // Synchronization mode (None/PerRev/Rigid)
