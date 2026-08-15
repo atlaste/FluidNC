@@ -151,9 +151,19 @@ namespace Spindles {
         auto minSpeedAllowed = dev_speed > _slop ? (dev_speed - _slop) : 0;
         auto maxSpeedAllowed = dev_speed + _slop;
 
-        int unchanged = 0;
-        //            const int limit     = 150;  // 15 sec / 100 ms
-        const int limit = 100;
+        // Measurements taken before the new speed was commanded say nothing about
+        // whether we reached it, so throw them away.
+        xQueueReset(VFD::VFDProtocol::vfd_speed_queue);
+
+        // A measurement can be delayed by a full round of retries, each of which
+        // costs about one poll interval.
+        const TickType_t report_timeout = pdMS_TO_TICKS(_poll_ms * (_retries + 2) + 1000);
+
+        // Number of consecutive measurements without any progress toward the target
+        // that we tolerate before giving up.  Slow ramps are fine; stalls are not.
+        const int limit     = 100;
+        int       unchanged = 0;
+        uint32_t  closest   = UINT32_MAX;
 
         if (_debug > 1 && _sync_dev_speed != UINT32_MAX) {
             log_info("Syncing to " << int(dev_speed));
@@ -161,7 +171,7 @@ namespace Spindles {
 
         while ((_last_override_value == sys.spindle_speed_ovr()) &&  // skip if the override changes
                ((_sync_dev_speed < minSpeedAllowed || _sync_dev_speed > maxSpeedAllowed) && unchanged < limit)) {
-            if (!xQueueReceive(VFD::VFDProtocol::vfd_speed_queue, &_sync_dev_speed, 3000)) {
+            if (!xQueueReceive(VFD::VFDProtocol::vfd_speed_queue, &_sync_dev_speed, report_timeout)) {
                 mc_critical(ExecAlarm::SpindleControl);
                 log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
                 _syncing = false;
@@ -171,7 +181,26 @@ namespace Spindles {
                 _speedIsValidAfter = 0;
                 return;
             }
+
+            uint32_t distance = _sync_dev_speed > dev_speed ? _sync_dev_speed - dev_speed : dev_speed - _sync_dev_speed;
+            if (distance < closest) {
+                closest   = distance;
+                unchanged = 0;
+            } else {
+                ++unchanged;
+            }
         }
+
+        if (unchanged >= limit) {
+            mc_critical(ExecAlarm::SpindleControl);
+            log_error(name() << ": spindle did not reach device units " << dev_speed << ". Reported value is " << _sync_dev_speed);
+            _syncing = false;
+
+            startRamp(0);
+            _speedIsValidAfter = 0;
+            return;
+        }
+
         _last_override_value = sys.spindle_speed_ovr();
         _current_speed       = speed;
         if (_debug > 1) {

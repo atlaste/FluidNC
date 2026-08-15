@@ -22,6 +22,15 @@ namespace Spindles {
         bool VFDProtocol::isShutdownRequested() { return _shutdown.load(); }
         void VFDProtocol::resetShutdown() { _shutdown.store(false); }
 
+        void VFDProtocol::reportCurrentSpeed(VFDSpindle* spindle, uint32_t dev_speed) {
+            spindle->_sync_dev_speed = dev_speed;
+            if (vfd_speed_queue) {
+                // Dropping a sample when the queue is full is harmless; setState() drains
+                // it before syncing and only cares about the most recent measurements.
+                xQueueSend(vfd_speed_queue, &dev_speed, 0);
+            }
+        }
+
         void VFDProtocol::reportParsingErrors(ModbusCommand cmd, uint8_t* rx_message, size_t read_length) {}
         bool VFDProtocol::checkRx(ModbusCommand cmd, uint8_t* rx_message, size_t read_length, uint8_t id) {
             if (read_length == 0) {

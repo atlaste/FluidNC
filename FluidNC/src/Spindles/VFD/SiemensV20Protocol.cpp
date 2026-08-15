@@ -224,7 +224,7 @@ namespace Spindles {
                 log_debug("VFD Measured Value " << int16_t(Scaledfrequency) << " Freq " << int16_t(frequency));
 
                 // Store speed for synchronization
-                vfd->_sync_dev_speed = uint16_t(frequency);
+                reportCurrentSpeed(vfd, uint16_t(frequency));
                 return true;
             };
         }

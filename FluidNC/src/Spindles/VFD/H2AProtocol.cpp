@@ -102,7 +102,7 @@ namespace Spindles {
             //  Recv: 01 03 0004 095D 0000
             //                   ---- = 2397 (val #1)
             return [](const uint8_t* response, VFDSpindle* vfd, VFDProtocol* detail) -> bool {
-                vfd->_sync_dev_speed = (uint16_t(response[4]) << 8) | uint16_t(response[5]);
+                reportCurrentSpeed(vfd, (uint16_t(response[4]) << 8) | uint16_t(response[5]));
                 return true;
             };
         }

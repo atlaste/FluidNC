@@ -55,8 +55,8 @@ namespace Spindles {
                 // const uint8_t function = response[1]
                 // const uint8_t response_byte_count = response[2]
 
-                uint16_t freq        = (uint16_t(response[3]) << 8) | uint16_t(response[4]);
-                vfd->_sync_dev_speed = freq;
+                uint16_t freq = (uint16_t(response[3]) << 8) | uint16_t(response[4]);
+                reportCurrentSpeed(vfd, freq);
                 return true;
             };
         }

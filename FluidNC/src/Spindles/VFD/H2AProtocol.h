@@ -20,7 +20,7 @@ namespace Spindles {
             bool use_delay_settings() const override { return false; }
             bool safety_polling() const override { return false; }
 
-            uint32_t _maxRPM;
+            uint32_t _maxRPM = 0;  // read from b0.05 during initialization
         };
     }
 }

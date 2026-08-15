@@ -64,7 +64,7 @@ namespace Spindles {
 
         // volatile uint32_t _sync_dev_speed;
         uint32_t     _sync_dev_speed;
-        SpindleSpeed _slop;
+        SpindleSpeed _slop = 0;  // protocols override this once they know the device's speed range
 
         // Configuration handlers:
         void validate() override;

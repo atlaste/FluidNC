@@ -77,6 +77,10 @@ namespace Spindles {
             static bool checkRx(ModbusCommand cmd, uint8_t* rx_message, size_t read_length, uint8_t id);
             static QueueHandle_t vfd_speed_queue;
 
+            // Every get_current_speed() parser must report its measurement through this,
+            // because VFDSpindle::setState() blocks on vfd_speed_queue while syncing.
+            static void reportCurrentSpeed(VFDSpindle* spindle, uint32_t dev_speed);
+
             // Graceful shutdown for the background task (used by unit tests)
             static void requestShutdown();
             static bool isShutdownRequested();

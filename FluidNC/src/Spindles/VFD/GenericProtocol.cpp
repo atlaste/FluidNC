@@ -84,7 +84,7 @@ namespace Spindles {
                     if (spindle->_debug > 1) {
                         log_info("Current speed is " << int(dev_speed));
                     }
-                    xQueueSend(VFD::VFDProtocol::vfd_speed_queue, &dev_speed, 0);
+                    reportCurrentSpeed(spindle, dev_speed);
                     continue;
                 }
                 uint32_t ignore;

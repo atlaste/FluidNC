@@ -166,7 +166,7 @@ namespace Spindles {
                 uint16_t frequency = (uint16_t(response[3]) << 8) | uint16_t(response[4]);
 
                 // Store speed for synchronization
-                vfd->_sync_dev_speed = frequency;
+                reportCurrentSpeed(vfd, frequency);
                 return true;
             };
         }
