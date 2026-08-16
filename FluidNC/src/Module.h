@@ -37,6 +37,9 @@ ConfigurableModule methods:
    void deinit()
        The deinit method disables the module.  FluidNC does not call the deinit()
        methods.  It is for completeness and possible future use.
+   void poll()
+       FluidNC calls all the poll() methods when waiting for input.  If the module
+       needs to be called periodically, it can implement this.
 
 Module methods:
    void init()
@@ -105,6 +108,7 @@ public:
     virtual void init() {}
     virtual int  init_priority() { return 0; };
     virtual void deinit() {}
+    virtual void poll() {}
 };
 
 using ModuleFactory = Configuration::GenericFactory<Module>;

@@ -86,6 +86,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Machine/Axes.cpp
 							Machine/Axis.cpp
 							Machine/EventPin.cpp
+							Machine/Fan.cpp
 							Machine/Homing.cpp
 							Machine/I2CBus.cpp
 							Machine/I2SOBus.cpp

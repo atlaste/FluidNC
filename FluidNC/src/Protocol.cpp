@@ -145,6 +145,10 @@ void polling_loop(void* unused) {
             module->poll();
             esp_task_wdt_reset();
         }
+        for (auto const& module : ConfigurableModules()) {
+            module->poll();
+            esp_task_wdt_reset();
+        }
 
         // If activeChannel is non-null, it means that we have received a line
         // but the task running protocol_main_loop() has not yet picked it up.
