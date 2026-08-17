@@ -29,6 +29,12 @@ namespace Machine {
         }
     }
 
+    void Motor::validate() {
+        _negLimitPin.assertLocal("A limit switch");
+        _posLimitPin.assertLocal("A limit switch");
+        _allLimitPin.assertLocal("A limit switch");
+    }
+
     void Motor::init() {
         if (strcmp(_driver->name(), "null_motor") != 0) {
             set_bitnum(Machine::Axes::motorMask, Machine::Axes::motor_bit(_axis, _motorNum));

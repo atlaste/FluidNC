@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "StatePersistence.h"
+#include "MB85RC.h"
 #include "Logging.h"
 #include "NutsBolts.h"
 #include "System.h"
@@ -9,6 +10,7 @@
 #include "Stepping.h"
 #include "Machine/Homing.h"
 #include "Machine/Axes.h"
+#include "Machine/MachineConfig.h"
 #include "FileStream.h"
 #include "Parameters.h"
 #include "SettingsDefinitions.h"
@@ -19,17 +21,14 @@
 #include <mbedtls/sha256.h>
 #include <cstring>
 
-// FRAM memory layout
 namespace {
-    // NOTE: 0x0000 is reserved for the initialization sequence.
-    static const uint16_t FRAM_CONFIG_HASH_ADDR   = 0x0004;
-    static const uint16_t FRAM_MOTOR_STEPS_ADDR   = 0x0008;
-    static const uint16_t FRAM_HOMING_STATUS_ADDR = 0x0030;
-    static const uint16_t FRAM_OVERRIDES_ADDR     = 0x0040;
-    static const uint16_t FRAM_PARSER_STATE_ADDR  = 0x0050;
-    static const uint16_t FRAM_ATC_ADDR           = 0x0200;
-    static const uint16_t FRAM_PARAMETERS_ADDR    = 0x1000;
-    static const uint16_t FRAM_END_ADDR           = 0x2000;  // 8KB FRAM
+    // The ATC section is variable length, so it gets a window rather than an offset.  The
+    // upper bound matches the window the fixed 8 KB layout used to give it; the lower bound
+    // is just the length word that prefixes it.
+    const uint32_t MinAtcBytes = 4;
+    const uint32_t MaxAtcBytes = 3584;
+
+    uint32_t align4(uint32_t value) { return (value + 3) & ~uint32_t(3); }
 }
 
 extern const char* git_info;
@@ -52,6 +51,91 @@ void StatePersistence::group(Configuration::HandlerBase& handler) {
     handler.item("save_interval_ms", _saveIntervalMs, 10, 10000);
     handler.item("spi_freq_mhz", _spiFreqMhz, 1, 40);  // 1-40MHz range
     handler.item("save_parameters", _saveParameters);
+    handler.item("i2c_num", _i2cNum, -1, MAX_N_I2C - 1);
+    handler.item("i2c_address", _i2cAddress, 0x08, 0x77);
+    handler.item("i2c_size_bytes", _i2cSizeBytes, 256, 262144);
+}
+
+FramDevice* StatePersistence::createDevice() {
+    // cs_pin wins, so an existing SPI configuration is unaffected by the I2C items below.
+    if (_csPin.defined()) {
+        _csPin.setAttr(Pin::Attr::Output);
+        _csPin.on();  // CS high (inactive)
+
+        if (_wpPin.defined()) {
+            _wpPin.setAttr(Pin::Attr::Output);
+            _wpPin.on();  // WP high (write enabled)
+        }
+
+        if (_holdPin.defined()) {
+            _holdPin.setAttr(Pin::Attr::Output);
+            _holdPin.on();  // HOLD high (not held)
+        }
+
+        return new FM25VXX(_csPin, _wpPin, _holdPin, 8192, uint32_t(_spiFreqMhz) * 1000000);
+    }
+
+#if MAX_N_I2C
+    if (_i2cNum >= 0) {
+        auto bus = config->_i2c[_i2cNum];
+        if (bus == nullptr) {
+            log_error("StatePersistence: i2c" << _i2cNum << " is not configured");
+            return nullptr;
+        }
+        return new MB85RC(bus, uint8_t(_i2cAddress), uint32_t(_i2cSizeBytes));
+    }
+#endif
+
+    return nullptr;
+}
+
+bool StatePersistence::buildLayout(uint32_t deviceSize) {
+    // NOTE: 0x0000 is reserved for the initialization sequence.
+    uint32_t offset = 4;
+
+    _layout.configHash = offset;
+    offset             = align4(offset + sizeof(uint32_t));
+
+    _layout.motorSteps = offset;
+    offset             = align4(offset + sizeof(steps_t) * MAX_N_AXIS);
+
+    _layout.homingStatus = offset;
+    offset               = align4(offset + sizeof(AxisMask));
+
+    _layout.overrides = offset;
+    offset            = align4(offset + 3 * sizeof(Percent));
+
+    _layout.parserState = offset;
+    offset              = align4(offset + sizeof(parser_state_t));
+
+    _layout.atc = offset;
+
+    if (offset + MinAtcBytes > deviceSize) {
+        log_error("FRAM holds " << deviceSize << " bytes but the machine state needs at least " << (offset + MinAtcBytes));
+        return false;
+    }
+
+    // Split what is left between the ATC and the named parameters, so neither can starve
+    // the other on a small part.
+    uint32_t spare    = deviceSize - offset;
+    uint32_t atcBytes = spare / 2;
+    if (atcBytes > MaxAtcBytes) {
+        atcBytes = MaxAtcBytes;
+    }
+    if (atcBytes < MinAtcBytes) {
+        atcBytes = MinAtcBytes;
+    }
+
+    _layout.atcEnd     = offset + atcBytes;
+    _layout.parameters = _layout.atcEnd;
+    _layout.end        = deviceSize;
+
+    log_debug("FRAM layout: steps " << to_hex(_layout.motorSteps) << " homing " << to_hex(_layout.homingStatus) << " overrides "
+                                    << to_hex(_layout.overrides) << " parser " << to_hex(_layout.parserState) << " atc "
+                                    << to_hex(_layout.atc) << " params " << to_hex(_layout.parameters) << " end "
+                                    << to_hex(_layout.end));
+
+    return true;
 }
 
 uint32_t StatePersistence::calculateConfigHash() {
@@ -101,7 +185,7 @@ uint32_t StatePersistence::calculateConfigHash() {
 }
 
 void StatePersistence::savePositionState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
@@ -112,39 +196,41 @@ void StatePersistence::savePositionState() {
         steps[axis] = Machine::Stepping::getSteps(axis);
     }
 
-    _fram->WriteBlock(FRAM_MOTOR_STEPS_ADDR, sizeof(steps), 1, (uint8_t*)steps);
+    _fram->write(_layout.motorSteps, (uint8_t*)steps, sizeof(steps));
 
     // Save homing status
     AxisMask homed = Machine::Homing::unhomed_axes();
-    _fram->WriteBlock(FRAM_HOMING_STATUS_ADDR, sizeof(homed), 1, (uint8_t*)&homed);
+    _fram->write(_layout.homingStatus, (uint8_t*)&homed, sizeof(homed));
 }
 
 void StatePersistence::saveParserState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
     // Save entire gc_state structure directly
-    _fram->WriteBlock(FRAM_PARSER_STATE_ADDR, sizeof(gc_state), 1, (uint8_t*)&gc_state);
+    _fram->write(_layout.parserState, (uint8_t*)&gc_state, sizeof(gc_state));
 }
 
 void StatePersistence::saveParameters() {
-    if (!_fram || !_fram->IsInitialized() || !_saveParameters) {
+    if (!usable() || !_saveParameters) {
         return;
     }
 
     // Get all named parameters
     auto&    params = get_all_named_params();
     uint32_t count  = params.size();
-    uint32_t offset = FRAM_PARAMETERS_ADDR;
+    uint32_t offset = _layout.parameters;
 
     // Write count
-    _fram->WriteBlock(offset, sizeof(count), 1, (uint8_t*)&count);
+    _fram->write(offset, (uint8_t*)&count, sizeof(count));
     offset += sizeof(count);
 
     // Write each parameter
     for (const auto& [parname, parvalue] : params) {
-        if (offset >= FRAM_END_ADDR) {
+        // Each entry is a length byte, the name, then the value, so check for the whole
+        // entry rather than discovering halfway through that it does not fit.
+        if (offset + 1 + parname.length() + sizeof(float) > _layout.end) {
             static bool warned = false;
             if (!warned) {
                 log_warn("Parameter section full, skipping remaining parameters (" << count << " params)");
@@ -154,19 +240,19 @@ void StatePersistence::saveParameters() {
         }
 
         uint8_t name_len = parname.length();
-        _fram->WriteByte(offset++, name_len);
+        _fram->writeByte(offset++, name_len);
 
         for (char c : parname) {
-            _fram->WriteByte(offset++, c);
+            _fram->writeByte(offset++, c);
         }
 
-        _fram->WriteBlock(offset, sizeof(float), 1, (uint8_t*)&parvalue);
+        _fram->write(offset, (const uint8_t*)&parvalue, sizeof(float));
         offset += sizeof(float);
     }
 }
 
 void StatePersistence::saveOverrides() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
@@ -175,18 +261,18 @@ void StatePersistence::saveOverrides() {
     Percent rapid_ovr   = sys.r_override();
     Percent spindle_ovr = sys.spindle_speed_ovr();
 
-    uint32_t offset = FRAM_OVERRIDES_ADDR;
-    _fram->WriteBlock(offset, sizeof(feed_ovr), 1, (uint8_t*)&feed_ovr);
+    uint32_t offset = _layout.overrides;
+    _fram->write(offset, (uint8_t*)&feed_ovr, sizeof(feed_ovr));
     offset += sizeof(feed_ovr);
 
-    _fram->WriteBlock(offset, sizeof(rapid_ovr), 1, (uint8_t*)&rapid_ovr);
+    _fram->write(offset, (uint8_t*)&rapid_ovr, sizeof(rapid_ovr));
     offset += sizeof(rapid_ovr);
 
-    _fram->WriteBlock(offset, sizeof(spindle_ovr), 1, (uint8_t*)&spindle_ovr);
+    _fram->write(offset, (uint8_t*)&spindle_ovr, sizeof(spindle_ovr));
 }
 
 void StatePersistence::saveSpindleState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
@@ -202,18 +288,21 @@ void StatePersistence::saveSpindleState() {
     uint32_t size = atcData.size();
     memcpy(atcData.data(), &size, 4);
 
-    _fram->WriteBlock(FRAM_ATC_ADDR, atcData.size(), 1, atcData.data());
-}
-
-void StatePersistence::saveAllSections() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (_layout.atc + size > _layout.atcEnd) {
+        static bool warned = false;
+        if (!warned) {
+            log_warn("ATC state needs " << size << " bytes but only " << (_layout.atcEnd - _layout.atc) << " are available; not saved");
+            warned = true;
+        }
         return;
     }
 
-    static int64_t lastSaveDbg = 0;
-    if (esp_timer_get_time() > lastSaveDbg) {
-        lastSaveDbg = esp_timer_get_time() + 1000000;
-        // log_debug("Saving state...");
+    _fram->write(_layout.atc, atcData.data(), size);
+}
+
+void StatePersistence::saveAllSections() {
+    if (!usable()) {
+        return;
     }
 
     savePositionState();
@@ -224,13 +313,13 @@ void StatePersistence::saveAllSections() {
 }
 
 void StatePersistence::restorePositionState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
     // Restore motor steps
     steps_t steps[MAX_N_AXIS];
-    _fram->ReadBlock(FRAM_MOTOR_STEPS_ADDR, sizeof(steps), 1, (uint8_t*)steps);
+    _fram->read(_layout.motorSteps, (uint8_t*)steps, sizeof(steps));
 
     auto n_axis = Machine::Axes::_numberAxis;
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
@@ -239,7 +328,7 @@ void StatePersistence::restorePositionState() {
 
     // Restore homing status
     AxisMask homed;
-    _fram->ReadBlock(FRAM_HOMING_STATUS_ADDR, sizeof(homed), 1, (uint8_t*)&homed);
+    _fram->read(_layout.homingStatus, (uint8_t*)&homed, sizeof(homed));
     // Note: We can't directly set Homing::_unhomed_axes as it's private
     // We need to restore it through the axes
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
@@ -252,11 +341,11 @@ void StatePersistence::restorePositionState() {
 }
 
 void StatePersistence::restoreParserState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
-    _fram->ReadBlock(FRAM_PARSER_STATE_ADDR, sizeof(gc_state), 1, (uint8_t*)&gc_state);
+    _fram->read(_layout.parserState, (uint8_t*)&gc_state, sizeof(gc_state));
 
     // Spindle and coolant hardware are not running after a restart — force off to match reality.
     // Keep spindle_speed so the user can resume with M3 at the previous speed.
@@ -286,14 +375,14 @@ void StatePersistence::restoreParserState() {
 }
 
 void StatePersistence::restoreParameters() {
-    if (!_fram || !_fram->IsInitialized() || !_saveParameters) {
+    if (!usable() || !_saveParameters) {
         return;
     }
 
     uint32_t count;
-    uint32_t offset = FRAM_PARAMETERS_ADDR;
+    uint32_t offset = _layout.parameters;
 
-    _fram->ReadBlock(offset, sizeof(count), 1, (uint8_t*)&count);
+    _fram->read(offset, (uint8_t*)&count, sizeof(count));
     offset += sizeof(count);
 
     // Sanity check
@@ -303,21 +392,26 @@ void StatePersistence::restoreParameters() {
     }
 
     for (uint32_t i = 0; i < count; i++) {
-        if (offset >= FRAM_END_ADDR) {
+        if (offset >= _layout.end) {
             break;
         }
 
         uint8_t name_len;
-        _fram->ReadByte(offset++, &name_len);
+        _fram->readByte(offset++, &name_len);
+
+        // A truncated or garbled entry would otherwise walk off the end of name[].
+        if (name_len == 0 || name_len > 200 || offset + name_len + sizeof(float) > _layout.end) {
+            break;
+        }
 
         char name[256];
         for (uint8_t j = 0; j < name_len; j++) {
-            _fram->ReadByte(offset++, (uint8_t*)&name[j]);
+            _fram->readByte(offset++, (uint8_t*)&name[j]);
         }
         name[name_len] = '\0';
 
         float value;
-        _fram->ReadBlock(offset, sizeof(value), 1, (uint8_t*)&value);
+        _fram->read(offset, (uint8_t*)&value, sizeof(value));
         offset += sizeof(value);
 
         set_named_param(name, value);
@@ -325,21 +419,21 @@ void StatePersistence::restoreParameters() {
 }
 
 void StatePersistence::restoreOverrides() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
     // Restore system overrides
     Percent feed_ovr, rapid_ovr, spindle_ovr;
 
-    uint32_t offset = FRAM_OVERRIDES_ADDR;
-    _fram->ReadBlock(offset, sizeof(feed_ovr), 1, (uint8_t*)&feed_ovr);
+    uint32_t offset = _layout.overrides;
+    _fram->read(offset, (uint8_t*)&feed_ovr, sizeof(feed_ovr));
     offset += sizeof(feed_ovr);
 
-    _fram->ReadBlock(offset, sizeof(rapid_ovr), 1, (uint8_t*)&rapid_ovr);
+    _fram->read(offset, (uint8_t*)&rapid_ovr, sizeof(rapid_ovr));
     offset += sizeof(rapid_ovr);
 
-    _fram->ReadBlock(offset, sizeof(spindle_ovr), 1, (uint8_t*)&spindle_ovr);
+    _fram->read(offset, (uint8_t*)&spindle_ovr, sizeof(spindle_ovr));
 
     sys.set_f_override(feed_ovr);
     sys.set_r_override(rapid_ovr);
@@ -347,17 +441,16 @@ void StatePersistence::restoreOverrides() {
 }
 
 void StatePersistence::restoreSpindleState() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
     // Read the size first
     uint32_t length;
-    // ReadBlock signature: ReadBlock(address, blockSize, numBlocks, data)
-    _fram->ReadBlock(FRAM_ATC_ADDR, 4, 1, (uint8_t*)&length);
+    _fram->read(_layout.atc, (uint8_t*)&length, sizeof(length));
 
     // Sanity check
-    if (length == 0 || length > 4096) {  // Reasonable upper limit
+    if (length < 4 || _layout.atc + length > _layout.atcEnd) {
         log_debug("Invalid ATC data length: " << length);
         return;
     }
@@ -365,7 +458,7 @@ void StatePersistence::restoreSpindleState() {
     // Read the entire ATC data block
     std::vector<uint8_t> atcData;
     atcData.resize(length);
-    _fram->ReadBlock(FRAM_ATC_ADDR, length, 1, atcData.data());
+    _fram->read(_layout.atc, atcData.data(), length);
 
     // Restore ATC data directly to ATC objects (not through spindles,
     // because spindle->_atc isn't set until spindle init runs later).
@@ -380,13 +473,13 @@ void StatePersistence::restoreSpindleState() {
 }
 
 void StatePersistence::restoreAllSections() {
-    if (!_fram || !_fram->IsInitialized()) {
+    if (!usable()) {
         return;
     }
 
-    log_info("Restoring state")
+    log_info("Restoring state");
 
-        restorePositionState();
+    restorePositionState();
     restoreParserState();
     restoreParameters();
     restoreOverrides();
@@ -414,65 +507,52 @@ void StatePersistence::saveTaskFunc(void* param) {
 }
 
 void StatePersistence::init() {
-    log_info("StatePersistence initializing");
-
-    // Check if CS pin is defined
-    if (!_csPin.defined()) {
-        log_info("StatePersistence CS pin not configured, module disabled");
+    _fram = createDevice();
+    if (_fram == nullptr) {
+        log_debug("StatePersistence: no FRAM configured, module disabled");
         return;
     }
 
-    // Initialize pins
-    _csPin.setAttr(Pin::Attr::Output);
-    _csPin.on();  // CS high (inactive)
+    log_info("StatePersistence initializing with " << _fram->description());
 
-    if (_wpPin.defined()) {
-        _wpPin.setAttr(Pin::Attr::Output);
-        _wpPin.on();  // WP high (write enabled)
-    }
-
-    if (_holdPin.defined()) {
-        _holdPin.setAttr(Pin::Attr::Output);
-        _holdPin.on();  // HOLD high (not held)
-    }
-
-    // Create FRAM driver instance
-    uint32_t spi_freq_hz = _spiFreqMhz * 1000000;                                     // Convert MHz to Hz
-    _fram                = new FM25VXX(_csPin, _wpPin, _holdPin, 8192, spi_freq_hz);  // 8KB FRAM with configurable frequency
-    _fram->Initialize();
-
-    if (!_fram->IsInitialized()) {
+    if (!_fram->initialize()) {
         log_error("FRAM initialization failed");
         delete _fram;
         _fram = nullptr;
         return;
     }
 
+    if (!buildLayout(_fram->size())) {
+        delete _fram;
+        _fram = nullptr;
+        return;
+    }
+
     _initialized = true;
-    log_info("FRAM initialized successfully");
+    log_info("FRAM initialized successfully, " << _fram->size() << " bytes");
 
     // Calculate current config hash
     _configHash = calculateConfigHash();
 
     // Read stored hash
-    uint32_t stored_hash;
-    _fram->ReadBlock(FRAM_CONFIG_HASH_ADDR, sizeof(stored_hash), 1, (uint8_t*)&stored_hash);
-    log_debug("Read stored hash from FRAM: " << to_hex(stored_hash) << " (bytes: " << to_hex(((uint8_t*)&stored_hash)[0]) << " "
-                                             << to_hex(((uint8_t*)&stored_hash)[1]) << " " << to_hex(((uint8_t*)&stored_hash)[2]) << " "
-                                             << to_hex(((uint8_t*)&stored_hash)[3]) << ")");
+    uint32_t stored_hash = 0;
+    _fram->read(_layout.configHash, (uint8_t*)&stored_hash, sizeof(stored_hash));
 
     if (stored_hash != _configHash) {
         log_info("Configuration changed (stored: " << to_hex(stored_hash) << ", current: " << to_hex(_configHash)
                                                    << "), initializing FRAM state");
-        log_debug("Writing hash to FRAM: " << to_hex(_configHash) << " (bytes: " << to_hex(((uint8_t*)&_configHash)[0]) << " "
-                                           << to_hex(((uint8_t*)&_configHash)[1]) << " " << to_hex(((uint8_t*)&_configHash)[2]) << " "
-                                           << to_hex(((uint8_t*)&_configHash)[3]) << ")");
-        _fram->WriteBlock(FRAM_CONFIG_HASH_ADDR, sizeof(_configHash), 1, (uint8_t*)&_configHash);
+        _fram->write(_layout.configHash, (uint8_t*)&_configHash, sizeof(_configHash));
 
         // Verify the write
-        uint32_t verify_hash;
-        _fram->ReadBlock(FRAM_CONFIG_HASH_ADDR, sizeof(verify_hash), 1, (uint8_t*)&verify_hash);
-        log_debug("Verified hash after write: " << to_hex(verify_hash));
+        uint32_t verify_hash = 0;
+        _fram->read(_layout.configHash, (uint8_t*)&verify_hash, sizeof(verify_hash));
+        if (verify_hash != _configHash) {
+            log_error("FRAM hash write did not stick; state will not persist");
+            delete _fram;
+            _fram        = nullptr;
+            _initialized = false;
+            return;
+        }
 
         saveAllSections();  // Save current state
     } else {
@@ -496,7 +576,7 @@ void StatePersistence::deinit() {
         _running = false;
 
         // Final save before shutdown
-        if (_fram && _fram->IsInitialized()) {
+        if (usable()) {
             saveAllSections();
         }
 

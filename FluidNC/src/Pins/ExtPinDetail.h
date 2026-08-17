@@ -13,11 +13,16 @@
 
 namespace Pins {
     class ExtPinDetail : public PinDetail {
-        Extenders::PinExtenderDriver* _owner = nullptr;
-        uint32_t                      _device;
+        mutable Extenders::PinExtenderDriver* _owner = nullptr;
+        uint32_t                              _device;
 
         PinCapabilities _capabilities;
         PinAttributes   _attributes;
+        bool            _claimed = false;
+
+        // Resolves and caches the extender driver.  The driver is not available while the
+        // configuration is still being parsed, so resolution has to be deferred to first use.
+        Extenders::PinExtenderDriver* driver() const;
 
     public:
         ExtPinDetail(uint32_t device, pinnum_t index, const PinOptionsParser& options);
@@ -28,6 +33,8 @@ namespace Pins {
         void write(bool high) override;
         void synchronousWrite(bool high) override;
         bool read() override;
+
+        void registerEvent(InputPin* obj) override;
 
 #if 0
         // ISR's:

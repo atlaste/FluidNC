@@ -211,6 +211,21 @@ bool FM25VXX::IsInitialized() {
     return (_initialized);
 }
 
+bool FM25VXX::initialize() {
+    Initialize();
+    return _initialized;
+}
+
+bool FM25VXX::read(uint32_t address, uint8_t* data, uint32_t length) {
+    return ReadBlock(address, length, 1, data) == FM25VXXError::Success;
+}
+
+bool FM25VXX::write(uint32_t address, const uint8_t* data, uint32_t length) {
+    // WriteBlock only reads through the pointer; the non-const signature predates this
+    // interface.
+    return WriteBlock(address, length, 1, const_cast<uint8_t*>(data)) == FM25VXXError::Success;
+}
+
 void FM25VXX::Sleep() {
     /*
     * Send the SLEEP opcode. CS is automatically handled by SPI driver.

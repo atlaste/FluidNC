@@ -2,6 +2,7 @@
 #include "EnumItem.h"
 #include "Stepping.h"
 #include "Machine/MachineConfig.h"  // config
+#include "CAN/CanScheduler.h"       // CanScheduler::onPositionSet
 
 #include <atomic>
 
@@ -102,6 +103,11 @@ void Stepping::assignMotor(axis_t axis, motor_t motor, pinnum_t step_pin, bool s
 }
 
 steps_t Stepping::axis_steps[MAX_N_AXIS] = { 0 };
+
+void Stepping::setSteps(axis_t axis, steps_t steps) {
+    axis_steps[axis] = steps;
+    CAN::CanScheduler::onPositionSet(axis, int32_t(steps));
+}
 
 bool* Stepping::limit_var(axis_t axis, motor_t motor) {
     auto m = axis_motors[axis][motor];

@@ -75,6 +75,9 @@ enum class ExecAlarm : uint8_t {
     // above: a tool change that gives up has not lost position, so homing stays
     // valid and $X on its own is enough to carry on.
     ToolChange = 19,
+    // A CAN node that carries an axis stopped being trustworthy while it was
+    // moving, so its position is unknown.  Critical, like a hard stop.
+    CanNodeLost = 20,
 };
 
 extern volatile ExecAlarm lastAlarm;

@@ -84,6 +84,9 @@ private:
 
     static constexpr uint8_t DRV_CONF_ADDRESS = 0x0A;
 
+    static constexpr uint8_t MIN_IRUN          = 16;  // below this the microstep table gets coarse
+    static constexpr uint8_t MIN_GLOBAL_SCALER = 32;  // 1..31 are not valid settings
+
     float    _r_ref;         // IREF resistor in kOhms
     uint32_t _drv_conf = 0;  // shadow of the write-mostly DRV_CONF register
 };

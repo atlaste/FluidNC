@@ -4,11 +4,12 @@
 #pragma once
 
 #include "Pin.h"
+#include "FramDevice.h"
 
 #include <cstdint>
 #include <driver/spi_master.h>
 
-class FM25VXX {
+class FM25VXX : public FramDevice {
 private:
     // Constants
     static constexpr uint32_t BASE_ADDRESS          = 0x00;
@@ -113,6 +114,14 @@ public:
         ChipVariantError,
         InitTestFailed,
     };
+
+    // FramDevice interface
+    bool        initialize() override;
+    bool        initialized() const override { return _initialized; }
+    uint32_t    size() const override { return _fenceAddress; }
+    bool        read(uint32_t address, uint8_t* data, uint32_t length) override;
+    bool        write(uint32_t address, const uint8_t* data, uint32_t length) override;
+    const char* description() const override { return "FM25VXX SPI FRAM"; }
 
     void         Initialize();
     bool         IsInitialized();

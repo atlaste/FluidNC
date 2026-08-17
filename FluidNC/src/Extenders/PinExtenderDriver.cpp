@@ -11,4 +11,12 @@ namespace Extenders {
     void PinExtenderDriver::detachInterrupt(pinnum_t index) {
         Assert(false, "Interrupts are not supported by pin extender");
     }
+
+    Pins::PinCapabilities PinExtenderDriver::capabilities() const {
+        return Pins::PinCapabilities::Input | Pins::PinCapabilities::Output;
+    }
+
+    void PinExtenderDriver::registerEvent(pinnum_t index, InputPin* obj) {
+        Assert(false, "Pin events are not supported by pin extender for pin %d", index);
+    }
 }

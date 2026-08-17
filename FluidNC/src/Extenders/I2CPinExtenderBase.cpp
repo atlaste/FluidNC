@@ -6,13 +6,25 @@
 #    include "Extenders.h"
 #    include "I2CPinExtenderBase.h"
 #    include "Logging.h"
+#    include "Protocol.h"  // protocol_send_event, pinActiveEvent, pinInactiveEvent
 
-// #    include <esp32-hal-gpio.h>
 #    include <freertos/FreeRTOS.h>
 
 namespace Extenders {
+    // Register addresses shared by every device in this family.
+    static const uint8_t InputReg  = 0;
+    static const uint8_t OutputReg = 2;
+    static const uint8_t ConfigReg = 6;
+
+    void ExtenderInterruptPin::trigger(bool active) {
+        InputPin::trigger(active);
+        if (_container) {
+            _container->wake();
+        }
+    }
+
     void I2CPinExtenderBase::claim(pinnum_t index) {
-        Assert(index >= 0 && index < 16 * 4, "I2C pin extender IO index should be [0-63]; %d is out of range", index);
+        Assert(index >= 0 && index < numberPins, "I2C pin extender IO index should be [0-%d]; %d is out of range", numberPins - 1, index);
 
         uint64_t mask = uint64_t(1) << index;
         Assert((_claimed & mask) == 0, "I2C pin extender IO port %d is already used", index);
@@ -56,120 +68,116 @@ namespace Extenders {
 
     void I2CPinExtenderBase::group(Configuration::HandlerBase& handler) {
         handler.item("busId", _i2cBusId);
-        handler.item("interrupt0", _isrData[0]._pin);
-        handler.item("interrupt1", _isrData[1]._pin);
-        handler.item("interrupt2", _isrData[2]._pin);
-        handler.item("interrupt3", _isrData[3]._pin);
-    }
-
-    void I2CPinExtenderBase::isrTaskLoop(void* arg) {
-        auto inst = static_cast<I2CPinExtenderBase*>(arg);
-        while (inst->_isrQueue) {
-            void* ptr;
-            if (inst->_isrQueue && xQueueReceive(inst->_isrQueue, &ptr, portMAX_DELAY)) {
-                ISRData* valuePtr = static_cast<ISRData*>(ptr);
-                // log_info("I2C pin extender state change ISR");
-                valuePtr->updateValueFromDevice();
-            }
-        }
+        handler.item("poll_ms", _pollMs, 1, 1000);
+        handler.item("interrupt0", _interruptPins[0]);
+        handler.item("interrupt1", _interruptPins[1]);
+        handler.item("interrupt2", _interruptPins[2]);
+        handler.item("interrupt3", _interruptPins[3]);
     }
 
     void I2CPinExtenderBase::init() {
-        Assert(_i2cBusId >= 0 && _i2cBusId < 2, "I2C bus ID out of range");
+        Assert(_i2cBusId >= 0 && _i2cBusId < MAX_N_I2C, "I2C bus ID out of range");
         this->_i2cBus = config->_i2c[_i2cBusId];
 
-        auto i2c = _i2cBus;
-        Assert(i2c != nullptr, "I2C pin extender only works when I2C bus is configured");
+        Assert(_i2cBus != nullptr, "I2C pin extender only works when I2C bus is configured");
 
         log_info("Setting up I2C pin extender on I2C" << _i2cBusId);
 
-        _isrQueue = xQueueCreate(16, sizeof(void*));
-        xTaskCreatePinnedToCore(isrTaskLoop,                      // task
-                                "isr_handler",                    // name for task
-                                configMINIMAL_STACK_SIZE + 2048,  // size of task stack
-                                this,                             // parameters
-                                1,                                // priority
-                                &_isrHandler,
-                                SUPPORT_TASK_CORE  // core
-        );
+        for (int device = 0; device < numberDevices; ++device) {
+            // Seed the change detector from the real device state so that the first poll
+            // does not report every asserted input as a fresh edge.
+            refreshDevice(device);
+            _lastEventValue[device] = uint16_t(_value >> (device * 16));
 
-        for (int i = 0; i < 4; ++i) {
-            auto& data = _isrData[i];
-
-            data._address   = uint8_t(_baseAddress + i);
-            data._container = this;
-            data._valueBase = reinterpret_cast<volatile uint16_t*>(&_value) + i;
-
-            if (!data._pin.undefined()) {
-                // Update the value first by reading it:
-                data.updateValueFromDevice();
-
-                // Initialize ISR pin:
-                data._pin.setAttr(Pin::Attr::ISR | Pin::Attr::Input);
-
-#    if 0
-                // The interrupt pin is 'active low'. So if it falls, we're interested in the new value.
-                data._pin.attachInterrupt(updateRegisterState, FALLING, &data);
-#    endif
-            } else {
-                // Reset valueBase so we know it's not bound to an ISR:
-                data._valueBase = nullptr;
+            auto& pin = _interruptPins[device];
+            if (!pin.undefined()) {
+                pin.attach(this);
+                pin.init();
+                _monitoredDevices |= uint8_t(1) << device;
             }
+        }
+
+        // The task is started unconditionally because pins register their events during
+        // Axes/control init, which happens after this point; _monitoredDevices is consulted
+        // on every pass rather than once here.
+        xTaskCreatePinnedToCore(monitorTaskLoop,
+                                "i2c_ext",
+                                configMINIMAL_STACK_SIZE + 2048,
+                                this,
+                                1,
+                                &_monitorTask,
+                                SUPPORT_TASK_CORE);
+    }
+
+    void I2CPinExtenderBase::wake() {
+        if (_monitorTask) {
+            xTaskNotifyGive(_monitorTask);
         }
     }
 
-    void I2CPinExtenderBase::ISRData::updateValueFromDevice() {
-        const uint8_t InputReg = 0;
-        auto          i2cBus   = _container->_i2cBus;
+    void I2CPinExtenderBase::registerEvent(pinnum_t index, InputPin* obj) {
+        Assert(index >= 0 && index < numberPins, "I2C pin extender pin %d out of range", int(index));
+        _eventPins[index] = obj;
+        _monitoredDevices |= uint8_t(1) << (index / 16);
+    }
 
-        auto     r1       = I2CGetValue(i2cBus, _address, InputReg);
-        auto     r2       = I2CGetValue(i2cBus, _address, InputReg + 1);
-        uint16_t oldValue = *_valueBase;
-        uint16_t value    = (uint16_t(r2) << 8) | uint16_t(r1);
+    void I2CPinExtenderBase::monitorTaskLoop(void* arg) {
+        auto inst = static_cast<I2CPinExtenderBase*>(arg);
 
-        // Apply the invert mask for this device (same as non-ISR path does)
-        // Calculate device index from valueBase offset
-        int      deviceIndex = static_cast<int>(_valueBase - reinterpret_cast<volatile uint16_t*>(&_container->_value));
-        uint16_t invertMask  = uint16_t(_container->_invert >> (deviceIndex * 16));
-        value ^= invertMask;
+        while (true) {
+            // Either an interrupt line woke us or the poll interval expired; both mean
+            // "go look at the inputs".
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(inst->_pollMs));
+            inst->pollDevices();
+        }
+    }
 
-        *_valueBase = value;
+    void I2CPinExtenderBase::refreshDevice(int device) {
+        uint8_t address = uint8_t(_baseAddress + device);
 
-        // log_info("New I2C pin extender state: "; for (int i = 0; i < 16; ++i) { ss << (((value & (1 << i)) != 0) ? "x" : " "); });
+        uint16_t raw = uint16_t(I2CGetValue(_i2cBus, address, InputReg));
+        raw |= uint16_t(I2CGetValue(_i2cBus, address, InputReg + 1)) << 8;
 
-        if (_hasISR) {
-            for (int i = 0; i < 16; ++i) {
-                uint16_t mask = uint16_t(1) << i;
+        uint16_t value = raw ^ uint16_t(_invert >> (device * 16));
 
-                if (_isrCallback[i] != nullptr && (oldValue & mask) != (value & mask)) {
-                    // log_info("State change pin " << i);
-#    if 0
-                    switch (_isrMode[i]) {
-                        case RISING:
-                            if ((value & mask) == mask) {
-                                _isrCallback[i](_isrArgument[i], (value & mask) == mask);
-                            }
-                            break;
-                        case FALLING:
-                            if ((value & mask) == 0) {
-                                _isrCallback[i](_isrArgument[i], (value & mask) == mask);
-                            }
-                            break;
-                        case CHANGE:
-                            _isrCallback[i](_isrArgument[i], (value & mask) == mask);
-                            break;
-                    }
-#    endif
+        // Only the bits configured as inputs are ours to update; leaving the output bits
+        // alone keeps a concurrent writePin() from losing its pending value.
+        uint64_t inputMask = _configuration & (uint64_t(0xFFFF) << (device * 16));
+        _value             = (_value & ~inputMask) | ((uint64_t(value) << (device * 16)) & inputMask);
+    }
+
+    void I2CPinExtenderBase::pollDevices() {
+        for (int device = 0; device < numberDevices; ++device) {
+            if ((_monitoredDevices & (uint8_t(1) << device)) == 0) {
+                continue;
+            }
+
+            refreshDevice(device);
+
+            uint16_t value   = uint16_t(_value >> (device * 16));
+            uint16_t changed = value ^ _lastEventValue[device];
+            if (changed == 0) {
+                continue;
+            }
+            _lastEventValue[device] = value;
+
+            for (int bit = 0; bit < 16; ++bit) {
+                uint16_t mask = uint16_t(1) << bit;
+                if ((changed & mask) == 0) {
+                    continue;
                 }
+
+                InputPin* obj = _eventPins[device * 16 + bit];
+                if (obj == nullptr) {
+                    continue;
+                }
+
+                // Hand the transition to the protocol task; this runs on a support task and
+                // must not do the work of an alarm or a feed hold itself.
+                bool active = (value & mask) != 0;
+                protocol_send_event(active ? &pinActiveEvent : &pinInactiveEvent, obj);
             }
         }
-    }
-
-    void I2CPinExtenderBase::updateRegisterState(void* ptr, bool newState) {
-        ISRData* valuePtr = static_cast<ISRData*>(ptr);
-
-        BaseType_t xHigherPriorityTaskWoken = false;
-        xQueueSendFromISR(valuePtr->_container->_isrQueue, &valuePtr, &xHigherPriorityTaskWoken);
     }
 
     void I2CPinExtenderBase::setupPin(pinnum_t index, Pins::PinAttributes attr) {
@@ -182,8 +190,7 @@ namespace Extenders {
 
         const uint8_t deviceId = index / 16;
 
-        const uint8_t ConfigReg = 6;
-        uint8_t       address   = _baseAddress + deviceId;
+        uint8_t address = _baseAddress + deviceId;
 
         uint8_t value = uint8_t(_configuration >> (8 * (index / 8)));
         uint8_t reg   = ConfigReg + ((index / 8) & 1);
@@ -205,25 +212,17 @@ namespace Extenders {
     bool I2CPinExtenderBase::readPin(pinnum_t index) {
         uint8_t reg      = uint8_t(index / 8);
         uint8_t deviceId = reg / 2;
+        uint8_t address  = _baseAddress + deviceId;
 
-        // If it's handled by the ISR, we don't need to read anything from the device.
-        // Otherwise, we do. Check:
-        if (_isrData[deviceId]._valueBase == nullptr) {
-            const uint8_t InputReg = 0;
-            uint8_t       address  = _baseAddress + deviceId;
+        // Always ask the device.  The cached value exists for the monitor task's edge
+        // detection, and trusting it here is what previously made reads on an
+        // interrupt-driven device return whatever was true at startup.
+        auto     readReg  = InputReg + (reg & 1);
+        auto     value    = I2CGetValue(_i2cBus, address, readReg);
+        uint64_t newValue = uint64_t(value) << (int(reg) * 8);
+        uint64_t mask     = uint64_t(0xff) << (int(reg) * 8);
 
-            auto     readReg  = InputReg + (reg & 1);
-            auto     value    = I2CGetValue(_i2cBus, address, readReg);
-            uint64_t newValue = uint64_t(value) << (int(reg) * 8);
-            uint64_t mask     = uint64_t(0xff) << (int(reg) * 8);
-
-            _value = ((newValue ^ _invert) & mask) | (_value & ~mask);
-
-            // log_info("Read reg " << int(readReg) << " <- value " << int(newValue) << " gives " << int(_value));
-        }
-        // else {
-        //     log_info("No read, value is " << int(_value));
-        // }
+        _value = ((newValue ^ _invert) & mask) | (_value & ~mask);
 
         return (_value & (1ull << index)) != 0;
     }
@@ -232,8 +231,7 @@ namespace Extenders {
         uint64_t write = _value ^ _invert;
         for (int i = 0; i < 8; ++i) {
             if ((_dirtyRegisters & (1 << i)) != 0) {
-                const uint8_t OutputReg = 2;
-                uint8_t       address   = _baseAddress + (i / 2);
+                uint8_t address = _baseAddress + (i / 2);
 
                 uint8_t val = uint8_t(write >> (8 * i));
                 uint8_t reg = OutputReg + (i & 1);
@@ -244,51 +242,11 @@ namespace Extenders {
         _dirtyRegisters = 0;
     }
 
-    // ISR's:
-    void I2CPinExtenderBase::attachInterrupt(pinnum_t index, void (*callback)(void*, bool), void* arg, uint8_t mode) {
-        uint8_t  device    = index / 16;
-        pinnum_t pinNumber = index % 16;
-
-        Assert(_isrData[device]._isrCallback[pinNumber] == nullptr, "You can only set a single ISR for pin %d", index);
-
-        _isrData[device]._isrCallback[pinNumber] = callback;
-        _isrData[device]._isrArgument[pinNumber] = arg;
-        _isrData[device]._isrMode[pinNumber]     = mode;
-        _isrData[device]._hasISR                 = true;
-    }
-
-    void I2CPinExtenderBase::detachInterrupt(pinnum_t index) {
-        uint8_t  device    = index / 16;
-        pinnum_t pinNumber = index % 16;
-
-        _isrData[device]._isrCallback[pinNumber] = nullptr;
-        _isrData[device]._isrArgument[pinNumber] = nullptr;
-        _isrData[device]._isrMode[pinNumber]     = 0;
-
-        bool hasISR = false;
-        for (int i = 0; i < 16; ++i) {
-            hasISR |= (_isrData[device]._isrArgument[i] != nullptr);
-        }
-        _isrData[device]._hasISR = hasISR;
-    }
-
     I2CPinExtenderBase::~I2CPinExtenderBase() {
-        for (int i = 0; i < 4; ++i) {
-            auto& data = _isrData[i];
-
-            if (!data._pin.undefined()) {
-#    if 0
-                data._pin.detachInterrupt();
-#    endif
-            }
+        if (_monitorTask) {
+            vTaskDelete(_monitorTask);
+            _monitorTask = nullptr;
         }
-
-#    if _WIN32
-        _isrQueue = nullptr;
-        for (int i = 0; i < 20; ++i) {
-            std::this_thread::yield();
-        }
-#    endif
     }
 }
 #endif

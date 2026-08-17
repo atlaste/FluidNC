@@ -66,7 +66,10 @@ namespace Machine {
         static void init();
 
         static steps_t getSteps(axis_t axis) { return axis_steps[axis]; }
-        static void    setSteps(axis_t axis, steps_t steps) { axis_steps[axis] = steps; }
+
+        // Sets the position of an axis outside of motion.  Not inline, because axes that live
+        // on a CAN node have to be told about it too.
+        static void setSteps(axis_t axis, steps_t steps);
 
         static void assignMotor(axis_t axis, motor_t motor, pinnum_t step_pin, bool step_invert, pinnum_t dir_pin, bool dir_invert);
 

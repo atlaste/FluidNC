@@ -31,6 +31,7 @@
 #include "UserInputs.h"
 #include "Macros.h"
 #include "../Planner/BasePlanner.h"
+#include "../CAN/CanBus.h"
 
 #include <string_view>
 
@@ -121,6 +122,7 @@ namespace Machine {
         //        Listeners::SysListenerList _sysListeners;
         //        Spindles::SpindleList      _spindles;
         Extenders::Extenders* _extenders = nullptr;
+        CAN::CanBus*          _can       = nullptr;
 
         UartChannel* _uart_channels[MAX_N_UARTS] = { nullptr };
         Uart*        _uarts[MAX_N_UARTS]         = { nullptr };

@@ -72,6 +72,7 @@ namespace MotorDrivers {
 
         tmc2240->diag0_error(_diag0_error);
         tmc2240->diag0_otpw(_diag0_otpw);
+        tmc2240->diag0_stall(_diag0_stall && _mode == TrinamicMode::StallGuard);
         tmc2240->diag0_int_pushpull(_diag0_int_pushpull);
 
         switch (_mode) {

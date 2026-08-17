@@ -32,6 +32,11 @@ namespace MotorDrivers {
             handler.item("tpfd", _tpfd, 0, 15);
             handler.item("r_ref_kohms", _r_ref, 12.0f, 60.0f);
             handler.item("slope_control", _slope_control, 0, 3);
+
+            // StallGuard mode drives the stall signal out on DIAG1.  Breakout
+            // boards that only bring out DIAG0 - the BigTreeTech TMC2240 v1.0
+            // among them - need the stall signal routed there instead.
+            handler.item("diag0_stall", _diag0_stall);
         }
 
     private:
@@ -40,6 +45,7 @@ namespace MotorDrivers {
         uint8_t _tpfd          = 4;
         uint8_t _slope_control = 0;
         float   _r_ref         = TMC2240_RREF_DEFAULT;
+        bool    _diag0_stall   = false;
 
         bool test();
         void set_registers(bool isHoming) override;

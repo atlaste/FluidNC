@@ -35,6 +35,7 @@ namespace Machine {
         // Configuration system helpers:
         void group(Configuration::HandlerBase& handler) override;
         void afterParse() override;
+        void validate() override;
         bool hasSwitches();
         bool isReal();
         void makeDualSwitches();

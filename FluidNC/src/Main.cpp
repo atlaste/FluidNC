@@ -21,6 +21,7 @@
 #    include "Module.h"
 #    include "wdt.h"
 #    include "Scheduler/SchedulerTask.h"
+#    include "CAN/CanNode.h"
 
 #    include "Driver/localfs.h"
 
@@ -105,6 +106,12 @@ void setup() {
 #    endif
         feed_WDT();
 
+        // The CAN bus comes up before the extenders, because a CAN pin extender needs the
+        // bus to exist before it can claim pins or subscribe to node traffic.
+        if (config->_can) {
+            config->_can->init();
+        }
+
         // We have to initialize the extenders first, before pins are used
         if (config->_extenders) {
             config->_extenders->init();
@@ -180,6 +187,10 @@ void setup() {
             config->_coolant->init();
             config->_probe->init();
         }
+
+        // Every CAN consumer has registered its node by now, so the supervisor can start
+        // synchronising clocks and watching heartbeats against a complete node list.
+        CAN::CanNodes::instance().init();
 
         make_proxies();
 

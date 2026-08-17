@@ -5,8 +5,11 @@
 
 #include "Configuration/Configurable.h"
 #include "Pins/PinAttributes.h"
+#include "Pins/PinCapabilities.h"
 
 #include "Platform.h"
+
+class InputPin;
 
 namespace Extenders {
     class PinExtenderDriver : public Configuration::Configurable {
@@ -23,6 +26,14 @@ namespace Extenders {
 
         virtual void attachInterrupt(pinnum_t index, void (*callback)(void*, bool), void* arg, uint8_t mode);
         virtual void detachInterrupt(pinnum_t index);
+
+        // Each class of extender advertises its own capability bit so that consumers can
+        // reject pin classes that are unsuitable for their purpose.
+        virtual Pins::PinCapabilities capabilities() const;
+
+        // Event-driven input.  Drivers that can report input changes asynchronously override
+        // this and call obj->trigger() (via protocol_send_event) when the pin changes state.
+        virtual void registerEvent(pinnum_t index, InputPin* obj);
 
         // Name is required for the configuration factory to work.
         virtual const char* name() const = 0;

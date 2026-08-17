@@ -2,13 +2,14 @@
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "ODriveSpindle.h"
-#include "ODrive/CanESP32.h"
 #include "ODrive/ODriveEnums.h"
 
 #include "Protocol.h"       // rtAlarm
 #include "MotionControl.h"  // mc_critical
 #include "System.h"         // sys.*
 #include "Logging.h"
+#include "Machine/MachineConfig.h"  // config->_can
+#include "../CAN/CanIds.h"
 
 #include <cstdio>
 #include <iostream>
@@ -39,48 +40,85 @@ namespace Spindles {
     bool ODriveSpindle::isShutdownRequested() { return _shutdown.load(); }
     void ODriveSpindle::resetShutdown() { _shutdown.store(false); }
 
-    // ODrive CAN Messages:
-    int ODriveSpindle::receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms) {
-        auto deadline = esp_timer_get_time() + (timeout_ms * 1000);
+    // ODrive CAN Messages.
+    //
+    // Frames arrive on the shared CAN RX task.  Heartbeat and encoder estimates are unsolicited
+    // and are folded into the cached state here; everything else is a reply to request<T>() and
+    // is handed to the waiting caller through _responseQueue.
+    void ODriveSpindle::onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) {
+        uint32_t cmd_id = id & kCmdIdBits;
 
-        while ((esp_timer_get_time() - deadline) < 0) {
-            uint32_t identifier = 0;
-            int      res        = can->tryReceive(responseData, &identifier);
-            *nodeId             = (identifier >> kNodeIdShift);
-            *messageId          = identifier & kCmdIdBits;
+        if (cmd_id == ODrive::Heartbeat_msg_t::cmd_id) {
+            lastHeartbeat = rx_time_us;
 
-            // Note: we only support 1 odrive at the moment.
-            if (res >= 0 && ODriveNodeId == *nodeId) {
-                if (*messageId == ODrive::Heartbeat_msg_t::cmd_id) {
-                    lastHeartbeat = esp_timer_get_time();
-
-                    ODrive::Heartbeat_msg_t hb;
-                    hb.decode_buf(responseData);
-                    lastAxisState = hb.Axis_State;
-                    lastAxisError = hb.Axis_Error;
-                } else if (*messageId == ODrive::Get_Encoder_Estimates_msg_t::cmd_id) {
-                    ODrive::Get_Encoder_Estimates_msg_t estimates;
-                    estimates.decode_buf(responseData);
-                    lastPosition = estimates.Pos_Estimate;
-                    lastVelocity = estimates.Vel_Estimate;
-                } else {
-                    log_info("Received message from node " << int(*nodeId) << " with id: " << int(*messageId) << ".");
-                    // for (int i = 0; i < 8; ++i) {
-                    //     printf("0x%02X ", responseData[i]);
-                    // }
-                    // printf("\n");
-
-                    return res;
-                }
-            }
+            ODrive::Heartbeat_msg_t hb;
+            hb.decode_buf(data);
+            lastAxisState = hb.Axis_State;
+            lastAxisError = hb.Axis_Error;
+            return;
         }
-        return 0;
+
+        if (cmd_id == ODrive::Get_Encoder_Estimates_msg_t::cmd_id) {
+            ODrive::Get_Encoder_Estimates_msg_t estimates;
+            estimates.decode_buf(data);
+            lastPosition = estimates.Pos_Estimate;
+            lastVelocity = estimates.Vel_Estimate;
+            return;
+        }
+
+        if (_responseQueue) {
+            CanResponse response;
+            response.cmd_id = cmd_id;
+            response.len    = len;
+            memset(response.data, 0, sizeof(response.data));
+            memcpy(response.data, data, len > 8 ? 8 : len);
+            xQueueSend(_responseQueue, &response, 0);
+        }
     }
-    void ODriveSpindle::pump() {
-        uint8_t  responseData[8];
-        uint32_t messageId;
-        uint32_t nodeId;
-        receive(responseData, &messageId, &nodeId);
+
+    bool ODriveSpindle::sendFrame(uint32_t cmd_id, uint8_t len, const uint8_t* data) {
+        if (config->_can == nullptr || !config->_can->started()) {
+            return false;
+        }
+        return config->_can->send((ODriveNodeId << kNodeIdShift) | cmd_id, len, data);
+    }
+
+    bool ODriveSpindle::awaitResponse(uint32_t cmd_id, uint8_t* data, uint8_t* len, int timeout_ms) {
+        if (_responseQueue == nullptr) {
+            return false;
+        }
+
+        auto deadline = esp_timer_get_time() + int64_t(timeout_ms) * 1000;
+        while (true) {
+            int64_t remaining_us = deadline - esp_timer_get_time();
+            if (remaining_us <= 0) {
+                return false;
+            }
+
+            CanResponse response;
+            if (xQueueReceive(_responseQueue, &response, pdMS_TO_TICKS(remaining_us / 1000 + 1)) != pdTRUE) {
+                return false;
+            }
+            if (response.cmd_id != cmd_id) {
+                // A reply to an earlier request that already gave up.  Discard and keep waiting.
+                log_debug("ODrive: discarding stale response " << int(response.cmd_id));
+                continue;
+            }
+            memcpy(data, response.data, sizeof(response.data));
+            *len = response.len;
+            return true;
+        }
+    }
+
+    bool ODriveSpindle::awaitHeartbeat(int timeout_ms) {
+        auto deadline = esp_timer_get_time() + int64_t(timeout_ms) * 1000;
+        while (lastHeartbeat == 0) {
+            if (esp_timer_get_time() > deadline) {
+                return false;
+            }
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        return true;
     }
 
     bool ODriveSpindle::setState(ODrive::ODriveAxisState state) {
@@ -91,10 +129,11 @@ namespace Spindles {
             setState.Axis_Requested_State = state;
             send(setState);
 
-            // Verify closed loop
+            // Verify closed loop.  lastAxisState is refreshed from the heartbeat by the
+            // shared CAN RX task, so this just waits for that to catch up.
             auto deadline = esp_timer_get_time() + 2000000;
             while ((deadline - esp_timer_get_time()) > 0 && lastAxisState != uint8_t(state)) {
-                pump();
+                vTaskDelay(pdMS_TO_TICKS(5));
             }
         }
 
@@ -126,7 +165,7 @@ namespace Spindles {
             // Wait till speed reaches target RPM
             auto deadline = esp_timer_get_time() + (timeout * 1000000);
             while ((deadline - esp_timer_get_time()) > 0) {
-                pump();
+                vTaskDelay(pdMS_TO_TICKS(5));
 
                 auto diff = lastVelocity - targetVelocity;
                 if (diff < 0) {
@@ -184,28 +223,22 @@ namespace Spindles {
 
     void ODriveSpindle::initializationSequence() {
         state = ODriveState::Uninitialized;
-        if (can == nullptr) {
-            can = new ODrive::CanESP32();
-        }
 
-        // Configure and initialize the CAN bus interface. This function depends on
-        // your hardware and the CAN stack that you're using.
-        if (!can->init(txPin.getNative(Pin::Capabilities::Output), rxPin.getNative(Pin::Capabilities::Input))) {
-            log_error("CAN failed to initialize: reset required");
+        if (config->_can == nullptr || !config->_can->started()) {
+            log_error("ODrive: CAN bus is not available");
             state = ODriveState::Error;
             return;
         }
 
         lastHeartbeat = 0;
-        uint8_t  buf[8];
-        uint32_t msgId;
-        uint32_t nodeId;
 
         log_info("Waiting for ODrive...");
-        while (lastHeartbeat == 0) {
-            receive(buf, &msgId, &nodeId);
+        if (!awaitHeartbeat(10000)) {
+            log_error("ODrive node " << ODriveNodeId << " did not report in");
+            state = ODriveState::Error;
+            return;
         }
-        log_info("ODrive node " << nodeId << " found.");
+        log_info("ODrive node " << ODriveNodeId << " found.");
 
         // request bus voltage and current (1sec timeout)
         log_info("Attempting to read bus voltage and current");
@@ -329,9 +362,6 @@ namespace Spindles {
                 
                 // Process the action
                 instance->invokeAction(action);
-            } else {
-                // No command in queue, just pump to handle incoming messages
-                instance->pump();
             }
 
                 // If syncing, periodically poll for speed updates
@@ -341,6 +371,10 @@ namespace Spindles {
                 }
             } else if (instance->state == ODriveState::Uninitialized) {
                 instance->initializationSequence();
+            } else {
+                // Error state: wait for reset() to move us back to Uninitialized rather
+                // than spinning on the CPU.
+                vTaskDelay(poll_delay);
             }
         }
     }
@@ -356,6 +390,26 @@ namespace Spindles {
         is_reversable = true;
 
         _current_state = SpindleState::Disable;
+
+        // Configs written before the shared bus existed declare the CAN pins here.  Honour
+        // them by bringing the bus up on this spindle's behalf.  A config that also uses CAN
+        // pin extenders must use the top-level "can:" section instead, because extenders are
+        // initialised before spindles; Extenders validation reports that case.
+        if (config->_can == nullptr && txPin.defined() && rxPin.defined()) {
+            log_warn("ODrive: can_tx/can_rx are deprecated, please use the top level 'can:' section");
+            config->_can = new CAN::CanBus();
+            config->_can->initLegacy(txPin.getNative(Pin::Capabilities::Output), rxPin.getNative(Pin::Capabilities::Input), 500);
+        }
+
+        if (_responseQueue == nullptr) {
+            _responseQueue = xQueueCreate(8, sizeof(CanResponse));
+        }
+
+        if (config->_can != nullptr) {
+            // ODrive CAN Simple packs the node id into the upper 6 bits of an 11 bit
+            // identifier and the command id into the lower 5.
+            config->_can->subscribe(this, ODriveNodeId << kNodeIdShift, 0x7FF & ~kCmdIdBits);
+        }
 
         // Initialization is complete, so now it's okay to run the queue task:
         if (!cmd_queue) {  // init can happen many times, we only want to start one task
@@ -599,7 +653,14 @@ namespace Spindles {
 
     void ODriveSpindle::validate() {
         Spindle::validate();
-        Assert(txPin.defined() && rxPin.defined(), "ODrive: missing CAN TX/RX pin configuration");
+
+        // Node 0 would map onto identifiers 0x000-0x01F, which are reserved for abort,
+        // clock sync and scheduled motion.  See CanIds.h.
+        Assert(ODriveNodeId >= 1 && ODriveNodeId <= 3,
+               "ODrive: odrive_node_id must be between 1 and 3; 0 collides with reserved CAN identifiers");
+
+        Assert(config->_can != nullptr || (txPin.defined() && rxPin.defined()),
+               "ODrive: no CAN bus configured; add a top level 'can:' section");
     }
 
     void ODriveSpindle::afterParse() {}

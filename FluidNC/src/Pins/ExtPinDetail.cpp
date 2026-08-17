@@ -14,13 +14,25 @@ namespace Pins {
             } else if (opt.is("high")) {
                 // Default: Active HIGH.
             } else {
-                Assert(false, "Unsupported I2SO option '%s'", opt());
+                Assert(false, "Unsupported pin extender option '%s'", opt());
             }
         }
     }
 
+    Extenders::PinExtenderDriver* ExtPinDetail::driver() const {
+        if (_owner == nullptr) {
+            auto ext = config->_extenders;
+            Assert(ext != nullptr && ext->_pinDrivers[_device] != nullptr && ext->_pinDrivers[_device]->_driver != nullptr,
+                   "Cannot find pin extender definition in configuration for pin pinext%d.%d",
+                   int(_device),
+                   int(_index));
+            _owner = ext->_pinDrivers[_device]->_driver;
+        }
+        return _owner;
+    }
+
     PinCapabilities ExtPinDetail::capabilities() const {
-        return PinCapabilities::Input | PinCapabilities::Output | PinCapabilities::ISR;
+        return driver()->capabilities() | PinCapabilities::ISR;
     }
 
     // I/O:
@@ -44,26 +56,26 @@ namespace Pins {
         // We setup the driver in setAttr. Before this time, the owner might not be valid.
 
         // Check the attributes first:
-        Assert(value.has(PinAttributes::Input) || value.has(PinAttributes::Output), "PCA9539 pins can be used as either input or output");
-        Assert(value.has(PinAttributes::Input) != value.has(PinAttributes::Output), "PCA9539 pins can be used as either input or output");
-        Assert(value.validateWith(this->_capabilities), "Requested attributes do not match the PCA9539 pin capabilities");
+        Assert(value.has(PinAttributes::Input) || value.has(PinAttributes::Output),
+               "Pin extender pins can be used as either input or output");
+        Assert(value.has(PinAttributes::Input) != value.has(PinAttributes::Output),
+               "Pin extender pins can be used as either input or output");
+        Assert(value.validateWith(this->_capabilities), "Requested attributes do not match the pin extender capabilities");
         Assert(!_attributes.conflictsWith(value), "Attributes on this pin have been set before, and there's a conflict");
 
         _attributes = value;
 
-        if (_owner == nullptr) {
-            auto ext = config->_extenders;
-            if (ext != nullptr && ext->_pinDrivers[_device] != nullptr && ext->_pinDrivers[_device]->_driver != nullptr) {
-                _owner = ext->_pinDrivers[_device]->_driver;
-            } else {
-                Assert(false, "Cannot find pin extender definition in configuration for pin pinext%d.%d", _device, _index);
-            }
-
-            _owner->claim(_index);
+        if (!_claimed) {
+            driver()->claim(_index);
+            _claimed = true;
         }
 
-        _owner->setupPin(_index, _attributes);
-        _owner->writePin(_index, value.has(PinAttributes::InitialOn));
+        driver()->setupPin(_index, _attributes);
+        driver()->writePin(_index, value.has(PinAttributes::InitialOn));
+    }
+
+    void ExtPinDetail::registerEvent(InputPin* obj) {
+        driver()->registerEvent(_index, obj);
     }
 
     PinAttributes ExtPinDetail::getAttr() const {
@@ -92,7 +104,7 @@ namespace Pins {
     }
 
     ExtPinDetail::~ExtPinDetail() {
-        if (_owner) {
+        if (_claimed && _owner) {
             _owner->free(_index);
         }
     }

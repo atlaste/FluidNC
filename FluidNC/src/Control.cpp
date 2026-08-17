@@ -6,8 +6,23 @@
 #include "Protocol.h"        // *Event
 #include "Machine/Macros.h"  // macro0Event
 
+// Numbered variants of the pins that a machine plausibly has more than one of.  With pin
+// extenders it is common to have far more fault sources than a single GPIO budget could
+// ever cover -- drive faults, contactor feedback, air pressure, thermal switches -- and
+// capturing all of them is worth more than saving a few objects here.
+static const int numFaultPins      = 16;
+static const int numEstopPins      = 4;
+static const int numSafetyDoorPins = 4;
+
+void Control::addNumbered(const Event* event, const char* base, char letter, int count) {
+    char legend[32];
+    for (int i = 0; i < count; ++i) {
+        snprintf(legend, sizeof(legend), "%s%d", base, i);
+        _pins.push_back(new ControlPin(event, legend, letter));
+    }
+}
+
 Control::Control() {
-    // The SafetyDoor pin must be defined first because it is checked explicitly in safety_door_ajar()
     _pins.push_back(new ControlPin(&safetyDoorEvent, "safety_door_pin", 'D'));
     _pins.push_back(new ControlPin(&rtResetEvent, "reset_pin", 'R'));
     _pins.push_back(new ControlPin(&feedHoldEvent, "feed_hold_pin", 'H'));
@@ -19,6 +34,10 @@ Control::Control() {
     _pins.push_back(new ControlPin(&faultPinEvent, "fault_pin", 'F'));
     _pins.push_back(new ControlPin(&faultPinEvent, "estop_pin", 'E'));
     _pins.push_back(new ControlPin(&homingButtonEvent, "homing_button_pin", 'O'));
+
+    addNumbered(&faultPinEvent, "fault_pin", 'F', numFaultPins);
+    addNumbered(&faultPinEvent, "estop_pin", 'E', numEstopPins);
+    addNumbered(&safetyDoorEvent, "safety_door_pin", 'D', numSafetyDoorPins);
 }
 
 void Control::init() {
@@ -34,9 +53,11 @@ void Control::group(Configuration::HandlerBase& handler) {
 }
 
 std::string Control::report_status() {
+    // A letter appears once however many pins of that kind are active, so that a machine
+    // with sixteen fault inputs does not produce a status line full of Fs.
     std::string ret = "";
     for (auto pin : _pins) {
-        if (pin->get()) {
+        if (pin->get() && ret.find(pin->letter()) == std::string::npos) {
             ret += pin->letter();
         }
     }
@@ -78,8 +99,12 @@ bool Control::startup_check() {
 
 // Returns if safety door is ajar(T) or closed(F), based on pin state.
 bool Control::safety_door_ajar() {
-    // If a safety door pin is not defined, this will return false
-    // because that is the default for the value field, which will
-    // never be changed for an undefined pin.
-    return _pins[0]->get();
+    // Any one of the door pins being open means the door is ajar.  Pins that are not
+    // configured never change from their default of inactive.
+    for (auto pin : _pins) {
+        if (pin->letter() == 'D' && pin->get()) {
+            return true;
+        }
+    }
+    return false;
 }

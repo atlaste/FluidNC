@@ -9,6 +9,8 @@
 
 using namespace Machine;
 class Control : public Configuration::Configurable {
+    void addNumbered(const Event* event, const char* base, char letter, int count);
+
 public:
     Control();
 

@@ -26,6 +26,11 @@ uint16_t TMC2240Stepper::full_scale_rms_ma(uint8_t range) const {
 // kept as high as possible - the datasheet recommends 16..31 because IRUN also
 // scales the microstep sine table - while holding GLOBALSCALER at 128 or above,
 // which is where the chopper hysteresis behaves best.
+//
+// Those two goals conflict below roughly 200mA, where GLOBALSCALER has to drop
+// under 128 for IRUN to stay in its recommended band.  IRUN wins: a coarse IRUN
+// costs microstep resolution outright, and StealthChop2 autotuning stops working
+// altogether below IRUN 8.
 void TMC2240Stepper::rms_current(uint16_t mA, float mult) {
     holdMultiplier = mult;
 
@@ -49,10 +54,14 @@ void TMC2240Stepper::rms_current(uint16_t mA, float mult) {
             scaler = 0;  // 0 means full scale, i.e. 256/256
             break;
         }
-        if (scaler >= 128 || cs == 0) {
+        if (scaler >= 128 || cs <= MIN_IRUN) {
             break;
         }
         cs--;  // a smaller run current setting needs a larger scaler
+    }
+
+    if (scaler != 0 && scaler < MIN_GLOBAL_SCALER) {
+        scaler = MIN_GLOBAL_SCALER;
     }
 
     GLOBAL_SCALER(scaler);

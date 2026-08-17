@@ -17,6 +17,8 @@
 #include "Protocol.h"
 #include "SpindleEncoder.h"
 #include "Spindles/Spindle.h"
+#include "Spindles/CanPwmSpindle.h"
+#include "CAN/CanScheduler.h"
 
 #include <cmath>
 
@@ -105,6 +107,9 @@ void Stepper::updateSpindleCallback() {
     } else {
         spindle_isr_callback = { Spindles::Spindle::defaultSpeedCallback, nullptr };
     }
+    // A CAN-side PWM tool is driven from the scheduler rather than from the ISR, so the
+    // scheduler has to learn about the change at the same moment the callback does.
+    Spindles::CanPwm::onSpindleChanged(spindle);
 }
 
 // Helper to invoke the ISR-safe spindle speed callback
@@ -374,6 +379,13 @@ bool IRAM_ATTR Stepper::pulse_func() {
                 st.steps[axis] = st.exec_block->steps[axis] >> st.exec_segment->amass_level;
             }
 
+            // Anchor the CAN motion timeline to a real timestamp.  Doing this on every
+            // segment keeps the extrapolation that prep_buffer performs short, so scheduling
+            // error stays at ISR jitter level instead of accumulating over a long job.
+            if (st.exec_segment->on_load == segment_load_timer) {
+                CAN::CanScheduler::onSegmentStarted(uint32_t(st.step_count) * uint32_t(st.exec_segment->timer.isr_period));
+            }
+
             // Call segment's on_load callback to handle timing source and spindle speed.
             // NOTE: For encoder mode, ISR may fire during this call and re-enter pulse_func,
             // potentially completing this segment before on_load returns!
@@ -451,14 +463,28 @@ void Stepper::wake_up() {
     // Determine mode from the next segment in the buffer (if any)
     // For timer mode: startTimer() triggers ISR which calls pulse_func
     // For encoder mode: we must call pulse_func() directly to bootstrap the first segment
+    // Coordinated CAN axes need their first moves in hand before anything moves, so the
+    // local timer start is deferred to a known instant that the nodes have been told about.
+    int64_t can_start = CAN::CanScheduler::onWakeUp();
+
+    // Determine mode from the next segment in the buffer (if any)
     if (segment_buffer_head != segment_buffer_tail) {
         auto nextSeg = &segment_buffer[segment_buffer_tail];
         if (nextSeg->on_load != segment_load_timer && spindle_encoder != nullptr) {
             // Encoder mode: call pulse_func to load first segment, which starts encoder callback
+            if (CAN::CanScheduler::hasAxes()) {
+                // The G-code layer refuses spindle-synchronised motion when a CAN axis exists;
+                // reaching here means something slipped past, and the axis would silently stay
+                // put while the rest of the machine cut.
+                log_error("Spindle-synchronised motion cannot drive a CAN axis");
+                mc_critical(ExecAlarm::CanNodeLost);
+                return;
+            }
             timerMode = false;
             pulse_func();
         } else {
             // Timer mode: start timer which will call pulse_func via ISR
+            CAN::CanScheduler::waitForStart(can_start);
             Stepping::startTimer();
             timerMode = true;
         }
@@ -473,6 +499,7 @@ void Stepper::go_idle() {
     awake = false;
     stop_stepping();
     stop_spindle_encoder();
+    CAN::CanScheduler::onGoIdle();
 
     protocol_disable_steppers();
 }
@@ -483,6 +510,7 @@ void Stepper::reset() {
     Stepping::reset();
 
     go_idle();  // This will already stop and unregister the encoder callback
+    CAN::CanScheduler::onReset();
 
     // Initialize stepper algorithm variables.
     memset(&prep, 0, sizeof(st_prep_t));
@@ -1011,6 +1039,19 @@ void Stepper::prep_buffer() {
         } else {
             // Encoder mode: no AMASS, 1:1 step timing
             prep_segment->amass_level = 0;
+        }
+
+        // Hand the segment to the CAN scheduler before it becomes visible to the ISR, so
+        // that coordinated axes are always scheduled ahead of local execution.
+        if (prep_segment->on_load == segment_load_timer) {
+            CAN::CanScheduler::onSegmentPrepared(const_cast<const uint32_t*>(st_prep_block->steps),
+                                                 st_prep_block->step_event_count,
+                                                 st_prep_block->direction_bits,
+                                                 prep.st_block_index,
+                                                 prep_segment->n_step,
+                                                 prep_segment->amass_level,
+                                                 prep_segment->timer.isr_period,
+                                                 prep_segment->spindle_dev_speed);
         }
 
         // Segment complete! Increment segment buffer indices, so stepper ISR can immediately execute it.

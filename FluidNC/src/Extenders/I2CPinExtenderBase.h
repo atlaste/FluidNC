@@ -6,14 +6,32 @@
 #include "Extenders.h"
 #include "PinExtenderDriver.h"
 #include "Configuration/Configurable.h"
+#include "Machine/EventPin.h"
 #include "Machine/MachineConfig.h"
 #include "Machine/I2CBus.h"
 #include "Platform.h"
 
 #include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <bitset>
 
 namespace Extenders {
+    class I2CPinExtenderBase;
+
+    // The extender's interrupt line only reports that *something* on the device changed,
+    // never which pin.  It therefore exists to shorten the monitor task's wait rather than
+    // to identify a pin, and the task still reads the input registers to find the change.
+    class ExtenderInterruptPin : public InputPin {
+        I2CPinExtenderBase* _container = nullptr;
+
+    public:
+        ExtenderInterruptPin() : InputPin("extender interrupt") {}
+
+        void attach(I2CPinExtenderBase* container) { _container = container; }
+
+        void trigger(bool active) override;
+    };
+
     // Pin extenders...
     //
     // The PCA9539 is identical to the PCA9555 in terms of API. It provides 2 address
@@ -27,10 +45,11 @@ namespace Extenders {
     // Datasheet: https://www.nxp.com/docs/en/data-sheet/PCA8574_PCA8574A.pdf
     // Speed: 400 kHz
     //
-    // An optional 'interrupt' line can be used. When the 'interrupt' is called, it means
-    // that *some* pin has changed state. We don't know which one that was obviously.
-    // However, we can then query the individual pins (thereby resetting them) and throwing
-    // the results as individual ISR's.
+    // Input pins are serviced by a monitor task that reads the input registers, compares
+    // them against the previous reading and turns each changed bit into a pin event.  An
+    // optional per-device 'interruptN' line wakes that task early; without one the task
+    // falls back on its poll interval, which is the only option on boards that do not
+    // route the interrupt or whose interrupt GPIO is unavailable.
     //
     // NOTE: The data sheet explains that interrupts can be chained. If that is the case, the
     // interrupt will have the effect that ALL PCA's in the chain have to be queried. Needless
@@ -57,11 +76,17 @@ namespace Extenders {
     class I2CPinExtenderBase : public PinExtenderDriver {
         // Address can be set for up to 4 devices. Each device supports 16 pins.
 
-        static const int numberPins = 16 * 4;
-        uint64_t         _claimed   = 0;
+        static const int numberDevices = 4;
+        static const int numberPins    = 16 * numberDevices;
 
-        Machine::I2CBus* _i2cBus;
+        uint64_t _claimed = 0;
+
+        Machine::I2CBus* _i2cBus   = nullptr;
         int32_t          _i2cBusId = 0;
+
+        // Upper bound on how long an input change can go unnoticed when no interrupt line
+        // is wired.  Endstops and probes ride on this, so it defaults low.
+        int32_t _pollMs = 5;
 
         static uint8_t IRAM_ATTR I2CGetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg);
         static void IRAM_ATTR    I2CSetValue(Machine::I2CBus* bus, uint8_t address, uint8_t reg, uint8_t value);
@@ -75,31 +100,23 @@ namespace Extenders {
         // 4 devices, 2 registers per device. 8 bits is enough:
         uint8_t _dirtyRegisters = 0;
 
-        QueueHandle_t _isrQueue   = nullptr;
-        TaskHandle_t  _isrHandler = nullptr;
+        // Pins that asked to be told about changes, and the last state the monitor task
+        // dispatched for them.  Kept separate from _value so that a concurrent readPin()
+        // refreshing the cache cannot swallow an edge.
+        InputPin* _eventPins[numberPins] = { nullptr };
+        uint16_t  _lastEventValue[numberDevices] = { 0 };
 
-        static void isrTaskLoop(void* arg);
+        // Devices worth reading in the monitor loop: those with event pins or an interrupt.
+        uint8_t _monitoredDevices = 0;
 
-        struct ISRData {
-            ISRData() = default;
+        ExtenderInterruptPin _interruptPins[numberDevices];
 
-            Pin                 _pin;
-            I2CPinExtenderBase* _container = nullptr;
-            volatile uint16_t*  _valueBase = nullptr;
-            uint8_t             _address   = 0;
+        TaskHandle_t _monitorTask = nullptr;
 
-            typedef void (*ISRCallback)(void*, bool);
+        static void monitorTaskLoop(void* arg);
 
-            bool        _hasISR          = false;
-            ISRCallback _isrCallback[16] = { 0 };
-            void*       _isrArgument[16] = { 0 };
-            uint8_t     _isrMode[16]     = { 0 };
-
-            void IRAM_ATTR updateValueFromDevice();
-        };
-
-        ISRData               _isrData[4];
-        static void IRAM_ATTR updateRegisterState(void* ptr, bool newState);
+        void pollDevices();
+        void refreshDevice(int device);
 
         const char* _name;
 
@@ -123,8 +140,10 @@ namespace Extenders {
         bool IRAM_ATTR readPin(pinnum_t index) override;
         void IRAM_ATTR flushWrites() override;
 
-        void attachInterrupt(pinnum_t index, void (*callback)(void*, bool), void* arg, uint8_t mode) override;
-        void detachInterrupt(pinnum_t index) override;
+        void registerEvent(pinnum_t index, InputPin* obj) override;
+
+        // Called from an interrupt pin's event to cut short the monitor task's wait.
+        void wake();
 
         ~I2CPinExtenderBase();
     };

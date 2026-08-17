@@ -69,6 +69,14 @@ idf_component_register(SRCS BTConfig.cpp
 							Configuration/RuntimeSetting.cpp
 							Configuration/Tokenizer.cpp
 							Configuration/Validator.cpp
+							CAN/CanActuator.cpp
+							CAN/CanBus.cpp
+							CAN/CanClockSync.cpp
+							CAN/CanDriver.cpp
+							CAN/CanNode.cpp
+							CAN/CanPendant.cpp
+							CAN/CanScheduler.cpp
+							Extenders/CanPinExtender.cpp
 							Extenders/Extenders.cpp
 							Extenders/I2CPinExtenderBase.cpp
 							Extenders/PCA9535_9555.cpp
@@ -98,6 +106,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Machine/SPIBus.cpp
 							Machine/UserInputs.cpp
 							Machine/UserOutputs.cpp
+							Motors/CanStepper.cpp
 							Motors/Dynamixel2.cpp
 							Motors/MotorDriver.cpp
 							Motors/NullMotor.cpp
@@ -131,6 +140,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Pins/VoidPinDetail.cpp
 							Spindles/10vSpindle.cpp
 							Spindles/BESCSpindle.cpp
+							Spindles/CanPwmSpindle.cpp
 							Spindles/DacSpindle.cpp
 							Spindles/HBridgeSpindle.cpp
 							Spindles/LaserSpindle.cpp
@@ -151,8 +161,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Spindles/VFD/VFDProtocol.cpp
 							Spindles/VFD/YL620Protocol.cpp
 							Spindles/ODriveSpindle.cpp
-							Spindles/ODrive/CanESP32.cpp
 							State/FM25VXX.cpp
+							State/MB85RC.cpp
 							State/StatePersistence.cpp
 							SoftLimits/LimitsChecker.cpp
 							SoftLimits/FixedBoundingBox.cpp

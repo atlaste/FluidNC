@@ -25,6 +25,7 @@
 #include "ToolTable.h"       // toolTable
 #include "Logging.h"         // log_warn
 #include "Stepper.h"         // Stepper::updateSpindleCallback
+#include "CAN/CanScheduler.h"  // CanScheduler::hasAxes
 
 #include <string.h>  // memset
 #include <math.h>    // sqrt etc.
@@ -1133,6 +1134,11 @@ Error gc_execute_line(const char* input_line) {
             if (!spindle_encoder) {
                 return Error::GcodeUnsupportedCommand;  // G95 requires spindle encoder
             }
+            if (CAN::CanScheduler::hasAxes()) {
+                // Encoder-driven stepping does not go through the timestamped segment path,
+                // so an axis on a CAN node would simply not move.
+                return Error::GcodeUnsupportedCommand;
+            }
             if (bitnum_is_true(value_words, GCodeWord::F)) {
                 if (gc_block.modal.units == Units::Inches) {
                     gc_block.values.f *= MM_PER_INCH;  // Convert to mm/rev
@@ -1563,6 +1569,9 @@ Error gc_execute_line(const char* input_line) {
         } else if (gc_block.modal.motion == Motion::Threading) {
             // G33 - Spindle synchronized threading
             // Requires K word (thread pitch) and axis words
+            if (CAN::CanScheduler::hasAxes()) {
+                return Error::GcodeUnsupportedCommand;  // Encoder-driven stepping cannot reach a CAN axis
+            }
             if (!axis_words) {
                 return Error::GcodeNoAxisWords;  // [No axis words]
             }
@@ -1577,6 +1586,9 @@ Error gc_execute_line(const char* input_line) {
             // G76 - Multi-pass threading canned cycle (LinuxCNC convention)
             // Required: P (pitch), Z (end position), J (first cut depth), K (full thread depth)
             // Optional: I (taper at Z end), Q (compound angle), H (spring passes), R (degression)
+            if (CAN::CanScheduler::hasAxes()) {
+                return Error::GcodeUnsupportedCommand;  // Encoder-driven stepping cannot reach a CAN axis
+            }
             if (!bitnum_is_true(axis_words, Z_AXIS)) {
                 return Error::GcodeNoAxisWords;  // [Z axis word required]
             }

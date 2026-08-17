@@ -120,6 +120,13 @@ public:
 
     uint32_t lastEncoderSpeed_ = 0;
 
+    // The encoder feeds the hardware pulse counter, so both pins have to be real GPIOs on
+    // this board.  There is no way to count edges that arrive as CAN frames.
+    void validate() override {
+        pin_a.assertLocal("A spindle encoder pin");
+        pin_b.assertLocal("A spindle encoder pin");
+    }
+
     void group(Configuration::HandlerBase& handler) override {
         handler.item("pin_a", pin_a);
         handler.item("pin_b", pin_b);

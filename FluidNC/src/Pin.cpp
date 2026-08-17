@@ -101,22 +101,15 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
         if (pin_type.length() == 7 && isdigit(pin_type[6])) {
             auto deviceId     = pin_type[6] - '0';
             pinImplementation = new (ram) Pins::ExtPinDetail(deviceId, pinnum_t(pin_number), parser);
+            return nullptr;
         } else {
             // For now this should be sufficient, if not we can easily change it to 100 extenders:
             return "Incorrect pin extender specification. Expected 'pinext[0-9].[port number]'.";
         }
     }
 
-    if (pinImplementation == nullptr) {
-        log_error("Unknown pin type:" << pin_type);
-        return "Unknown pin type";
-    }
-#ifdef DEBUG_PIN_DUMP
-    pinImplementation = new (ram) Pins::DebugPinDetail(pinImplementation);
-    return nullptr;
-#else
+    log_error("Unknown pin type:" << pin_type);
     return "Unknown pin type";
-#endif
 }
 
 Pin Pin::create(std::string_view str) {
@@ -149,6 +142,13 @@ bool Pin::validate(const char* str) {
     }
 
     return valid;
+}
+
+void Pin::assertLocal(const char* usage) const {
+    Assert(!defined() || !isRemote(),
+           "%s cannot be on a CAN node: %s is reported over the bus, which is too late to stop a machine",
+           usage,
+           name().c_str());
 }
 
 void Pin::report(const char* legend) {

@@ -140,6 +140,15 @@ public:
     // Other functions:
     Capabilities capabilities() const { return _detail->capabilities(); }
 
+    // True when reading or writing the pin involves a message to another board, so its state
+    // is a report of the recent past rather than of now.
+    bool isRemote() const { return _detail->capabilities().has(Capabilities::CAN); }
+
+    // Throws a configuration error if the pin is remote.  Called from validate() for the few
+    // signals -- probes, limits, encoder inputs -- where a millisecond of staleness is the
+    // difference between stopping and crashing.  'usage' names the signal in the message.
+    void assertLocal(const char* usage) const;
+
     inline std::string name() const { return _detail->toString(); }
 
     void report(const char* legend);

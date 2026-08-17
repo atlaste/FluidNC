@@ -35,7 +35,10 @@ bool Probe::tripped() {
     return get_state() ^ _away;
 }
 
-void Probe::validate() {}
+void Probe::validate() {
+    _probePin.assertLocal("A probe");
+    _toolsetterPin.assertLocal("A toolsetter");
+}
 
 void Probe::group(Configuration::HandlerBase& handler) {
     handler.item("pin", _probePin);

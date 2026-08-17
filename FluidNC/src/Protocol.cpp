@@ -49,6 +49,7 @@ const std::map<ExecAlarm, const char*> AlarmNames = {
     { ExecAlarm::GCodeError, "GCode Error" },
     { ExecAlarm::ProbeHardLimit, "Probe Hard Limit" },
     { ExecAlarm::ToolChange, "Tool Change" },
+    { ExecAlarm::CanNodeLost, "CAN Node Lost" },
 };
 
 const char* alarmString(ExecAlarm alarmNumber) {
@@ -513,7 +514,7 @@ static void protocol_do_alarm(void* alarmVoid) {
         report_error_message(Message::MustReboot);
         return;
     }
-    if (lastAlarm == ExecAlarm::HardLimit || lastAlarm == ExecAlarm::HardStop) {
+    if (lastAlarm == ExecAlarm::HardLimit || lastAlarm == ExecAlarm::HardStop || lastAlarm == ExecAlarm::CanNodeLost) {
         protocol_disable_steppers();
         Homing::set_all_axes_unhomed();
         set_state(State::Critical);  // Set system alarm state

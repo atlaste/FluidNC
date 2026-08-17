@@ -45,6 +45,7 @@ namespace Pins {
         static PinCapabilities Native;
         static PinCapabilities I2S;
         static PinCapabilities UARTIO;
+        static PinCapabilities CAN;
         static PinCapabilities Error;
         static PinCapabilities Void;
 

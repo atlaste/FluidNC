@@ -1,0 +1,181 @@
+name: CAN bus example
+board: Any ESP32 with a CAN transceiver
+meta: Shows every consumer of the shared CAN bus in one machine
+
+# One bus, many consumers.  The transceiver pins and the bit rate are configured once here;
+# everything below refers to nodes on this bus by number.  Node ids run from 1 to 15, and a
+# node id is a board, not a function: the same node can carry an axis, some buttons and an
+# actuator, and it will have exactly one clock synchronisation with the master.
+#
+# 500 kbit/s is the sensible default for a machine-sized bus.  Going faster shortens the
+# maximum cable length; going slower increases the worst-case latency of a scheduled event,
+# which eats into the scheduler's lookahead window.
+can:
+  tx_pin: gpio.5
+  rx_pin: gpio.4
+  baud_kbit: 500
+
+stepping:
+  engine: RMT
+  idle_ms: 250
+  dir_delay_us: 1
+  pulse_us: 4
+
+axes:
+  shared_stepper_disable_pin: NO_PIN
+  homing_runs: 2
+
+  x:
+    steps_per_mm: 80
+    max_rate_mm_per_min: 5000
+    acceleration_mm_per_sec2: 500
+    max_travel_mm: 500
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0
+    motor0:
+      limit_neg_pin: gpio.34:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.12
+        direction_pin: gpio.14
+        disable_pin: gpio.13
+
+  y:
+    steps_per_mm: 80
+    max_rate_mm_per_min: 5000
+    acceleration_mm_per_sec2: 500
+    max_travel_mm: 500
+    homing:
+      cycle: 2
+      positive_direction: false
+      mpos_mm: 0
+    motor0:
+      limit_neg_pin: gpio.35:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.26
+        direction_pin: gpio.15
+        disable_pin: gpio.13
+
+  z:
+    steps_per_mm: 400
+    max_rate_mm_per_min: 1000
+    acceleration_mm_per_sec2: 100
+    max_travel_mm: 100
+    homing:
+      cycle: 1
+      positive_direction: true
+      mpos_mm: 0
+    motor0:
+      limit_pos_pin: gpio.36:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.27
+        direction_pin: gpio.33
+        disable_pin: gpio.13
+
+  # A trunnion rotary on a remote driver board.  It is a fully coordinated axis: the
+  # scheduler sends node 1 a cumulative step target and the absolute time at which to reach
+  # it, once per motion segment, and the node interpolates in between.
+  #
+  # The limit switch stays on the master.  Homing runs through the ordinary motion path, so a
+  # switch on the far side of the bus would put the bus latency inside the stopping distance.
+  a:
+    steps_per_mm: 44.4      # steps per degree, for a rotary
+    max_rate_mm_per_min: 3600
+    acceleration_mm_per_sec2: 100
+    max_travel_mm: 360
+    homing:
+      cycle: 3
+      positive_direction: false
+      mpos_mm: 0
+    motor0:
+      limit_neg_pin: gpio.39:low
+      hard_limits: true
+      pulloff_mm: 2
+      can_stepper:
+        node: 1
+        motor: 0
+
+# Buttons, lamps and fault contacts on a remote I/O board.  Inputs arrive as a bitmap
+# whenever they change, outputs go out batched.
+#
+# What must NOT go here: probes, limit switches and spindle encoder inputs.  The
+# configuration will be rejected if you try, because those signals have to stop the machine
+# within a distance measured in microns.
+#
+# Safety inputs are welcome, and are handled by inverting the usual assumption: if the node
+# stops reporting, the inputs listed in failsafe_state are asserted rather than held at their
+# last value, and alarm_on_loss raises a critical alarm.  A door switch that has gone quiet is
+# an open door until proven otherwise.
+extenders:
+  pinextender0:
+    can_extender:
+      node: 2
+      failsafe_inputs: true
+      alarm_on_loss: true
+      # Bit N is pin N.  Bits 0-3 here are the estop and door contacts, which read as
+      # asserted when the node is unreachable.
+      failsafe_state_low: 0x0000000F
+      failsafe_state_high: 0x00000000
+
+control:
+  # Sixteen fault inputs are available; a big machine tends to use most of them.
+  estop_pin0: pinext0.0:low
+  safety_door_pin0: pinext0.1:low
+  fault_pin0: pinext0.2:low       # spindle drive fault
+  fault_pin1: pinext0.3:low       # air pressure
+  cycle_start_pin: pinext0.8:low
+  feed_hold_pin: pinext0.9:low
+  macro0_pin: pinext0.10:low
+
+# The jog wheel.  The node accumulates encoder detents and reports the total, so a fast spin
+# produces one frame with a large delta rather than a burst of frames.  The master keeps at
+# most a couple of jog moves in flight and cancels them on a direction reversal, which is what
+# makes the wheel feel attached to the machine instead of driving a queue.
+can_pendant:
+  node: 3
+  feed_rate_mm_per_min: 2000
+  scale0_mm: 0.01
+  scale1_mm: 0.1
+  scale2_mm: 1.0
+  scale3_mm: 10.0
+
+# Auxiliary actuators: the small motors and solenoids that a tool changer needs.  Motion is
+# not coordinated with the tool path -- the node runs its own profile and reports when it has
+# finished -- which is the right model for "open the pocket".
+#
+# Run them from a macro or straight from the console:
+#   $CA=pocket,move_abs,4000
+#   $CA=duster,output,1,0        the trailing 0 makes it fire-and-forget
+can_actuator:
+  label: pocket
+  node: 4
+  index: 0
+  timeout_ms: 8000
+
+can_actuator:
+  label: duster
+  node: 4
+  index: 1
+  timeout_ms: 2000
+
+# A laser whose driver lives on node 5.  Power changes are scheduled with the same timestamps
+# as the axis steps, so the burn tracks the corners; the node applies them from its own timer
+# rather than when a frame happens to arrive.  Duty drops to zero the instant motion stops,
+# which is what saves the workpiece during a feed hold.
+can_pwm:
+  node: 5
+  channel: 0
+  max_duty: 1023
+  laser: true
+  tool_num: 0
+  speed_map: 0=0.000% 255=100.000%
+
+start:
+  must_home: true

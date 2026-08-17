@@ -26,6 +26,9 @@
 #include "ToolTable.h"            // toolTable
 #include "Kinematics/Compensated1D.h"  // compensated1D
 #include "Kinematics/Compensated2D.h"  // compensated2D
+#include "CAN/CanActuator.h"           // CanActuator
+#include "CAN/CanNode.h"               // CanNodes
+#include "string_util.h"               // split_prefix
 #include "Logging.h"              // LogStream
 
 #include "FluidPath.h"
@@ -594,6 +597,85 @@ static Error doJog(const char* value, AuthenticationLevel auth_level, Channel& o
     strcpy(jogLine, "$J=");
     strcat(jogLine, value);
     return gc_execute_line(jogLine);
+}
+
+// $CA=<label>,<command>[,<argument>[,<timeout_ms>]]
+//
+// Drives one of the auxiliary actuators on a CAN node.  This is the interface a tool
+// changer macro uses: the actuator runs its own motion profile on the node and, unless
+// the timeout is given as 0, this blocks until the node reports that it finished.
+static Error runCanActuator(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (!value) {
+        log_string(out, "Usage: $CA=<label>,<move_abs|move_rel|home|output|stop>[,<arg>[,<timeout_ms>]]");
+        return Error::InvalidStatement;
+    }
+
+    std::string_view rest(value);
+    std::string_view label;
+    if (!string_util::split_prefix(rest, label, ',')) {
+        return Error::InvalidStatement;
+    }
+
+    auto actuator = CAN::CanActuator::byLabel(std::string(label));
+    if (actuator == nullptr) {
+        log_error_to(out, "No CAN actuator labelled '" << label << "'");
+        return Error::InvalidValue;
+    }
+
+    std::string_view verb;
+    string_util::split_prefix(rest, verb, ',');
+
+    CAN::CanActuator::Command command;
+    if (verb == "move_abs") {
+        command = CAN::CanActuator::Command::MoveAbsolute;
+    } else if (verb == "move_rel") {
+        command = CAN::CanActuator::Command::MoveRelative;
+    } else if (verb == "home") {
+        command = CAN::CanActuator::Command::Home;
+    } else if (verb == "output") {
+        command = CAN::CanActuator::Command::SetOutput;
+    } else if (verb == "stop") {
+        command = CAN::CanActuator::Command::Stop;
+    } else {
+        log_error_to(out, "Unknown actuator command '" << verb << "'");
+        return Error::InvalidValue;
+    }
+
+    std::string_view argText;
+    int32_t          argument = 0;
+    if (string_util::split_prefix(rest, argText, ',')) {
+        argument = int32_t(strtol(std::string(argText).c_str(), nullptr, 10));
+    } else if (!rest.empty()) {
+        argument = int32_t(strtol(std::string(rest).c_str(), nullptr, 10));
+        rest     = {};
+    }
+
+    uint32_t timeout = uint32_t(actuator->defaultTimeoutMs());
+    if (!rest.empty()) {
+        timeout = uint32_t(strtoul(std::string(rest).c_str(), nullptr, 10));
+    }
+
+    if (!actuator->run(command, argument, timeout)) {
+        return Error::AnotherInterfaceBusy;
+    }
+    return Error::Ok;
+}
+
+static Error listCanActuators(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    for (auto actuator : CAN::CanActuator::all()) {
+        log_stream(out, "Actuator " << actuator->label());
+    }
+    return Error::Ok;
+}
+
+static Error showCanStatus(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (config->_can == nullptr) {
+        log_string(out, "No CAN bus configured");
+        return Error::Ok;
+    }
+    log_stream(out, config->_can->statusString());
+    log_stream(out, CAN::CanNodes::instance().statusString());
+    return Error::Ok;
 }
 
 static Error listAlarms(const char* value, AuthenticationLevel auth_level, Channel& out) {
@@ -1329,6 +1411,10 @@ void make_user_commands() {
     new UserCommand("C2", "Comp2D/Show", showComp2D, anyState);
     new UserCommand("C2P", "Comp2D/Set", setComp2DPoint, anyState);
     new UserCommand("C2C", "Comp2D/Clear", clearComp2D, anyState);
+
+    new UserCommand("CA", "CanActuator/Run", runCanActuator, anyState);
+    new UserCommand("CAL", "CanActuator/List", listCanActuators, anyState);
+    new UserCommand("CAN", "Can/Status", showCanStatus, anyState);
 
     new AsyncUserCommand("J", "Jog", doJog, notIdleOrJog);
     new AsyncUserCommand("G", "GCode/Modes", report_gcode, anyState);

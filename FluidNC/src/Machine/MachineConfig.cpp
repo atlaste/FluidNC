@@ -116,6 +116,7 @@ namespace Machine {
         handler.section("coolant", _coolant);
         handler.section("probe", _probe);
         handler.section("macros", _macros);
+        handler.section("can", _can);
         handler.section("extenders", _extenders);
         handler.section("start", _start);
         handler.section("parking", _parking);
@@ -345,6 +346,7 @@ namespace Machine {
     }
 
     MachineConfig::~MachineConfig() {
+        delete _can;
         delete _axes;
 #if MAX_N_I2SO
         delete _i2so;

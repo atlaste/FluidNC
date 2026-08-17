@@ -4,8 +4,9 @@
 #pragma once
 
 #include "Spindles/Spindle.h"
-#include "ODrive/CanESP32.h"
+#include "ODrive/can_simple_messages.hpp"
 #include "ODrive/ODriveEnums.h"
+#include "../CAN/CanBus.h"
 
 #include "Logging.h"
 
@@ -19,8 +20,13 @@
 namespace Spindles {
     struct ODriveAction;
 
-    class ODriveSpindle : public Spindle {
+    class ODriveSpindle : public Spindle, public CAN::CanListener {
     private:
+        struct CanResponse {
+            uint32_t cmd_id;
+            uint8_t  len;
+            uint8_t  data[8];
+        };
 	    enum class ODriveState {
 			Uninitialized,
 			Initialized,
@@ -45,42 +51,41 @@ namespace Spindles {
         static std::atomic<bool> _shutdown;
         static void             cmd_task(void* pvParameters);
 
+        // Bus access lives in the .cpp so that this header does not have to pull in
+        // MachineConfig.h, which would create an include cycle through Spindle.h.
+        bool sendFrame(uint32_t cmd_id, uint8_t len, const uint8_t* data);
+        bool awaitResponse(uint32_t cmd_id, uint8_t* data, uint8_t* len, int timeout_ms);
+        bool awaitHeartbeat(int timeout_ms);
+
         template <typename T>
         bool send(T& msg) {
             uint8_t data[8] = { 0 };
             msg.encode_buf(data);
-            return can->send((ODriveNodeId << kNodeIdShift) | msg.cmd_id, msg.msg_length, data);
+            return sendFrame(msg.cmd_id, msg.msg_length, data);
         }
 
         template <typename T>
         bool request(T& msg, int timeout_ms = 1000) {
-            can->send((ODriveNodeId << kNodeIdShift) | msg.cmd_id,
-                      0,       // no data
-                      nullptr  // RTR=1
-            );
-
-            uint8_t  responseData[8];
-            uint32_t messageId;
-            uint32_t recvNodeId;
-            int      count = receive(responseData, &messageId, &recvNodeId, timeout_ms);
-            if (count == msg.msg_length) {
-                if (messageId == msg.cmd_id) {
-                    msg.decode_buf(responseData);
-                    return true;
-                } else {
-                    log_warn("Received unexpected message ID: " << messageId);
-                }
-            } else if (count < msg.msg_length) {
-                log_warn("Received incomplete message: " << count << " bytes");
-            } else {
-                log_warn("Request timed out");
+            // A remote transmission request; the ODrive answers with the same command id.
+            if (!sendFrame(msg.cmd_id, 0, nullptr)) {
+                log_warn("ODrive: could not queue request " << int(msg.cmd_id));
+                return false;
             }
 
-            return false;
+            uint8_t responseData[8] = { 0 };
+            uint8_t count           = 0;
+            if (!awaitResponse(msg.cmd_id, responseData, &count, timeout_ms)) {
+                log_warn("ODrive: request " << int(msg.cmd_id) << " timed out");
+                return false;
+            }
+            if (count < msg.msg_length) {
+                log_warn("ODrive: incomplete response, " << int(count) << " bytes");
+                return false;
+            }
+            msg.decode_buf(responseData);
+            return true;
         }
 
-        int  receive(uint8_t* responseData, uint32_t* messageId, uint32_t* nodeId, int timeout_ms = 1000);
-        void pump();
         bool setState(ODrive::ODriveAxisState state);
         bool setSpeedCommand(int32_t rpm, bool sync);
         void setClosedLoopControl();
@@ -94,16 +99,20 @@ namespace Spindles {
     protected:
         uint32_t _retries = 5;
 
-        int32_t           ODriveNodeId  = 1;
-        ODrive::CanESP32* can           = nullptr;
-        int64_t           lastHeartbeat = 0;
-        volatile double   lastPosition  = 0.0;
-        volatile double   lastVelocity  = 0.0;
-        uint8_t           lastAxisState = 0;
-        uint32_t          lastAxisError = 0;
-        int32_t           maxSpeed      = 4000;
-        double            gearFactor    = 1.0;
+        int32_t         ODriveNodeId  = 1;
+        int64_t         lastHeartbeat = 0;
+        volatile double lastPosition  = 0.0;
+        volatile double lastVelocity  = 0.0;
+        uint8_t         lastAxisState = 0;
+        uint32_t        lastAxisError = 0;
+        int32_t         maxSpeed      = 4000;
+        double          gearFactor    = 1.0;
 
+        // Responses to request<T>() are handed over from the shared CAN RX task.
+        QueueHandle_t _responseQueue = nullptr;
+
+        // Deprecated: superseded by the top-level "can:" section.  Still honoured so that
+        // existing machine configs keep working; see init().
         Pin txPin;
         Pin rxPin;
 
@@ -123,6 +132,8 @@ namespace Spindles {
         void init();
         void config_message();
         void setState(SpindleState state, SpindleSpeed speed);
+
+        void onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) override;
         void setSpeedfromISR(uint32_t dev_speed) override;
         void reset() override;
 
