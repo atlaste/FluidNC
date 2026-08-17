@@ -16,6 +16,7 @@
 
 // Include MachineConfig and related headers
 #include "Machine/MachineConfig.h"
+#include "ToolChangers/atc.h"
 
 // Static MachineConfig for testing - initialize with test values
 namespace {
@@ -149,5 +150,13 @@ namespace Machine {
     uint32_t Homing::unhomed_axes() {
         // Mock - return 0 (all axes homed)
         return 0;
+    }
+}
+
+// ATCs::ATC mocks - the planner consults this before admitting a cutting move
+namespace ATCs {
+    bool ATC::motion_needs_tool_measurement() {
+        // Mock - never gate motion in planner tests
+        return false;
     }
 }

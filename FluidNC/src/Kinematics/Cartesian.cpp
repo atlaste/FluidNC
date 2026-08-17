@@ -299,11 +299,22 @@ namespace Kinematics {
             }
         }
         
-        // Check dynamic limits (from tailstock, gang tools, etc.)
+        // Check dynamic limits (from tailstock, gang tools, planes, etc.)
         if (DynamicLimits::providerCount() > 0) {
             std::string error_msg;
             if (!DynamicLimits::checkPosition(cartesian, gc_state.tool_length_offset, error_msg)) {
                 log_error("Dynamic limit: " << error_msg);
+
+                // limit_error() is not optional here, even though returning true
+                // already stops the move being planned.  gc_execute_line ignores
+                // what mc_linear returns and copies the target into
+                // gc_state.position regardless, so a bare return would leave the
+                // parser believing the tool had arrived somewhere it never went,
+                // answer the sender with "ok", and let the rest of the job be cut
+                // relative to a position that does not exist.  Alarming is the
+                // only way out that keeps position honest, and it is what the
+                // static-limit branch above and mc_soft_limits_violated both do.
+                limit_error();
                 return true;
             }
         }

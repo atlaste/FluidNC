@@ -148,13 +148,81 @@ sdcard:
   cs_pin: gpio.5
   card_detect_pin: NO_PIN
 
-atc_manual:
+rapidchange:
+  # ---- traverse heights, outermost first ----------------------------------
+  # RapidChange calls this z_safe_clearance. Everything on the table clears.
   safe_z_mpos_mm: -1.000000
+  # Height the spindle retracts to after an engagement, and the height it
+  # crosses the magazine at when going straight from putting one tool away to
+  # picking the next one up. Clear of the pockets and anything standing in them,
+  # but low enough to be worth not going all the way back up to safe_z. Any
+  # other move to a pocket goes via safe_z, because only just having come up out
+  # of a pocket tells us what is underneath.
+  z_traverse_mpos_mm: -20.000
+  # Lowest point at which the spindle may already be turning, and the height the
+  # second engagement pass backs up to.
+  z_spindle_start_mpos_mm: -40.000
+  # Bottom of the threading travel. This is the number that decides whether the
+  # holder threads fully on, so it is worth dialling in by hand at low rpm.
+  z_engage_mpos_mm: -55.000
+
+  # ---- tool detection beam ------------------------------------------------
+  # The beam runs above the pockets and answers one question: is there a tool in
+  # the spindle. It is checked before and after every engagement, so a holder
+  # that failed to release or failed to pick up is caught while the spindle is
+  # still over the pocket. Too coarse for measurement, which is what the
+  # toolsetter below is for. Add :low if the sensor pulls low when blocked.
+  tool_present_pin: NO_PIN
+  # Machine Z at which a fitted tool interrupts the beam.
+  beam_check_mpos_mm: -25.000
+  # Machine Z at which a correctly seated tool has cleared the beam. A
+  # cross-threaded holder hangs lower and is still in it, which is what tells
+  # that failure apart from a good pick-up - and it is the failure that throws a
+  # holder, so it is worth the extra move. Must be above beam_check_mpos_mm.
+  # Omit it to skip the check.
+  beam_clear_mpos_mm: -15.000
+  beam_settle_ms: 100
+
+  # ---- magazine ------------------------------------------------------------
+  # One flat vector of x/y/z per pocket, so the pockets do not have to lie on a
+  # line. Z is the height the pocket itself sits at; the threading travel is
+  # driven by the z_* values above, not by this.
+  pocket_mpos_mm: 10.000 -10.000 -52.000  40.000 -10.000 -52.000  70.000 -10.000 -52.000
+  # Which tool starts in which pocket, 0 for empty. This only seeds the magazine
+  # on the first boot and afterwards says where a tool prefers to be put back;
+  # live occupancy is persisted, so the changer remembers across a reboot what it
+  # is actually holding. Use M61 Q<tool> to tell it about a manual intervention.
+  pocket_tools: 1 2 3
+
+  # ---- threading cycle -----------------------------------------------------
+  engage_feed_rate_mm_per_min: 1800.000
+  load_rpm: 900
+  unload_rpm: 900
+  # Time for the spindle to reach speed before the threads meet.
+  spindle_settle_ms: 500
+  # Threading a holder on takes a second pass to torque it up. Backing one off
+  # only needs one, so this applies to loading only.
+  engage_passes: 2
+
+  # ---- pre-change check ----------------------------------------------------
+  # The tool already in the spindle is re-measured before anything moves. More
+  # than this much difference from its recorded length means it broke, slipped in
+  # the collet, or is not the tool it is recorded as, and the change stops at
+  # retreat_mpos_mm for you to decide. Loose enough not to trip on a warm
+  # machine, tight enough to catch a snapped cutter.
+  tool_length_drift_mm: 0.500
+
+  # Where the machine parks when it gives up, before it alarms.
+  retreat_mpos_mm: 80.000 0.000 -1.000
+
+  # Where the operator fits or removes a tool by hand. A tool with no pocket -
+  # too long, too fat, or just not assigned one - is not an error: the machine
+  # parks here, asks, and measures whatever gets fitted, so a job can mix
+  # pocketed tools with a manual one. Omit to reuse retreat_mpos_mm.
+  manual_mpos_mm: 80.000 0.000 -1.000
+
   probe_seek_rate_mm_per_min: 500.000000
   probe_feed_rate_mm_per_min: 80.000000
-  change_mpos_mm: 80.000 0.000 -1.000
-  # Where the operator retrieves the toolsetter. Omit to reuse change_mpos_mm.
-  retrieve_mpos_mm: 80.000 0.000 -1.000
   # X/Y is the centre of the toolsetter. Z is the deepest the spindle may go
   # before the probe is declared a miss, so set it just short of the collet
   # reaching the setter.
@@ -196,6 +264,25 @@ fixed_plane:
   axis: Z
   min_mm: -95.000
   unknown_tool_length_mm: 120.000
+  # The threading travel puts a fitted tool well below this floor on purpose, so
+  # the floor stands down while the changer is in control and is enforced again
+  # the moment it is not.
+  suspend_during_tool_change: true
+
+# The magazine itself, as a volume the cutting edge is not allowed into. The
+# changer drives through this box on purpose, hence the same suspension. The
+# rest of the time it is the only thing standing between a job and the pockets.
+# Size it to the body of the unit plus whatever the holders stand proud, not
+# just to the pocket centres.
+fixed_box:
+  enabled: true
+  suspend_during_tool_change: true
+  min_x: 0.000
+  max_x: 85.000
+  min_y: -25.000
+  max_y: 5.000
+  min_z: -100.000
+  max_z: -30.000
 
 
 pwm:
@@ -210,7 +297,7 @@ pwm:
   tool_num: 0
   speed_map: 0=0.000% 1000=100.000%
   off_on_alarm: false
-  atc: atc_manual
+  atc: rapidchange
 #  M6_macro: G55 G0X0Y0
   
 Laser:

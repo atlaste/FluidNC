@@ -155,9 +155,12 @@ idf_component_register(SRCS BTConfig.cpp
 							SoftLimits/LimitsChecker.cpp
 							SoftLimits/FixedBoundingBox.cpp
 							SoftLimits/FixedCylinder.cpp
+							SoftLimits/FixedPlane.cpp
 							SoftLimits/MovingBoundingBox.cpp
 							ToolChangers/atc.cpp
+							ToolChangers/ProbingATC.cpp
 							ToolChangers/atc_manual.cpp
+							ToolChangers/RapidChange.cpp
 							ToolChangers/PneumaticToolTurret.cpp
 							ToolChangers/Tailstock.cpp
 							ToolChangers/ADC.cpp

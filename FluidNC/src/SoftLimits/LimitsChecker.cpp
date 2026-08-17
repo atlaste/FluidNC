@@ -5,6 +5,8 @@
 #include "../Logging.h"
 #include <algorithm>
 
+bool SoftLimitsComponent::_toolChangeActive = false;
+
 LimitsChecker& LimitsChecker::instance() {
     static LimitsChecker instance;
     return instance;

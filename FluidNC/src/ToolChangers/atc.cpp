@@ -8,6 +8,16 @@
 ATCs::ATC* atc = nullptr;
 
 namespace ATCs {
+    // Starts invalid, so a machine with enforcement on has to measure before it
+    // may cut rather than inheriting trust from nowhere.
+    bool ATC::_offset_valid    = false;
+    bool ATC::_offset_enforced = false;
+    bool ATC::_change_active   = false;
+
+    bool ATC::motion_needs_tool_measurement() {
+        return _offset_enforced && !_offset_valid && !_change_active;
+    }
+
     void probe_notification() {}
 
     bool tool_change(tool_t value, bool pre_select) {

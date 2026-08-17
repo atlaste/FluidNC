@@ -129,6 +129,7 @@ const std::map<State, const char*> StateName = {
     { State::Homing, "Homing" },
     { State::Cycle, "Cycle" },
     { State::Hold, "Hold" },
+    { State::Held, "Held" },
     { State::Jog, "Jog" },
     { State::SafetyDoor, "SafetyDoor" },
     { State::Sleep, "Sleep" },

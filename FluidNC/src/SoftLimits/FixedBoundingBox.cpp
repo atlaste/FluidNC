@@ -13,6 +13,7 @@ FixedBoundingBox::~FixedBoundingBox() {
 
 void FixedBoundingBox::group(Configuration::HandlerBase& handler) {
     handler.item("enabled", _enabled);
+    handler.item("suspend_during_tool_change", _suspend_during_tool_change);
     handler.item("min_x", _minX);
     handler.item("min_y", _minY);
     handler.item("min_z", _minZ);
@@ -37,7 +38,7 @@ void FixedBoundingBox::init() {
 }
 
 bool FixedBoundingBox::TestLimit(const LimitContext& ctx) {
-    if (!_enabled) {
+    if (!_enabled || suspendedByToolChange()) {
         return false;
     }
 

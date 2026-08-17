@@ -59,6 +59,31 @@ public:
     // Name for error reporting
     virtual const char* componentName() const { return "unknown"; }
 
+    // Set for the duration of a tool change, by the changer.
+    //
+    // A tool changer drives into the very volumes this layer exists to defend:
+    // the magazine it threads holders in and out of, and, on a machine with a
+    // tip-space floor, everything below that floor once a long tool is fitted.
+    // Those moves are not mistakes, so the components guarding them stand down
+    // while the changer is in control and are enforced again the moment it is
+    // not - which is the only time a job has any business being there.
+    //
+    // Pushed in by the ATC rather than polled from it, so that this layer keeps
+    // no knowledge of tool changers and machines without one link and behave
+    // exactly as before.
+    static void setToolChangeActive(bool active) { _toolChangeActive = active; }
+    static bool toolChangeActive() { return _toolChangeActive; }
+
+protected:
+    // Opt-in, per component. Off by default: a keep-out zone around a vise has
+    // no reason to stop guarding it during a tool change.
+    bool _suspend_during_tool_change = false;
+
+    bool suspendedByToolChange() const { return _suspend_during_tool_change && _toolChangeActive; }
+
+private:
+    static bool _toolChangeActive;
+
 protected:
     // Geometry helpers - added incrementally as needed
 

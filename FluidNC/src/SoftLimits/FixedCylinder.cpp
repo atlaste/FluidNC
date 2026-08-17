@@ -15,6 +15,7 @@ FixedCylinder::~FixedCylinder() {
 
 void FixedCylinder::group(Configuration::HandlerBase& handler) {
     handler.item("enabled", _enabled);
+    handler.item("suspend_during_tool_change", _suspend_during_tool_change);
     handler.item("axis", _axis);
     handler.item("center_x", _centerX);
     handler.item("center_y", _centerY);
@@ -60,7 +61,7 @@ void FixedCylinder::getAxisIndices(int& axisIdx, int& perpIdx1, int& perpIdx2) c
 }
 
 bool FixedCylinder::TestLimit(const LimitContext& ctx) {
-    if (!_enabled || _radius <= 0 || _length == 0) {
+    if (!_enabled || _radius <= 0 || _length == 0 || suspendedByToolChange()) {
         return false;
     }
 

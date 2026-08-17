@@ -71,6 +71,10 @@ enum class ExecAlarm : uint8_t {
     ExpanderReset         = 16,
     GCodeError            = 17,
     ProbeHardLimit        = 18,
+    // Deliberately a plain State::Alarm rather than one of the Critical codes
+    // above: a tool change that gives up has not lost position, so homing stays
+    // valid and $X on its own is enough to carry on.
+    ToolChange = 19,
 };
 
 extern volatile ExecAlarm lastAlarm;

@@ -1,10 +1,11 @@
-// Copyright (c) 2024 - FluidNC Authors
+// Copyright (c) 2026 - Stefan de Bruijn
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #include "BasePlanner.h"
 #include "../Planner.h"
 #include "../Machine/MachineConfig.h"
 #include "../Machine/Homing.h"
+#include "../ToolChangers/atc.h"
 #include "../Protocol.h"
 #include "../System.h"
 #include "../NutsBolts.h"
@@ -213,6 +214,15 @@ bool BasePlanner::bufferLine(float* target, plan_line_data_t* pl_data) {
         if (!block->is_jog && Homing::unhomed_axes()) {
             log_info("Unhomed axes: " << Axes::maskToNames(Homing::unhomed_axes()));
             send_alarm(ExecAlarm::Unhomed);
+            return false;
+        }
+        // Jogging and probing are both exempt: jogging is how the operator gets
+        // out of trouble, and probing is how a measurement gets made in the first
+        // place.  Everything else waits, because cutting to a tool length nobody
+        // measured is cutting to zero.
+        if (!block->is_jog && !pl_data->is_probe && ATCs::ATC::motion_needs_tool_measurement()) {
+            log_info("Tool length has not been measured; run a tool change or turn off must_measure_tool");
+            send_alarm(ExecAlarm::ToolChange);
             return false;
         }
         copyAxes(position_steps, _pl.position);

@@ -45,6 +45,26 @@ namespace ATCs {
         // When true, the M6 handler will not automatically apply TLO from the tool table.
         virtual bool handles_tlo() { return false; }
         
+        // Tool-length validity gate, shaped after Homing's unhomed_axes.
+        //
+        // The planner is where "you may not cut yet" has to be enforced, because
+        // that is the one place every motion passes through, and the planner
+        // cannot ask an ATC anything - there may not even be one.  So the ATC
+        // pushes its state into these statics and the planner reads them, which
+        // is exactly the arrangement homing already uses.
+        //
+        // Enforcement is opt-in per machine, because switching it on means no
+        // g-code motion at all until a tool has been measured.
+        static bool motion_needs_tool_measurement();
+
+        static void set_offset_valid(bool valid) { _offset_valid = valid; }
+        static void set_offset_enforced(bool enforced) { _offset_enforced = enforced; }
+
+        // Suppresses the gate for the duration of a tool change, so that the
+        // sequence that exists to produce a measurement is not blocked by the
+        // absence of one - including the retreat after a failure.
+        static void set_change_active(bool active) { _change_active = active; }
+
         virtual void save_atc_data(std::vector<uint8_t>& buffer) { 
             auto size = buffer.size();
             buffer.resize(buffer.size() + 4);
@@ -57,6 +77,11 @@ namespace ATCs {
         }
 
         virtual ~ATC() = default;
+
+    private:
+        static bool _offset_valid;
+        static bool _offset_enforced;
+        static bool _change_active;
     };
 
     using ATCFactory = Configuration::GenericFactory<ATC>;

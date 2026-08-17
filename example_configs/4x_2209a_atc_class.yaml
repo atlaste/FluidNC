@@ -189,9 +189,42 @@ atc_manual:
   probe_seek_rate_mm_per_min: 500.000000
   probe_feed_rate_mm_per_min: 80.000000
   change_mpos_mm: 80.000 0.000 -1.000
+  retrieve_mpos_mm: 80.000 0.000 -1.000
   ets_mpos_mm: 5.000 -9.000 -40.000
   ets_rapid_z_mpos_mm: -25.0
-  
+  # Calibrate once: probe a tool of known length, then
+  # ets_surface_mpos_mm = <logged contact Z> - <known length>
+  ets_surface_mpos_mm: -38.000
+  probe_retract_mm: 5.000
+  probe_repeats: 2
+  probe_tolerance_mm: 0.030
+  min_tool_length_mm: 5.000
+  max_tool_length_mm: 120.000
+  air_blast_output: -1
+  air_blast_ms: 0
+  # Refuse g-code motion until a tool length has been measured, in the same
+  # spirit as start/must_home. Jogging and probing stay allowed, and the gate is
+  # suspended during a tool change so the sequence that produces a measurement is
+  # not blocked by the absence of one. Turning this on means no g-code motion from
+  # power-up until the first tool change, so it is off unless you ask for it.
+  must_measure_tool: false
+
+# The table, as a floor under the cutting edge rather than under the spindle.
+# Unlike the z axis limits, this bound follows the tool length offset, so it
+# means the same thing for a stub drill and for a long end mill. Set min_mm to
+# the machine Z at which the tip of a correctly measured tool just touches the
+# wasteboard.
+#
+# unknown_tool_length_mm covers the case that the axis limits cannot: with no
+# offset applied the tip and the spindle nose coincide arithmetically, so a long
+# tool would otherwise be invisible to the check. Set it to the longest tool
+# that can be fitted and the floor holds whether or not the tool was probed.
+# Leave it at 0 if you drive this machine without tool offsets at all.
+fixed_plane:
+  axis: Z
+  min_mm: -95.000
+  unknown_tool_length_mm: 120.000
+
 # pwm:
 #   pwm_hz: 5000
 #   direction_pin: NO_PIN
