@@ -17,6 +17,7 @@ namespace Machine {
         tmp[0] = 0;
         strcat(tmp, "motor");
 
+        static_assert(MAX_MOTORS_PER_AXIS <= 10, "Section names assume a single motor digit");
         for (size_t i = 0; i < MAX_MOTORS_PER_AXIS; ++i) {
             tmp[5] = char(i + '0');
             tmp[6] = '\0';
@@ -47,15 +48,50 @@ namespace Machine {
             set_bitnum(Axes::homingMask, _axis);
         }
 
-        if (!_motors[0] && _motors[1]) {
-            log_config_error("motor1 defined without motor0");
+        // Motors are addressed by index, so a gap would leave a real motor unreachable by the
+        // stepping code that walks 0..count-1.
+        for (motor_t motor = 1; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+            if (_motors[motor] && _motors[motor]->isReal() && !(_motors[motor - 1] && _motors[motor - 1]->isReal())) {
+                log_config_error("motor" << int(motor) << " defined without motor" << int(motor - 1));
+            }
         }
 
-        // If dual motors and only one motor has switches, this is the configuration
-        // for a POG style squaring. The switch should report as being on both axes
-        if (hasDualMotor() && (motorsWithSwitches() == 1)) {
-            _motors[0]->makeDualSwitches();
-            _motors[1]->makeDualSwitches();
+        // If ganged and only one motor has switches, this is the configuration for a POG style
+        // squaring.  The switch should report as being on every motor of the axis.
+        if (isGanged() && (motorsWithSwitches() == 1)) {
+            for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+                if (_motors[motor]) {
+                    _motors[motor]->makeDualSwitches();
+                }
+            }
+        }
+
+        // Pulloff2 is a single differential phase, so it can only reconcile two distinct
+        // pulloff distances.  Three or more would need a phase each, and silently leaving the
+        // middle motors at the common distance would quietly skew the gantry.
+        if (isGanged()) {
+            float distinct[MAX_MOTORS_PER_AXIS];
+            int   nDistinct = 0;
+            for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+                auto m = _motors[motor];
+                if (!m || !m->isReal()) {
+                    continue;
+                }
+                bool seen = false;
+                for (int i = 0; i < nDistinct; ++i) {
+                    if (distinct[i] == m->_pulloff) {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (!seen) {
+                    distinct[nDistinct++] = m->_pulloff;
+                }
+            }
+            if (nDistinct > 2) {
+                log_config_error("Axis " << Axes::axisName(_axis) << " has " << nDistinct
+                                         << " different pulloff_mm values; at most 2 are supported");
+            }
         }
     }
 
@@ -78,9 +114,16 @@ namespace Machine {
         return false;
     }
 
-    // Does this axis have 2 motors?
-    bool Axis::hasDualMotor() {
-        return _motors[0] && _motors[0]->isReal() && _motors[1] && _motors[1]->isReal();
+    // How many real motors does this axis drive?
+    motor_t Axis::motorCount() {
+        motor_t count = 0;
+        for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+            auto m = _motors[motor];
+            if (m && m->isReal()) {
+                ++count;
+            }
+        }
+        return count;
     }
 
     // How many motors have switches defined?
@@ -95,24 +138,28 @@ namespace Machine {
         return count;
     }
 
+    // The distance every motor of this axis can pull off together.
     float Axis::commonPulloff() {
-        auto motor0Pulloff = _motors[0]->_pulloff;
-        if (hasDualMotor()) {
-            auto motor1Pulloff = _motors[1]->_pulloff;
-            return std::min(motor0Pulloff, motor1Pulloff);
-        } else {
-            return motor0Pulloff;
+        float pulloff = _motors[0]->_pulloff;
+        for (motor_t motor = 1; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+            auto m = _motors[motor];
+            if (m && m->isReal()) {
+                pulloff = std::min(pulloff, m->_pulloff);
+            }
         }
+        return pulloff;
     }
 
-    // returns the offset between the pulloffs
-    // value is positive when motor1 has a larger pulloff
-    float Axis::extraPulloff() {
-        if (hasDualMotor()) {
-            return _motors[1]->_pulloff - _motors[0]->_pulloff;
-        } else {
-            return 0.0f;
+    // The furthest any single motor of this axis wants to pull off.
+    float Axis::maxPulloff() {
+        float pulloff = _motors[0]->_pulloff;
+        for (motor_t motor = 1; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+            auto m = _motors[motor];
+            if (m && m->isReal()) {
+                pulloff = std::max(pulloff, m->_pulloff);
+            }
         }
+        return pulloff;
     }
 
     Axis::~Axis() {

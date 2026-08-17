@@ -37,7 +37,7 @@ namespace Machine {
 
     void Motor::init() {
         if (strcmp(_driver->name(), "null_motor") != 0) {
-            set_bitnum(Machine::Axes::motorMask, Machine::Axes::motor_bit(_axis, _motorNum));
+            set_bits(Machine::Axes::motorMask, Machine::Axes::motor_mask(_axis, _motorNum));
         }
         _driver->init();
 

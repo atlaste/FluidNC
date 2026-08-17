@@ -520,8 +520,8 @@ void report_recompute_pin_string() {
     if (lim_pin_state) {
         auto n_axis = Axes::_numberAxis;
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-            if (bitnum_is_true(lim_pin_state, Machine::Axes::motor_bit(axis, 0)) ||
-                bitnum_is_true(lim_pin_state, Machine::Axes::motor_bit(axis, 1))) {
+            // Senders expect one letter per axis, so any of its motors being limited counts.
+            if (Machine::Axes::count_motors(lim_pin_state, axis)) {
                 report_pin_string += Axes::axisName(axis);
             }
         }

@@ -9,7 +9,7 @@
 namespace Machine {
     class LimitPin : public EventPin {
     private:
-        uint32_t _bitmask = 0;
+        MotorMask _bitmask = 0;
 
         // _pHardLimits is a reference so the shared variable at the
         // Endstops level can be changed at runtime to control the

@@ -43,9 +43,41 @@ namespace Machine {
             return axis < MAX_N_AXIS ? _axisNames[axis] : "?";
         }
 
-        static inline size_t    motor_bit(axis_t axis, motor_t motor) { return motor ? size_t(axis) + 16 : size_t(axis); }
-        static inline AxisMask  motors_to_axes(MotorMask motors) { return (motors & 0xffff) | (motors >> 16); }
-        static inline MotorMask axes_to_motors(AxisMask axes) { return axes | (axes << 16); }
+        // A MotorMask gives every motor its own MOTOR_MASK_STRIDE-wide lane of axis bits, so
+        // motor 2 of Z is a different bit from motor 0 of Z.  Prefer motor_mask()/motor_is_set()
+        // over the generic bitnum macros for these: the generic ones build their mask from a
+        // plain int and would quietly produce garbage for the upper lanes.
+        static inline size_t    motor_bit(axis_t axis, motor_t motor) { return size_t(axis) + MOTOR_MASK_STRIDE * size_t(motor); }
+        static inline MotorMask motor_mask(axis_t axis, motor_t motor) { return MotorMask(1) << motor_bit(axis, motor); }
+        static inline bool      motor_is_set(MotorMask mask, axis_t axis, motor_t motor) { return (mask & motor_mask(axis, motor)) != 0; }
+
+        static inline AxisMask motors_to_axes(MotorMask motors) {
+            AxisMask axes = 0;
+            for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+                axes |= AxisMask((motors >> (MOTOR_MASK_STRIDE * motor)) & ((MotorMask(1) << MOTOR_MASK_STRIDE) - 1));
+            }
+            return axes;
+        }
+
+        static inline MotorMask axes_to_motors(AxisMask axes) {
+            MotorMask motors = 0;
+            for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+                motors |= MotorMask(axes) << (MOTOR_MASK_STRIDE * motor);
+            }
+            return motors;
+        }
+
+        // How many of an axis' motors appear in mask.  Used to tell a ganged axis from a
+        // single-motor one without assuming there are only two.
+        static inline motor_t count_motors(MotorMask mask, axis_t axis) {
+            motor_t count = 0;
+            for (motor_t motor = 0; motor < MAX_MOTORS_PER_AXIS; ++motor) {
+                if (motor_is_set(mask, axis, motor)) {
+                    ++count;
+                }
+            }
+            return count;
+        }
 
         static axis_t _numberAxis;
         static Axis*  _axis[MAX_N_AXIS];

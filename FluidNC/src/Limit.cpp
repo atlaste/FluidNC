@@ -20,10 +20,9 @@
 // esp32/gpio.cpp.
 void limits_init() {}
 
-// Returns limit state as a bit-wise uint32 variable. Each bit indicates an axis limit, where
-// triggered is 1 and not triggered is 0. Invert mask is applied. Axes are defined by their
-// number in bit position, i.e. Z_AXIS is bitnum_to_mask(2), and Y_AXIS is bitnum_to_mask(1).
-// The lower 16 bits are used for motor0 and the upper 16 bits are used for motor1 switches
+// Returns limit state as a bitmask. Each bit indicates one motor's limit, where triggered is 1
+// and not triggered is 0. Invert mask is applied. Each motor gets a 16 bit lane of axis bits,
+// so Z motor0 is bit 2 and Z motor1 is bit 18; see Machine::Axes::motor_bit().
 MotorMask limits_get_state() {
     return Machine::Axes::posLimitMask | Machine::Axes::negLimitMask;
 }
@@ -33,9 +32,9 @@ bool limits_startup_check() {  // return true if there is a hard limit error.
     if (lim_pin_state) {
         auto n_axis = Axes::_numberAxis;
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-            for (size_t motor = 0; motor < 2; motor++) {
-                if (bitnum_is_true(lim_pin_state, Machine::Axes::motor_bit(axis, motor))) {
-                    log_warn("Active limit switch on " << Axes::axisName(axis) << " axis motor " << motor);
+            for (motor_t motor = 0; motor < Machine::Axis::MAX_MOTORS_PER_AXIS; motor++) {
+                if (Machine::Axes::motor_is_set(lim_pin_state, axis, motor)) {
+                    log_warn("Active limit switch on " << Axes::axisName(axis) << " axis motor " << int(motor));
                 }
             }
         }

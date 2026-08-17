@@ -18,7 +18,7 @@ namespace Machine {
         static int32_t _stepPulseEndTime;
         static int32_t _i2sPulseCounts;
 
-        static const int MAX_MOTORS_PER_AXIS = 2;
+        static const int MAX_MOTORS_PER_AXIS = ::MAX_MOTORS_PER_AXIS;
         struct motor_pins_t {
             pinnum_t step_pin;
             pinnum_t dir_pin;

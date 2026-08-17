@@ -1,0 +1,297 @@
+board: 6 Pack ESP32-S3 v2.0
+name: PNP Machine (Voron 2.4 frame, CoreXY + quad Z)
+meta: BTT TMC2240 v1.0 modules, PCA9539 endstops, MB85RC04V I2C FRAM
+
+# --------------------------------------------------------------------------------------------
+# Hardware assumptions this file encodes.  Change the file if you change the board, because
+# several of these are not detectable at runtime.
+#
+#   Module          ESP32-S3-WROOM-1 N8R2.  Quad PSRAM, so GPIO33-37 are free for use; an
+#                   octal variant (N8R8/N16R8) would take gpio.36 and gpio.37 away and both
+#                   the shift register output enable and the pin extender interrupt would
+#                   have to move.
+#   JP1-JP24        All on pads 1-2, selecting SPI on every slot's socket.
+#   JP25/JP26       Empty, so the PDN_UART buses are left dangling and no driver can fall
+#                   into UART mode.
+#   JP27            Pads 2-3, putting VCC_IO at 3.3 V.  MISO runs unbuffered to gpio.7, whose
+#                   absolute maximum is 3.6 V, so 5 V here would damage the ESP32.
+#   JP28            Open.  R14 pulls the PCA9539 ~RESET high; bridging 1-2 grounds it and the
+#                   expander never responds.
+#   JP29            Pads 1-2, tying the 74AHCT595 ~OE to gpio.36.  See i2so.oe_pin below.
+#
+# Six driver slots, all of them spoken for: two for the CoreXY motors and four for the gantry
+# Z motors.  Nozzle rotation axes have to come from somewhere else - the CAN stepper support
+# is the obvious candidate.
+# --------------------------------------------------------------------------------------------
+
+stepping:
+  engine: I2S_STREAM
+  idle_ms: 250
+  pulse_us: 4
+  dir_delay_us: 1
+  disable_delay_us: 0
+
+kinematics:
+  CoreXY:
+
+i2so:
+  bck_pin: gpio.2
+  data_pin: gpio.43
+  ws_pin: gpio.1
+  # JP29 1-2 wires the shift registers' active-low output enable to gpio.36, which R18 pulls
+  # high.  I2SOBus::init() drives this low right after the first I2S frame is on the wire, so
+  # STEP/DIR/EN/CS are high impedance through boot instead of being driven by whatever the
+  # '595 latches powered up holding.  It must NOT carry :low - off() writes a physical low on
+  # a plain pin, which is what asserts ~OE.
+  #
+  # The reset behaviour is the point: an ESP32 reset releases gpio.36 back to an input, R18
+  # pulls ~OE high, the outputs go high impedance and the drivers fall back on their own
+  # DRV_ENN pull-ups rather than holding the last thing latched into them.
+  oe_pin: gpio.36
+
+spi:
+  sck_pin: gpio.5
+  mosi_pin: gpio.6
+  miso_pin: gpio.7
+
+i2c0:
+  sda_pin: gpio.44
+  scl_pin: gpio.42
+
+extenders:
+  pinextender0:
+    pca9539:
+      busId: 0
+      # The expander cannot say which pin changed, so a monitor task reads the input
+      # registers.  poll_ms bounds how long a switch can go unnoticed if the interrupt is
+      # missed; the interrupt line just cuts the wait short.
+      poll_ms: 5
+      interrupt0: gpio.37:low
+
+# Non-volatile machine state.  The MB85RC04V is 512 bytes across two consecutive I2C
+# addresses, which StatePersistence works out from i2c_size_bytes and splits its sections to
+# fit.  Leave cs_pin unset - it selects the SPI FRAM path in preference to this one.
+state_persistence:
+  i2c_num: 0
+  i2c_address: 0x50
+  i2c_size_bytes: 512
+  save_interval_ms: 100
+  save_parameters: true
+
+axes:
+  shared_stepper_disable_pin: NO_PIN
+
+  # ------------------------------------------------------------------------------------------
+  # CoreXY.  X and Y are the A and B motors: one motor each, and the kinematics does the
+  # mixing, so neither axis is ganged.  20T pulley on 2 mm belt is 40 mm/rev, so 200 full
+  # steps at 16 microsteps gives 80 steps/mm.
+  # ------------------------------------------------------------------------------------------
+  x:
+    steps_per_mm: 80.000
+    max_rate_mm_per_min: 18000.000
+    acceleration_mm_per_sec2: 3000.000
+    max_travel_mm: 350.000
+    soft_limits: true
+    homing:
+      cycle: 1
+      positive_direction: true
+      mpos_mm: 350.000
+      feed_mm_per_min: 600.000
+      seek_mm_per_min: 3000.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
+    motor0:
+      limit_all_pin: pinext0.8:low
+      hard_limits: false
+      pulloff_mm: 5.000
+      tmc_2240:
+        cs_pin: i2so.27
+        spi_index: -1
+        step_pin: i2so.25
+        direction_pin: i2so.24
+        disable_pin: i2so.26
+        r_ref_kohms: 12.0
+        run_amps: 1.200
+        hold_amps: 0.600
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+  y:
+    steps_per_mm: 80.000
+    max_rate_mm_per_min: 18000.000
+    acceleration_mm_per_sec2: 3000.000
+    max_travel_mm: 350.000
+    soft_limits: true
+    homing:
+      cycle: 2
+      positive_direction: true
+      mpos_mm: 350.000
+      feed_mm_per_min: 600.000
+      seek_mm_per_min: 3000.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
+    motor0:
+      limit_all_pin: pinext0.9:low
+      hard_limits: false
+      pulloff_mm: 5.000
+      tmc_2240:
+        cs_pin: i2so.31
+        spi_index: -1
+        step_pin: i2so.29
+        direction_pin: i2so.28
+        disable_pin: i2so.30
+        r_ref_kohms: 12.0
+        run_amps: 1.200
+        hold_amps: 0.600
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+  # ------------------------------------------------------------------------------------------
+  # Z: the four gantry motors, one per corner, ganged as a single axis.  They occupy the Z, A,
+  # B and C slots.
+  #
+  # Only motor0 has a switch.  Axis::init() sees a ganged axis with exactly one switch and
+  # makes that switch report on all four motors, so a single Z endstop stops the gantry as a
+  # unit - which is what a stock 2.4 has.  Give each corner its own switch instead and homing
+  # will square the gantry to those four switches on every home, each motor stopping when its
+  # own switch trips.  There is no probe-based quad gantry level; squareness comes either from
+  # the switches or from the mechanical build.
+  #
+  # 16T motor pulley into an 80T gear on 2 mm belt is a 5:1 reduction on 40 mm/rev, so 200
+  # full steps at 16 microsteps gives 400 steps/mm.
+  # ------------------------------------------------------------------------------------------
+  z:
+    steps_per_mm: 400.000
+    max_rate_mm_per_min: 900.000
+    acceleration_mm_per_sec2: 100.000
+    max_travel_mm: 310.000
+    soft_limits: true
+    homing:
+      cycle: 3
+      positive_direction: false
+      mpos_mm: 0.000
+      feed_mm_per_min: 120.000
+      seek_mm_per_min: 600.000
+      settle_ms: 250
+      seek_scaler: 1.100
+      feed_scaler: 1.100
+
+    motor0:
+      limit_all_pin: pinext0.10:low
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.11
+        spi_index: -1
+        step_pin: i2so.9
+        direction_pin: i2so.8
+        disable_pin: i2so.10
+        r_ref_kohms: 12.0
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+    motor1:
+      # A per-corner switch would go here, on pinext0.13.  Adding switches to motor1..motor3
+      # turns homing into a squaring cycle; leaving them off means motor0's switch stops all
+      # four together.
+      limit_all_pin: NO_PIN
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.15
+        spi_index: -1
+        step_pin: i2so.13
+        direction_pin: i2so.12
+        disable_pin: i2so.14
+        r_ref_kohms: 12.0
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+    motor2:
+      limit_all_pin: NO_PIN
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.3
+        spi_index: -1
+        step_pin: i2so.1
+        direction_pin: i2so.0
+        disable_pin: i2so.2
+        r_ref_kohms: 12.0
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+    motor3:
+      limit_all_pin: NO_PIN
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.7
+        spi_index: -1
+        step_pin: i2so.5
+        direction_pin: i2so.4
+        disable_pin: i2so.6
+        r_ref_kohms: 12.0
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+
+control:
+  safety_door_pin: NO_PIN
+  reset_pin: NO_PIN
+  feed_hold_pin: NO_PIN
+  cycle_start_pin: NO_PIN
+
+probe:
+  pin: NO_PIN
+  check_mode_start: true
+
+start:
+  must_home: true
+
+# --------------------------------------------------------------------------------------------
+# Sensorless homing, if you want it later.
+#
+# J58 pairs each slot's Diag net with that slot's endstop input, upstream of the 74HC14
+# Schmitt inverter that feeds the PCA9539.  The board's socket pin carrying <Axis>_Diag1 lines
+# up with the BTT module's AIN rather than its DIAG0, though, and AIN is an analog input rated
+# to 2.1 V absolute maximum - do not bridge AIN to DIAG0 on the module.  Run a wire from
+# module J3 pin 2 (DIAG0) to the J58 odd pin instead, and leave that pair's shunt off.
+#
+#   J58 pin   axis   lands on
+#   11        X      pinext0.8
+#    9        Y      pinext0.9
+#    7        Z      pinext0.10
+#    5        A      pinext0.13
+#    3        B      pinext0.12
+#    1        C      pinext0.11
+#
+# These are the same inputs as the endstop connectors above, so an axis uses one or the other.
+# Then on that axis' motor:
+#
+#   homing_mode: StallGuard
+#   stallguard: 0                # tune from here
+#   diag0_stall: true            # the module only brings out DIAG0
+#   diag0_int_pushpull: true     # each input has a 10k pull-up and 100 nF to ground, so an
+#                                # open-drain DIAG0 would take ~1 ms to release
+#   limit_all_pin: pinext0.8:low # the 74HC14 inverts
+#
+# The pinext0 numbering above was derived from the J58 pairing rather than read off a
+# silkscreen.  Confirm it with $Limits, which shows the inputs live, before trusting a homing
+# cycle to it.
+# --------------------------------------------------------------------------------------------

@@ -25,7 +25,7 @@ namespace Machine {
             }
         }
 
-        static const int MAX_MOTORS_PER_AXIS = 2;
+        static const int MAX_MOTORS_PER_AXIS = ::MAX_MOTORS_PER_AXIS;
 
         Motor*  _motors[MAX_MOTORS_PER_AXIS];
         Homing* _homing = nullptr;
@@ -42,10 +42,16 @@ namespace Machine {
 
         // Checks if a motor matches this axis:
         bool hasMotor(const MotorDrivers::MotorDriver* const driver) const;
-        bool hasDualMotor();
 
+        // Number of real (non-null) motors, so 4 for a Voron-style gantry Z.
+        motor_t motorCount();
+        bool    isGanged() { return motorCount() > 1; }
+
+        // Pulloff distances across the axis' motors.  commonPulloff() is the distance every
+        // motor can pull off together; maxPulloff() is the furthest any single motor wants.
         float commonPulloff();
-        float extraPulloff();
+        float maxPulloff();
+        float extraPulloff() { return maxPulloff() - commonPulloff(); }
 
         void init();
         void config_motors();

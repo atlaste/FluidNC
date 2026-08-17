@@ -32,9 +32,6 @@ namespace Machine {
     // Then we scale the travel distances for the other axes so they would complete
     // at the same time.
 
-    const uint32_t MOTOR0 = 0xffff;
-    const uint32_t MOTOR1 = 0xffff0000;
-
     Homing::Phase   Homing::_phase         = Phase::None;
     AxisMask        Homing::_cycleAxes     = 0;
     AxisMask        Homing::_phaseAxes     = 0;
@@ -242,20 +239,15 @@ namespace Machine {
     }
 
     bool Homing::needsPulloff2(MotorMask motors) {
-        AxisMask squaredAxes = motors & (motors >> 16);
-        if (squaredAxes == 0) {
-            // No axis has multiple motors
-            return false;
-        }
-
         auto axes   = config->_axes;
         auto n_axis = axes->_numberAxis;
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-            if (bitnum_is_false(squaredAxes, axis)) {
+            // Only a ganged axis can need the extra differential phase, and only then if its
+            // motors disagree about how far to pull off.
+            if (Axes::count_motors(motors, axis) < 2) {
                 continue;
             }
 
-            // check to see if the axis has different pulloffs for its motors
             if (axes->_axis[axis]->extraPulloff()) {
                 return true;
             }

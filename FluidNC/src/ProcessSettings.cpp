@@ -508,13 +508,23 @@ static Error home_v(const char* value, AuthenticationLevel auth_level, Channel& 
 static Error home_w(const char* value, AuthenticationLevel auth_level, Channel& out) {
     return home(bitnum_to_mask(W_AXIS), out);
 }
-static std::string limit_set(uint32_t mask) {
+// One fixed-width block of axis letters per motor, lower case for motor0 and upper case for the
+// ganged ones.  Motors that no axis actually has are skipped, so a machine with at most two
+// motors per axis prints exactly as it always did.
+static std::string limit_set(MotorMask mask) {
     std::string s;
-    for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
-        s += bitnum_is_true(mask, Machine::Axes::motor_bit(axis, 0)) ? tolower(Machine::Axes::axisName(axis)[0]) : ' ';
-    }
-    for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
-        s += bitnum_is_true(mask, Machine::Axes::motor_bit(axis, 1)) ? toupper(Machine::Axes::axisName(axis)[0]) : ' ';
+    for (motor_t motor = 0; motor < Machine::Axis::MAX_MOTORS_PER_AXIS; motor++) {
+        bool laneExists = motor == 0;
+        for (axis_t axis = X_AXIS; !laneExists && axis < MAX_N_AXIS; axis++) {
+            laneExists = Machine::Axes::motor_is_set(Machine::Axes::motorMask, axis, motor);
+        }
+        if (!laneExists) {
+            continue;
+        }
+        for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
+            char name = Machine::Axes::axisName(axis)[0];
+            s += Machine::Axes::motor_is_set(mask, axis, motor) ? (motor ? toupper(name) : tolower(name)) : ' ';
+        }
     }
     return s;
 }

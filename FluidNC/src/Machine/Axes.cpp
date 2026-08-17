@@ -141,7 +141,7 @@ namespace Machine {
                         auto m = _axis[axis]->_motors[motor];
                         if (m) {
                             if (m->_driver->set_homing_mode(isHoming)) {
-                                set_bitnum(motorsCanHome, motor_bit(axis, motor));
+                                set_bits(motorsCanHome, motor_mask(axis, motor));
                             }
                         }
                     }
@@ -235,18 +235,17 @@ namespace Machine {
     }
     std::string Axes::motorMaskToNames(MotorMask mask) {
         std::string retval("");
-        for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
-            if (bitnum_is_true(mask, axis)) {
-                retval += " ";
-                retval += axisName(axis);
-            }
-        }
-        mask >>= 16;
-        for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
-            if (bitnum_is_true(mask, axis)) {
-                retval += " ";
-                retval += axisName(axis);
-                retval += "2";
+        for (motor_t motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; motor++) {
+            for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; axis++) {
+                if (motor_is_set(mask, axis, motor)) {
+                    retval += " ";
+                    retval += axisName(axis);
+                    // Motor 0 is the bare axis letter, so "Z" "Z2" "Z3" "Z4" reads the way the
+                    // motor0..motor3 config sections are numbered.
+                    if (motor) {
+                        retval += char('1' + motor);
+                    }
+                }
             }
         }
         return retval;

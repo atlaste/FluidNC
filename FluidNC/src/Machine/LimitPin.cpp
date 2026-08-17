@@ -37,9 +37,9 @@ namespace Machine {
                 break;
         }
 
-        // Set a bitmap with bits to represent the axis and which motors are affected
-        // The bitmap looks like CBAZYX..cbazyx where motor0 motors are in the lower bits
-        _bitmask = 1 << Axes::motor_bit(axis, motor);
+        // Set a bitmap with bits to represent the axis and which motors are affected.
+        // Motor 0's axis bits occupy the lowest lane, motor 1's the next, and so on.
+        _bitmask = Axes::motor_mask(axis, motor);
         _legend  = Axes::motorMaskToNames(_bitmask);
         _legend += " ";
         _legend += sDir;
@@ -93,9 +93,9 @@ namespace Machine {
         EventPin::trigger(active);
     }
 
-    // Make this switch act like an axis level switch. Both motors will report the same
-    // This should be called from a higher level object, that has the logic to figure out
-    // if this belongs to a dual motor, single switch axis
+    // Make this switch act like an axis level switch, so every motor of the axis reports the
+    // same.  This should be called from a higher level object, that has the logic to figure out
+    // if this belongs to a ganged, single switch axis.
     void LimitPin::makeDualMask() {
         _bitmask = Axes::axes_to_motors(Axes::motors_to_axes(_bitmask));
     }

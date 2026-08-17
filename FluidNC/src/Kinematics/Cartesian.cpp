@@ -220,8 +220,7 @@ namespace Kinematics {
                 if ((!move_positive && (current_position[axis] < limitsMinPosition(axis))) ||
                     (move_positive && (current_position[axis] > limitsMaxPosition(axis)))) {
                     // only allow a nudge if a switch is active
-                    if (bitnum_is_false(lim_pin_state, Machine::Axes::motor_bit(axis, 0)) &&
-                        bitnum_is_false(lim_pin_state, Machine::Axes::motor_bit(axis, 1))) {
+                    if (Machine::Axes::count_motors(lim_pin_state, axis) == 0) {
                         target[axis] = current_position[axis];  // cancel the move on this axis
                         log_debug("Soft limit violation on " << Machine::Axes::axisName(axis));
                         continue;
@@ -367,11 +366,10 @@ namespace Kinematics {
         auto n_axis = axes->_numberAxis;
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
             if (bitnum_is_true(axisMask, axis)) {
-                if (bitnum_is_true(motors, Machine::Axes::motor_bit(axis, 0))) {
-                    Stepping::unlimit(axis, MOTOR0);
-                }
-                if (bitnum_is_true(motors, Machine::Axes::motor_bit(axis, 1))) {
-                    Stepping::unlimit(axis, MOTOR1);
+                for (motor_t motor = 0; motor < Machine::Axis::MAX_MOTORS_PER_AXIS; motor++) {
+                    if (Machine::Axes::motor_is_set(motors, axis, motor)) {
+                        Stepping::unlimit(axis, motor);
+                    }
                 }
             }
         }
@@ -405,7 +403,7 @@ namespace Kinematics {
             if (bitnum_is_false(axisMask, axis)) {
                 continue;
             }
-            if (bitnum_is_false(motors, Machine::Axes::motor_bit(axis, 0)) && bitnum_is_false(motors, Machine::Axes::motor_bit(axis, 1))) {
+            if (Machine::Axes::count_motors(motors, axis) == 0) {
                 log_error("No motor for axis " << axes->axisName(axis) << " can be homed");
                 Homing::fail(ExecAlarm::HomingFailApproach);
                 return;
@@ -436,19 +434,25 @@ namespace Kinematics {
                     axis_rate = homing->_feedRate;
                     travel    = axisConfig->commonPulloff();
                     break;
-                case Machine::Homing::Phase::Pulloff2:
-                    axis_rate = homing->_feedRate;
-                    travel    = axisConfig->extraPulloff();
-                    if (travel < 0) {
-                        // Motor0's pulloff is greater than motor1's, so we block motor1
-                        Stepping::block(axis, 1);
-                        travel = -travel;
-                    } else if (travel > 0) {
-                        // Motor1's pulloff is greater than motor0's, so we block motor0
-                        Stepping::block(axis, 0);
+                case Machine::Homing::Phase::Pulloff2: {
+                    // The common phases already pulled every motor off by the smallest of the
+                    // pulloff distances.  This phase covers the remainder for the motors that
+                    // wanted more; the ones already at their own distance must sit still or
+                    // they would overshoot it.  Axis::init() rejects more than two distinct
+                    // distances, which is what makes one such phase enough.
+                    axis_rate        = homing->_feedRate;
+                    float maxPulloff = axisConfig->maxPulloff();
+                    travel           = maxPulloff - axisConfig->commonPulloff();
+                    if (travel > 0) {
+                        for (motor_t motor = 0; motor < Machine::Axis::MAX_MOTORS_PER_AXIS; motor++) {
+                            auto m = axisConfig->_motors[motor];
+                            if (m && m->isReal() && m->_pulloff < maxPulloff) {
+                                Stepping::block(axis, motor);
+                            }
+                        }
                     }
                     // All motors will be unblocked later by set_homing_mode()
-                    break;
+                } break;
                 default:  // None, CycleDone.
                     break;
             }

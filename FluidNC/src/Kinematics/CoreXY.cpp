@@ -58,9 +58,13 @@ namespace Kinematics {
         // must run to perform a move parallel to an axis).  When a limit switch is hit, we
         // clear the associated axis bit and stop motion.  The homing code will then replan
         // a new move along the remaining axes.
-        MotorMask toClear = axisMask & limited;
+        //
+        // Fold the motor lanes down to axes first, so a switch belonging to, say, the third
+        // motor of a ganged Z still clears Z rather than a bit no axis owns.
+        AxisMask limitedAxes = Machine::Axes::motors_to_axes(limited);
+        AxisMask toClear     = axisMask & limitedAxes;
 
-        clear_bits(axisMask, limited);
+        clear_bits(axisMask, limitedAxes);
         clear_bits(motors, limited);
 
         // During CoreXY homing of, say, the X axis, if the Y axis limit trips
@@ -80,9 +84,13 @@ namespace Kinematics {
             Stepping::unlimit(X_AXIS, MOTOR0);
             Stepping::unlimit(Y_AXIS, MOTOR0);
         }
+        // The remaining axes are plain Cartesian, but they may be ganged: a Voron-style Z has a
+        // motor per corner, and leaving three of them limited would stall the rest of the cycle.
         for (axis_t axis = Z_AXIS; axis < n_axis; axis++) {
             if (bitnum_is_true(axisMask, axis)) {
-                Stepping::unlimit(axis, MOTOR0);
+                for (motor_t motor = 0; motor < Machine::Axis::MAX_MOTORS_PER_AXIS; motor++) {
+                    Stepping::unlimit(axis, motor);
+                }
             }
         }
     }
