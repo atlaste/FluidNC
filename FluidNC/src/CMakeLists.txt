@@ -111,6 +111,8 @@ idf_component_register(SRCS BTConfig.cpp
 							Motors/TMC2160ProDriver.cpp
 							Motors/TMC2208Driver.cpp
 							Motors/TMC2209Driver.cpp
+							Motors/TMC2240Driver.cpp
+							Motors/TMC2240Stepper.cpp
 							Motors/TMC5160Driver.cpp
 							Motors/TMC5160ProDriver.cpp
 							Motors/TrinamicBase.cpp
