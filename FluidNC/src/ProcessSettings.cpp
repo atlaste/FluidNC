@@ -22,6 +22,7 @@
 #include "Driver/gpio_dump.h"     // gpio_dump()
 #include "Driver/fluidnc_gpio.h"  // gpio_glitch_count()
 #include "FileCommands.h"         // make_file_commands()
+#include "InputDump.h"            // InputDump::start()
 #include "Job.h"                  // Job::active()
 #include "ToolTable.h"            // toolTable
 #include "Kinematics/Compensated1D.h"  // compensated1D
@@ -1332,6 +1333,51 @@ static Error clearComp2D(const char* value, AuthenticationLevel auth_level, Chan
     return Error::Ok;
 }
 
+#if MAX_N_I2C
+// Report which addresses acknowledge on an I2C bus.  When a device is silent this separates "not
+// there at all" from "there but at a different address", which is otherwise guesswork.
+static Error i2cScan(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    objnum_t busNumber = 0;
+    if (value && *value) {
+        busNumber = objnum_t(atoi(value));
+    }
+    if (busNumber >= MAX_N_I2C || config->_i2c[busNumber] == nullptr) {
+        log_error_to(out, "No I2C bus " << int(busNumber) << " is configured");
+        return Error::InvalidStatement;
+    }
+    config->_i2c[busNumber]->scan(out);
+    return Error::Ok;
+}
+#endif
+
+// Watch every input-capable pin the configuration is not using.  This is how a wire of unknown
+// provenance is identified: start the dump, move the switch, and read off the column that changes.
+// With no value it toggles, so the same command that started it stops it; on and off are accepted for
+// scripts and for making sure of the state.
+static Error diagInputs(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    bool enable = !InputDump::running();
+
+    if (value && *value) {
+        std::string_view requested(value);
+        if (string_util::equal_ignore_case(requested, "off") || string_util::equal_ignore_case(requested, "0")) {
+            enable = false;
+        } else if (string_util::equal_ignore_case(requested, "on") || string_util::equal_ignore_case(requested, "1")) {
+            enable = true;
+        } else {
+            log_error_to(out, "Expected on, off, or no value to toggle");
+            return Error::InvalidValue;
+        }
+    }
+
+    if (enable) {
+        InputDump::start(out);
+    } else {
+        InputDump::stop();
+        log_string(out, "Diag/Inputs stopped");
+    }
+    return Error::Ok;
+}
+
 // Commands use the same syntax as Settings, but instead of setting or
 // displaying a persistent value, a command causes some action to occur.
 // That action could be anything, from displaying a run-time parameter
@@ -1345,6 +1391,12 @@ void make_user_commands() {
     new UserCommand("G-", "GPIO/Off", writeGPIOOff, anyState);
     new UserCommand("GR", "GPIO/Read", readGPIO, anyState);
     new UserCommand("GG", "GPIO/Glitches", showGlitches, anyState);
+
+#if MAX_N_I2C
+    new UserCommand("I2C", "I2C/Scan", i2cScan, anyState);
+#endif
+
+    new UserCommand("DI", "Diag/Inputs", diagInputs, anyState);
 
     new UserCommand("CI", "Channel/Info", showChannelInfo, anyState);
     new UserCommand("CD", "Config/Dump", dump_config, anyState);

@@ -22,6 +22,12 @@ void gpio_add_interrupt(pinnum_t pin, int8_t mode, void (*callback)(void*), void
 void gpio_remove_interrupt(pinnum_t pin);
 void gpio_route(pinnum_t pin, uint32_t signal);
 
+// True when the chip has committed the pad to something outside FluidNC's pin system, so that
+// reconfiguring it would break a peripheral that nothing in the configuration mentions.  Peripherals
+// FluidNC sets up itself do not need this: those pins are claimed through the pin system and are
+// already visible as taken.
+bool gpio_reserved_by_platform(pinnum_t pin);
+
 void gpio_set_event(int32_t gpio_num, void* arg, bool invert);
 void gpio_clear_event(int32_t gpio_num);
 void poll_gpios();

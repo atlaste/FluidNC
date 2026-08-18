@@ -10,6 +10,9 @@
 #include "driver/gpio.h"
 #include "hal/gpio_hal.h"
 #include "rom/gpio.h"  // gpio_matrix_*
+#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+#    include "soc/usb_pins.h"  // USBPHY_DP_NUM, USBPHY_DM_NUM
+#endif
 #include "DebounceTimer.h"
 
 #include <freertos/FreeRTOS.h>  // portMUX_TYPE, portENTER_CRITICAL_SAFE
@@ -76,6 +79,19 @@ void gpio_route(pinnum_t pin, uint32_t signal) {
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[gpio], PIN_FUNC_GPIO);
     gpio_set_direction(gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
     gpio_matrix_out(gpio, signal, 0, 0);
+}
+
+bool gpio_reserved_by_platform(pinnum_t pin) {
+#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+    // The USB PHY pads are wired to the USB peripheral whether or not the configuration mentions
+    // them, and on these parts the console usually arrives over exactly that peripheral.  Switching
+    // one to a GPIO, or hanging a pull-up on it, drops the connection - which for a diagnostic would
+    // mean cutting off the console its own output is going to.
+    if (pin == USBPHY_DM_NUM || pin == USBPHY_DP_NUM) {
+        return true;
+    }
+#endif
+    return false;
 }
 
 typedef uint64_t gpio_mask_t;

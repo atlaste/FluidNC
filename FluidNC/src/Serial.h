@@ -36,6 +36,11 @@ public:
 
     void registration(Channel* channel);
     void deregistration(Channel* channel);
+
+    // True while the channel still exists.  Anything that keeps a Channel* across more than one
+    // command needs this: a network channel is destroyed when its connection closes, and writing to
+    // one that has gone is a use-after-free rather than a failed write.
+    bool isRegistered(Channel* channel);
     void init();
     void ready();
 

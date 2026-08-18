@@ -1,6 +1,6 @@
 board: 6 Pack ESP32-S3 v2.0
 name: PNP Machine (Voron 2.4 frame, CoreXY + quad Z)
-meta: BTT TMC2240 v1.0 modules, PCA9539 endstops, MB85RC04V I2C FRAM
+meta: BTT TMC2240 v1.0 modules, PCA9535/9555 endstops, MB85RC04V I2C FRAM
 
 # --------------------------------------------------------------------------------------------
 # Hardware assumptions this file encodes.  Change the file if you change the board, because
@@ -15,8 +15,12 @@ meta: BTT TMC2240 v1.0 modules, PCA9539 endstops, MB85RC04V I2C FRAM
 #                   into UART mode.
 #   JP27            Pads 2-3, putting VCC_IO at 3.3 V.  MISO runs unbuffered to gpio.7, whose
 #                   absolute maximum is 3.6 V, so 5 V here would damage the ESP32.
-#   JP28            Open.  R14 pulls the PCA9539 ~RESET high; bridging 1-2 grounds it and the
-#                   expander never responds.
+#   JP28            Open, which lets R14 pull pin 3 of the expander high.  That footprint takes a
+#                   PCA9539, PCA9535 or PCA9555, which are pin compatible everywhere except pin 3:
+#                   reset on the '9539, the third address strap A2 on the other two.  The part
+#                   fitted here is a '9535/'9555, so a high pin 3 means A2=1 and, with A0 and A1
+#                   strapped to ground, the chip answers at 0x24 rather than the 0x20 you would
+#                   get by grounding it.  $I2C/Scan confirms which.
 #   JP29            Pads 1-2, tying the 74AHCT595 ~OE to gpio.36.  See i2so.oe_pin below.
 #
 # Six driver slots, all of them spoken for: two for the CoreXY motors and four for the gantry
@@ -60,12 +64,23 @@ i2c0:
 
 extenders:
   pinextender0:
-    pca9539:
+    pca9535_9555:
       busId: 0
-      # The expander cannot say which pin changed, so a monitor task reads the input
-      # registers.  poll_ms bounds how long a switch can go unnoticed if the interrupt is
-      # missed; the interrupt line just cuts the wait short.
-      poll_ms: 5
+      # A2 is pulled high by R14 with JP28 open, so this sits at 0x20+4 instead of the driver's
+      # own 0x20.  See the JP28 note at the top of the file.
+      address: 0x24
+      # The expander cannot say which pin changed, only that something did, so the interrupt
+      # wakes a monitor task which then reads the input registers to find it.  With interrupt0
+      # wired, poll_ms does not apply to this device; poll_ms is only what a device with no
+      # interrupt line falls back on.
+      #
+      # The device is still read a few times a second regardless, because the interrupt line
+      # cannot report that the chip itself has gone - a reset or unpowered expander leaves it
+      # idle, which is indistinguishable from endstops that have not moved.  If it stops
+      # answering, the inputs are forced to failsafe_state (default all zero, so an endstop
+      # declared :low reads as triggered) and an ExpanderReset alarm is raised.  Both are
+      # deliberate: the endstops here are the only ones the machine has.  failsafe_inputs and
+      # alarm_on_loss can turn either off.
       interrupt0: gpio.37:low
 
 # Non-volatile machine state.  The MB85RC04V is 512 bytes across two consecutive I2C

@@ -26,6 +26,12 @@ namespace Pins {
     public:
         GPIOPinDetail(pinnum_t index, PinOptionsParser options);
 
+        // What a GPIO could do and whether the configuration has already taken it.  Creating one that
+        // does not exist or is already spoken for is an assertion failure, so a diagnostic that wants
+        // to enumerate the free pins has to ask before it builds them rather than trying and failing.
+        static PinCapabilities defaultCapabilities(pinnum_t index) { return GetDefaultCapabilities(index); }
+        static bool            isClaimed(pinnum_t index) { return size_t(index) >= _claimed.size() || _claimed[index]; }
+
         PinCapabilities capabilities() const override;
 
         // I/O:

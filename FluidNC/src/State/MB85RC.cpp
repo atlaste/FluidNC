@@ -45,10 +45,13 @@ bool MB85RC::readChunk(uint32_t address, uint8_t* data, uint32_t length) {
 
     uint8_t slave = slaveAddress(address);
 
-    // A dummy write of the address followed by a separate read.  The driver puts a stop
-    // between the two, which the address latch survives; this is the same sequence the I2C
-    // pin extenders use and it avoids needing a combined-transaction primitive in the
-    // platform layer.
+    // A dummy write of the address followed by a separate read.  The driver puts a stop between the
+    // two, which the address latch survives; this is the same sequence the I2C pin extenders use and
+    // it avoids needing a combined-transaction primitive in the platform layer.  It does mean no other
+    // task may use the bus in between, or this read comes back from wherever that task left the
+    // address counter, hence the lock.
+    Machine::I2CBus::Lock lock(*_bus);
+
     if (_bus->write(slave, addressBytes, addressLength) != addressLength) {
         return false;
     }

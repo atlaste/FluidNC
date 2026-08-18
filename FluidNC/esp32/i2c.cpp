@@ -41,6 +41,19 @@ bool i2c_master_init(objnum_t bus_number, pinnum_t sda_pin, pinnum_t scl_pin, ui
     return false;
 }
 
+// Turn an esp_err_t into the convention the callers expect: the byte count on success, otherwise a
+// negative value carrying the cause.  Collapsing every failure to -1, as this used to, made a device
+// that is absent indistinguishable from one that is holding the bus, which is most of the information
+// you want when an I2C device does not answer.  esp_err_t codes are positive apart from ESP_FAIL,
+// which is already -1, so negating keeps them clear of any count.  arduino_i2c_driver.cpp reports
+// errors the same way.
+static int i2c_result(esp_err_t err, size_t count) {
+    if (err == ESP_OK) {
+        return int(count);
+    }
+    return err > 0 ? -err : -1;
+}
+
 // cppcheck-suppress unusedFunction
 int i2c_write(objnum_t bus_number, uint8_t address, const uint8_t* data, size_t count) {
 #    if 0
@@ -79,17 +92,35 @@ int i2c_write(objnum_t bus_number, uint8_t address, const uint8_t* data, size_t 
         }
         return ret ? -1 : count;
 #    else
-    auto err = i2c_master_write_to_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_PERIOD_MS);
-    if (err == ESP_OK) {
-        return count;
-    } else {
-        return -1;
+    if (count == 0) {
+        // A zero length write is how you ask "is anything at this address?", but
+        // i2c_master_write_to_device rejects it outright because i2c_master_write insists on at least
+        // one byte.  Build the address-only transfer by hand instead.
+        uint8_t          buf[I2C_LINK_RECOMMENDED_SIZE(1)] = { 0 };
+        i2c_cmd_handle_t cmd                              = i2c_cmd_link_create_static(buf, sizeof(buf));
+        if (cmd == NULL) {
+            return -1;
+        }
+        esp_err_t err = i2c_master_start(cmd);
+        if (err == ESP_OK) {
+            err = i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+        }
+        if (err == ESP_OK) {
+            err = i2c_master_stop(cmd);
+        }
+        if (err == ESP_OK) {
+            err = i2c_master_cmd_begin((i2c_port_t)bus_number, cmd, pdMS_TO_TICKS(10));
+        }
+        i2c_cmd_link_delete_static(cmd);
+        return i2c_result(err, 0);
     }
+
+    return i2c_result(i2c_master_write_to_device((i2c_port_t)bus_number, address, data, count, pdMS_TO_TICKS(10)), count);
 #    endif
 }
 
 // cppcheck-suppress unusedFunction
 int i2c_read(objnum_t bus_number, uint8_t address, uint8_t* data, size_t count) {
-    return i2c_master_read_from_device((i2c_port_t)bus_number, address, data, count, 10 / portTICK_PERIOD_MS) ? -1 : count;
+    return i2c_result(i2c_master_read_from_device((i2c_port_t)bus_number, address, data, count, pdMS_TO_TICKS(10)), count);
 }
 #endif

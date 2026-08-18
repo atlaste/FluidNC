@@ -108,6 +108,13 @@ void AllChannels::deregistration(Channel* channel) {
     _mutex_general.unlock();
 }
 
+bool AllChannels::isRegistered(Channel* channel) {
+    _mutex_general.lock();
+    bool found = std::find(_channelq.begin(), _channelq.end(), channel) != _channelq.end();
+    _mutex_general.unlock();
+    return found;
+}
+
 void AllChannels::listChannels(Channel& out) {
     _mutex_general.lock();
     std::string retval;

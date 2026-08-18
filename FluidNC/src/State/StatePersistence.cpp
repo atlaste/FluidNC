@@ -7,6 +7,7 @@
 #include "NutsBolts.h"
 #include "System.h"
 #include "GCode.h"
+#include "MotionControl.h"  // probing
 #include "Stepping.h"
 #include "Machine/Homing.h"
 #include "Machine/Axes.h"
@@ -486,6 +487,27 @@ void StatePersistence::restoreAllSections() {
     restoreSpindleState();
 }
 
+// Homing and probing both derive a machine position from the instant an input changes state, so any
+// delay between the change and the read that notices it becomes position error.  On a board where the
+// endstops hang off a pin extender on the same I2C bus as the FRAM, a save in progress is exactly such
+// a delay: the bus is held for the length of the transfer, and at 100 kHz a few hundred bytes is
+// milliseconds.  A periodic save is never urgent enough to be worth that, so it gives way.
+//
+// Nothing is lost by waiting.  The next tick after the cycle ends writes the same state, and that
+// state is more useful then anyway, since it now includes the position that was just found.  A forced
+// save is not affected: those come from a reset or an alarm, where the state really does have to reach
+// the device, and the cycle is over by then in any case.
+//
+// Read from live state on purpose, rather than from the Stepping::beginLowLatency/endLowLatency pair
+// that already brackets both operations, because those calls are not balanced on every path -
+// Homing::done() returns before its end call when the cycle was aborted.  A flag driven by them would
+// stay set after an aborted homing cycle and quietly stop persisting anything until the next reboot.
+// Both terms below clear themselves: the state machine leaves Homing even when homing fails, and the
+// probe cycle clears its flag on contact and on every exit.
+static bool saveWouldDisturbMotion() {
+    return state_is(State::Homing) || probing;
+}
+
 void StatePersistence::saveTaskFunc(void* param) {
     StatePersistence* self = static_cast<StatePersistence*>(param);
 
@@ -496,7 +518,7 @@ void StatePersistence::saveTaskFunc(void* param) {
             // Immediate save requested
             log_debug("Force save requested");
             self->saveAllSections();
-        } else {
+        } else if (!saveWouldDisturbMotion()) {
             // Normal periodic save
             self->saveAllSections();
         }

@@ -35,6 +35,12 @@ namespace Extenders {
         // this and call obj->trigger() (via protocol_send_event) when the pin changes state.
         virtual void registerEvent(pinnum_t index, InputPin* obj);
 
+        // The driver's pin range, and whether a given pin is there and free to be claimed.  Lets a
+        // diagnostic enumerate what nothing has taken without having to claim a pin to find out, since
+        // claiming one twice is an assertion failure.  A driver that reports no pins is not enumerable.
+        virtual pinnum_t pinCount() const { return 0; }
+        virtual bool     pinAvailable(pinnum_t index) const { return false; }
+
         // Name is required for the configuration factory to work.
         virtual const char* name() const = 0;
 
