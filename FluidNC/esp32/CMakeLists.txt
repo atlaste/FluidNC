@@ -31,9 +31,10 @@ idf_component_register(SRCS AssertionFailed.cpp
                             esp32s3/Console.cpp
                             esp32s3/GPIOCapabilities.cpp
                             esp32s3/USBCDCChannel_IDF.cpp
+                            esp32s3/USBSerialJTAGChannel.cpp
                             esp32s3/i2s_engine_dedicated.c
                             ../stdfs/fluidnc_vfs_ops.cpp
                        INCLUDE_DIRS "." ".." "../include" "../lib/TMCStepper/src" "esp32s3" "../src"
-                       REQUIRES esp_driver_uart driver fatfs vfs spiffs esp_driver_sdspi esp_timer arduino-esp32 nvs_flash esp_driver_gpio mbedtls esp_tinyusb
+                       REQUIRES esp_driver_uart driver fatfs vfs spiffs esp_driver_sdspi esp_timer arduino-esp32 nvs_flash esp_driver_gpio mbedtls esp_tinyusb esp_driver_usb_serial_jtag
                        PRIV_REQUIRES espcoredump
                        WHOLE_ARCHIVE)

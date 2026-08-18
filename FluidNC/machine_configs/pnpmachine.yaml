@@ -79,8 +79,6 @@ state_persistence:
   save_parameters: true
 
 axes:
-  shared_stepper_disable_pin: NO_PIN
-
   # ------------------------------------------------------------------------------------------
   # CoreXY.  X and Y are the A and B motors: one motor each, and the kinematics does the
   # mixing, so neither axis is ganged.  20T pulley on 2 mm belt is 40 mm/rev, so 200 full

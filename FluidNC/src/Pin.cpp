@@ -18,8 +18,15 @@
 #include <charconv>
 #include "Pins/ExtPinDetail.h"
 
-Pins::PinDetail* Pin::undefinedPin = new (ram) Pins::VoidPinDetail();
-Pins::PinDetail* Pin::errorPin     = new (ram) Pins::ErrorPinDetail("unknown");
+Pins::PinDetail* Pin::undefinedPin() {
+    static Pins::PinDetail* detail = new (ram) Pins::VoidPinDetail();
+    return detail;
+}
+
+Pins::PinDetail* Pin::errorPin() {
+    static Pins::PinDetail* detail = new (ram) Pins::ErrorPinDetail("unknown");
+    return detail;
+}
 
 static constexpr bool verbose_debugging = false;
 
@@ -36,7 +43,7 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
 
     if (pin_str.empty()) {
         // Reuse undefined pins happens in 'create':
-        pinImplementation = undefinedPin;
+        pinImplementation = undefinedPin();
         return nullptr;
     }
 
@@ -87,13 +94,13 @@ const char* Pin::parse(std::string_view pin_str, Pins::PinDetail*& pinImplementa
     }
 
     if (string_util::equal_ignore_case(pin_type, "no_pin")) {
-        pinImplementation = undefinedPin;
+        pinImplementation = undefinedPin();
         return nullptr;
     }
 
     if (string_util::equal_ignore_case(pin_type, "void")) {
         // Note: having multiple void pins has its uses for debugging.
-        pinImplementation = new (ram) Pins::VoidPinDetail();
+        pinImplementation = undefinedPin();
         return nullptr;
     }
 
@@ -158,7 +165,7 @@ void Pin::report(const char* legend) {
 }
 
 Pin::~Pin() {
-    if (_detail != undefinedPin && _detail != errorPin) {
+    if (_detail != undefinedPin() && _detail != errorPin()) {
         delete _detail;
     }
 }

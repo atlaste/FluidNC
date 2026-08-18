@@ -11,20 +11,46 @@ import os
 import re
 from pathlib import Path
 
-def get_toolchain_prefix(elf_path):
-    """Detect the right toolchain based on ELF architecture"""
-    # Try to determine from file command
+# Each Xtensa target has its own binutils; the RISC-V targets share one.
+TOOLCHAIN_PREFIXES = {
+    'esp32':   'xtensa-esp32-elf-',
+    'esp32s2': 'xtensa-esp32s2-elf-',
+    'esp32s3': 'xtensa-esp32s3-elf-',
+}
+RISCV_PREFIX = 'riscv32-esp-elf-'
+
+
+def get_target(elf_path):
+    """Which chip the ELF was built for, from the build configuration."""
+    # idf.py exports this; a bare ninja invocation usually does not.
+    target = os.environ.get('IDF_TARGET')
+    if target:
+        return target
+
+    # The generated sdkconfig sits beside the ELF in the build directory and is the
+    # authoritative answer.  Guessing from the ELF's own name does not work: it is named
+    # after the project, so nothing in the path mentions the chip.
+    sdkconfig = Path(elf_path).resolve().parent / 'sdkconfig'
     try:
-        result = subprocess.run(['file', elf_path], capture_output=True, text=True)
-        if 'xtensa' in result.stdout.lower():
-            return 'xtensa-esp32s3-elf-' if 's3' in elf_path.lower() else 'xtensa-esp32-elf-'
-        elif 'riscv' in result.stdout.lower():
-            return 'riscv32-esp-elf-'
-    except:
+        with open(sdkconfig, encoding='utf-8') as f:
+            for line in f:
+                m = re.match(r'^CONFIG_IDF_TARGET="([^"]+)"', line)
+                if m:
+                    return m.group(1)
+    except OSError:
         pass
-    
-    # Default to esp32
-    return 'xtensa-esp32-elf-'
+
+    return None
+
+
+def get_toolchain_prefix(elf_path):
+    """Detect the right toolchain based on the target the ELF was built for"""
+    target = get_target(elf_path)
+    if target:
+        return TOOLCHAIN_PREFIXES.get(target, RISCV_PREFIX)
+
+    print("Warning: could not determine the build target; assuming esp32")
+    return TOOLCHAIN_PREFIXES['esp32']
 
 def extract_symbols(elf_path, output_path=None, compress=True, filter_text_only=True, filter_project_only=False):
     """

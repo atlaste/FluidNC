@@ -92,10 +92,15 @@ static void gpio_set_rate_limit(int32_t gpio_num, uint32_t ms) {
     gpio_deltat_ticks[gpio_num] = pdMS_TO_TICKS(ms);
 }
 
-static inline gpio_mask_t get_gpios() {
+// get_gpios() and gpio_mask() are reached from the debounce sampler, which runs in an interrupt
+// that stays enabled while the flash cache is off, so they have to live in IRAM.  They are small
+// enough that the compiler usually inlines them, but "usually" is not good enough here: at -Os a
+// helper with more than one caller gets emitted as a real function, and a call into flash with the
+// cache disabled panics with "Cache disabled but cached memory region accessed".
+static inline gpio_mask_t IRAM_ATTR get_gpios() {
     return ((((uint64_t)REG_READ(GPIO_IN1_REG)) << 32) | REG_READ(GPIO_IN_REG)) ^ gpios_inverted;
 }
-static gpio_mask_t gpio_mask(int32_t gpio_num) {
+static gpio_mask_t IRAM_ATTR gpio_mask(int32_t gpio_num) {
     return 1ULL << gpio_num;
 }
 static inline bool gpio_is_active(int32_t gpio_num) {
@@ -157,7 +162,8 @@ static volatile bool        debounce_running             = false;
 // deadlock against a holder running on that same core.
 static portMUX_TYPE gpios_debounced_mux = portMUX_INITIALIZER_UNLOCKED;
 
-static inline gpio_mask_t gpios_debounced_get() {
+// In IRAM because the sampler reads the levels; see get_gpios() above.
+static inline gpio_mask_t IRAM_ATTR gpios_debounced_get() {
     portENTER_CRITICAL_SAFE(&gpios_debounced_mux);
     const gpio_mask_t levels = gpios_debounced;
     portEXIT_CRITICAL_SAFE(&gpios_debounced_mux);

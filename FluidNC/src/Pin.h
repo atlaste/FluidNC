@@ -53,8 +53,14 @@ class Pin {
     // These are useful for unit testing, and for initializing pins that _always_ have to be defined by a user
     // (or else). Undefined pins are basically pins with no functionality. They don't have to be defined, but also
     // have no functionality when they are used.
-    static Pins::PinDetail* undefinedPin;
-    static Pins::PinDetail* errorPin;
+    //
+    // These are accessors rather than variables so that the details exist by the time the first Pin is
+    // constructed.  A Pin with static storage duration in another translation unit, such as
+    // Machine::Axes::_sharedStepperDisable, can be constructed before an initialiser in Pin.cpp would have
+    // run; it would then capture a null detail, which undefined() reads as a defined pin and every use
+    // dereferences.
+    static Pins::PinDetail* undefinedPin();
+    static Pins::PinDetail* errorPin();
 
     // Implementation details of this pin.
     Pins::PinDetail* _detail;
@@ -68,7 +74,7 @@ public:
     using Attr         = Pins::PinAttributes;
 
     // A default pin is an undefined pin.
-    inline Pin() : _detail(undefinedPin) {}
+    inline Pin() : _detail(undefinedPin()) {}
 
     static const bool On  = true;
     static const bool Off = false;
@@ -88,7 +94,9 @@ public:
     // the correct execution of 'return' in f.ex. `create` calls. It basically transfers ownership from the callee to the
     // caller of the Pin.
     inline Pin(const Pin& o) = delete;
-    inline Pin(Pin&& o) : _detail(nullptr) { std::swap(_detail, o._detail); }
+    // Swapping in the undefined detail rather than nullptr leaves the moved-from pin in the same state as a
+    // default constructed one, so undefined() still answers truthfully for it.
+    inline Pin(Pin&& o) : _detail(undefinedPin()) { std::swap(_detail, o._detail); }
 
     inline Pin& operator=(const Pin& o) = delete;
     inline Pin& operator=(Pin&& o) {
@@ -100,7 +108,7 @@ public:
     inline bool operator==(const Pin& o) const { return _detail == o._detail; }
     inline bool operator!=(const Pin& o) const { return _detail != o._detail; }
 
-    inline bool undefined() const { return _detail == undefinedPin; }
+    inline bool undefined() const { return _detail == undefinedPin(); }
     inline bool defined() const { return !undefined(); }
 
     // External libraries normally use digitalWrite, digitalRead and setMode. Since we cannot handle that behavior, we
@@ -133,7 +141,7 @@ public:
     inline void on() const { write(1); }
     inline void off() const { write(0); }
 
-    static Pin Error() { return Pin(errorPin); }
+    static Pin Error() { return Pin(errorPin()); }
 
     void registerEvent(InputPin* obj) { _detail->registerEvent(obj); };
 

@@ -79,7 +79,12 @@ CONFIG_ESP_REV_MIN_FULL=0
 CONFIG_ESP32S3_REV_MAX_FULL=99
 CONFIG_ESP_REV_MAX_FULL=99
 CONFIG_SPIRAM=y
-CONFIG_SPIRAM_MODE_OCT=y
+# Quad, not octal.  Octal mode claims GPIO33-37 for the extra data lines and DQS, which on the
+# 6-pack ESP32-S3 board are the shift register output enable and the PCA9539 interrupt.  It also
+# fails to initialise at all on a quad part such as the WROOM-1 N8R2, and with SPIRAM_BOOT_INIT
+# set and SPIRAM_IGNORE_NOTFOUND clear that failure aborts the boot.  Change this to
+# CONFIG_SPIRAM_MODE_OCT=y only for an octal module (N8R8/N16R8), and expect to move those pins.
+CONFIG_SPIRAM_MODE_QUAD=y
 CONFIG_SPIRAM_TYPE_AUTO=y
 CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
 CONFIG_SPIRAM_CLK_IO=30
