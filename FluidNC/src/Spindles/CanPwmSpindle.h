@@ -6,6 +6,7 @@
 #include "Spindle.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace Spindles {
@@ -42,6 +43,7 @@ namespace Spindles {
 
         void group(Configuration::HandlerBase& handler) override {
             handler.item("node", _nodeId);
+            handler.item("module", _moduleLabel);
             handler.item("channel", _channel);
             handler.item("max_duty", _maxDuty, 1, 65535);
             handler.item("enable_output", _enableOutput, -1, 63);
@@ -55,11 +57,12 @@ namespace Spindles {
         static void onSpindleChanged(Spindle* active);
 
     private:
-        int32_t _nodeId       = 0;
-        int32_t _channel      = 0;
-        int32_t _maxDuty      = 1023;
-        int32_t _enableOutput = -1;
-        bool    _laser        = false;
+        int32_t     _nodeId       = 0;
+        int32_t     _channel      = 0;
+        int32_t     _maxDuty      = 1023;
+        int32_t     _enableOutput = -1;
+        bool        _laser        = false;
+        std::string _moduleLabel  = "";
 
         void setEnable(bool enable);
     };

@@ -4,6 +4,7 @@
 #include "CanActuator.h"
 
 #include "CanIds.h"
+#include "CanModule.h"
 #include "../Logging.h"
 #include "../Machine/MachineConfig.h"
 
@@ -35,13 +36,16 @@ namespace CAN {
     void CanActuator::group(Configuration::HandlerBase& handler) {
         handler.item("label", _label);
         handler.item("node", _nodeId);
+        handler.item("module", _moduleLabel);
         handler.item("index", _actuatorIndex);
         handler.item("timeout_ms", _defaultTimeoutMs);
     }
 
     void CanActuator::afterParse() {
         Assert(!_label.empty(), "actuator: label is required so that macros and tool changers can refer to it");
-        Assert(_nodeId >= 1 && _nodeId <= int32_t(MaxNodeId), "actuator '%s': node must be between 1 and %d", _label.c_str(), int(MaxNodeId));
+        if (_moduleLabel.empty()) {
+            Assert(_nodeId >= 1 && _nodeId <= int32_t(MaxNodeId), "actuator '%s': node must be between 1 and %d", _label.c_str(), int(MaxNodeId));
+        }
         Assert(_actuatorIndex >= 0 && _actuatorIndex <= 15, "actuator '%s': index must be between 0 and 15", _label.c_str());
         Assert(config->_can != nullptr, "actuator '%s': no CAN bus configured; add a top level 'can:' section", _label.c_str());
     }
@@ -50,12 +54,26 @@ namespace CAN {
         if (config->_can == nullptr) {
             return;
         }
-        _node      = CanNodes::instance().node(uint8_t(_nodeId));
-        _doneQueue = xQueueCreate(4, sizeof(uint8_t));
+        if (!_moduleLabel.empty()) {
+            int32_t n = CanModules::nodeForLabel(_moduleLabel);
+            Assert(n >= 1, "actuator '%s': unknown module '%s'", _label.c_str(), _moduleLabel.c_str());
+            _nodeId = n;
+        }
+        _node = CanNodes::instance().node(uint8_t(_nodeId));
+        if (_doneQueue == nullptr) {
+            _doneQueue = xQueueCreate(4, sizeof(uint8_t));
+        }
 
         config->_can->subscribe(&_listener, IdActuatorDoneBase + uint32_t(_nodeId), 0x7FF);
 
         log_info("CAN actuator '" << _label << "' on node " << _nodeId << " index " << _actuatorIndex);
+    }
+
+    void CanActuator::deinit() {
+        if (config->_can != nullptr) {
+            config->_can->unsubscribe(&_listener);
+        }
+        _node = nullptr;
     }
 
     void CanActuator::DoneListener::onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) {

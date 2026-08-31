@@ -12,6 +12,7 @@
 #include "Spindles/NullSpindle.h"
 #include "ToolChangers/atc.h"
 #include "Driver/Console.h"
+#include "../CAN/CanModule.h"
 
 #include "SettingsDefinitions.h"  // config_filename
 #include "FileStream.h"
@@ -130,6 +131,11 @@ namespace Machine {
         Spindles::SpindleFactory::factory(handler);
         Listeners::SysListenerFactory::factory(handler);
         PlannerFactory::factory(handler);
+
+        // Detached module definitions.  Each can_module owns a slice of the machine config
+        // (axes, spindle, actuators) that is spliced in and out at runtime by $CM/Load and
+        // $CM/Unload rather than being active from boot.
+        CAN::CanModuleFactory::factory(handler);
 
         // TODO: Consider putting these under a gcode: hierarchy level? Or motion control?
         handler.item("arc_tolerance_mm", _arcTolerance, 0.001, 1.0);

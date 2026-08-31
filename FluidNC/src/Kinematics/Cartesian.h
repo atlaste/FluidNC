@@ -37,6 +37,7 @@ namespace Kinematics {
         virtual bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) override;
         virtual void init() override;
         virtual void init_position() override;
+        virtual void recomputeLimits() override;
         void         motors_to_cartesian(float* cartesian, float* motors, axis_t n_axis) override;
         bool         transform_cartesian_to_motors(float* cartesian, float* motors) override;
 

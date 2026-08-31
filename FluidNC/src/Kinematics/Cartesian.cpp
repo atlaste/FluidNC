@@ -15,19 +15,28 @@ namespace Kinematics {
         init_position();
     }
 
-    // Initialize the machine position
-    void Cartesian::init_position() {
+    // Recompute the soft-limit motor ranges from the current axis configuration.  Does not
+    // touch machine position, so it is safe to call after a CanModule changes the axis set.
+    void Cartesian::recomputeLimits() {
         auto  n_axis = Axes::_numberAxis;
         float min_mpos[MAX_N_AXIS];
         float max_mpos[MAX_N_AXIS];
 
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-            set_steps(axis, 0);  // Set to zeros
             min_mpos[axis] = limitsMinPosition(axis);
             max_mpos[axis] = limitsMaxPosition(axis);
         }
         transform_cartesian_to_motors(_min_motor_pos, min_mpos);
         transform_cartesian_to_motors(_max_motor_pos, max_mpos);
+    }
+
+    // Initialize the machine position
+    void Cartesian::init_position() {
+        auto n_axis = Axes::_numberAxis;
+        for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
+            set_steps(axis, 0);  // Set to zeros
+        }
+        recomputeLimits();
     }
 
     // Check that the arc does not exceed the soft limits using a fast

@@ -20,6 +20,7 @@ private:
         uint32_t configHash   = 0;
         uint32_t motorSteps   = 0;
         uint32_t homingStatus = 0;
+        uint32_t moduleBitmap = 0;
         uint32_t overrides    = 0;
         uint32_t parserState  = 0;
         uint32_t atc          = 0;
@@ -65,6 +66,7 @@ private:
     uint32_t calculateConfigHash();
     void     saveAllSections();
     void     savePositionState();
+    void     saveModuleState();
     void     saveParserState();
     void     saveParameters();
     void     saveOverrides();
@@ -72,6 +74,7 @@ private:
 
     void restoreAllSections();
     void restorePositionState();
+    void restoreModuleState();
     void restoreParserState();
     void restoreParameters();
     void restoreOverrides();

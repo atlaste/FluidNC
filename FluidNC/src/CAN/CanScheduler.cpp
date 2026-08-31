@@ -48,6 +48,14 @@ namespace CAN {
         CanNodes::instance().node(node_id);
     }
 
+    void CanScheduler::unbindAxis(axis_t axis) {
+        if (axis >= MAX_N_AXIS) {
+            return;
+        }
+        _axes[axis]     = AxisBinding {};
+        _boundAxisMask &= ~(1u << uint32_t(axis));
+    }
+
     void CanScheduler::bindPwm(uint8_t node_id, uint8_t channel, bool off_on_idle) {
         _pwm.bound     = true;
         _pwm.offOnIdle = off_on_idle;

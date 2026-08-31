@@ -5,6 +5,7 @@
 
 #include "../CAN/CanIds.h"
 #include "../CAN/CanNode.h"
+#include "../CAN/CanModule.h"
 #include "../CAN/CanScheduler.h"
 #include "../Machine/MachineConfig.h"
 #include "../System.h"  // sys.abort
@@ -36,13 +37,21 @@ namespace Spindles {
     void CanPwm::validate() {
         Spindle::validate();
         Assert(config->_can != nullptr, "CAN PWM spindle: no CAN bus configured; add a top level 'can:' section");
-        Assert(_nodeId >= 1 && _nodeId <= int32_t(CAN::MaxNodeId), "CAN PWM spindle: node must be between 1 and %d", int(CAN::MaxNodeId));
+        if (_moduleLabel.empty()) {
+            Assert(_nodeId >= 1 && _nodeId <= int32_t(CAN::MaxNodeId), "CAN PWM spindle: node must be between 1 and %d", int(CAN::MaxNodeId));
+        }
         Assert(_channel >= 0 && _channel <= 7, "CAN PWM spindle: channel must be between 0 and 7");
     }
 
     void CanPwm::init() {
         if (config->_can == nullptr) {
             return;
+        }
+
+        if (!_moduleLabel.empty()) {
+            int32_t n = CAN::CanModules::nodeForLabel(_moduleLabel);
+            Assert(n >= 1, "CAN PWM spindle: unknown module '%s'", _moduleLabel.c_str());
+            _nodeId = n;
         }
 
         CAN::CanNodes::instance().node(uint8_t(_nodeId));

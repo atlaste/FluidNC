@@ -7,6 +7,9 @@
 #include "CanClockSync.h"
 #include "CanIds.h"
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 #include <cstdint>
 #include <vector>
 
@@ -103,11 +106,17 @@ namespace CAN {
         // nodes because a single broadcast solicits every reply.
         int64_t clockRequestSentUs() const { return _clockRequestSentUs; }
 
-        // Creates the node if it does not exist yet.
+        // Creates the node if it does not exist yet.  Safe to call at runtime: the node list
+        // is mutex-guarded against the supervisor task.
         CanNode* node(uint8_t id);
 
         // Returns nullptr rather than creating.
         CanNode* find(uint8_t id);
+
+        // Removes a node from the registry.  Used by CanModule::unload() when no remaining
+        // consumer references the node.  Does not delete the object (a stale scheduler
+        // pointer could otherwise dangle); the node simply stops being supervised.
+        void remove(uint8_t id);
 
         void init();
 
@@ -116,6 +125,14 @@ namespace CAN {
         // True when every registered node is online.  Used to gate motion at startup.
         bool allOnline() const;
 
+        // ---- Identity administration (see CanIds.h) --------------------------------------
+        // Probes for the node carrying uuid.  Returns true if it answered, and reports the
+        // node id it currently holds (0 = unassigned).  Blocks up to a few tens of ms.
+        bool probe(uint64_t uuid, uint8_t& current_id);
+
+        // Tells the node carrying uuid to adopt node_id.  Returns true on confirmation.
+        bool assign(uint64_t uuid, uint8_t node_id);
+
         std::string statusString() const;
 
     private:
@@ -123,8 +140,20 @@ namespace CAN {
 
         static void supervisorTask(void* arg);
 
+        // Sends one admin command and waits for the matching reply.
+        bool adminExchange(AdminOp op, uint64_t uuid, uint8_t node_id, uint8_t& reply_id);
+
         std::vector<CanNode*> _nodes;
         bool                  _started            = false;
         volatile int64_t      _clockRequestSentUs = 0;
+
+        // Guards _nodes against the supervisor task during runtime splices.  Mutable so the
+        // const observers (allOnline, statusString) can lock.
+        mutable SemaphoreHandle_t _nodesMutex = nullptr;
+
+        // Admin reply rendezvous, written by the RX task.
+        volatile uint64_t _adminReplyUuid  = 0;
+        volatile uint8_t  _adminReplyId    = 0;
+        volatile bool     _adminReplyValid = false;
     };
 }

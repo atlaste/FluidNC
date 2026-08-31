@@ -82,6 +82,16 @@ namespace Machine {
         static axis_t _numberAxis;
         static Axis*  _axis[MAX_N_AXIS];
 
+        // True when the corresponding _axis[] entry was created by Axes itself (a base-config
+        // axis or a runtime gap placeholder) and must therefore be deleted by ~Axes.  Axes
+        // spliced in from a CanModule are owned by that module's AxisSet, so their entries are
+        // marked not-owned and ~Axes leaves them alone.
+        static bool _axisOwned[MAX_N_AXIS];
+
+        // Lower bound on the reported axis count, so senders that cache the status field width
+        // are not disturbed when a module axis is loaded or unloaded.  Defaults to 3.
+        static int32_t _minCount;
+
         // Some small helpers to find the axis index and axis motor number for a given motor. This
         // is helpful for some motors that need this info, as well as debug information.
         static axis_t  findAxisIndex(const MotorDrivers::MotorDriver* const motor);
@@ -104,6 +114,21 @@ namespace Machine {
         }
 
         static void init();
+
+        // Zeroes and recomputes the accumulating masks (motorMask, homingMask,
+        // Homing::direction_mask) from the live axis set.  Pure bookkeeping: it touches no
+        // hardware, so it is safe to call after a CanModule splices axes in or out.
+        static void rebuildMasks();
+
+        // Recomputes _numberAxis from the live entries (honouring _minCount), fills any gap
+        // below the live maximum with a placeholder Axis, drops placeholders that are no
+        // longer needed, and rebuilds the masks.  Called after every splice.
+        static void reconcile();
+
+        // Splices a module-owned axis into (out of) the global table.  spliceIn asserts the
+        // slot is free; spliceOut leaves the Axis object alive for its owning AxisSet.
+        static void spliceIn(axis_t axis, Axis* a);
+        static void spliceOut(axis_t axis);
 
         // These are used during homing cycles.
         // The return value is a bitmask of axes that can home

@@ -187,32 +187,72 @@ namespace CAN {
         if (existing) {
             return existing;
         }
-        // The supervisor task walks _nodes without a lock, which is safe only because every
-        // node is registered during single-threaded startup.
-        Assert(!_started, "CAN nodes cannot be added after the supervisor has started");
         Assert(id >= 1 && id <= (IdClockReplyLast - IdClockReplyBase),
                "CAN node id %d is out of range; must be 1..%d",
                int(id),
                int(IdClockReplyLast - IdClockReplyBase));
-        auto created = new CanNode(id);
-        _nodes.push_back(created);
+
+        if (_nodesMutex) {
+            xSemaphoreTake(_nodesMutex, portMAX_DELAY);
+        }
+        // Re-check under the lock: a concurrent path may have created it between find() and
+        // here.
+        CanNode* created = find(id);
+        if (created == nullptr) {
+            created = new CanNode(id);
+            _nodes.push_back(created);
+        }
+        if (_nodesMutex) {
+            xSemaphoreGive(_nodesMutex);
+        }
         return created;
     }
 
+    void CanNodes::remove(uint8_t id) {
+        if (_nodesMutex) {
+            xSemaphoreTake(_nodesMutex, portMAX_DELAY);
+        }
+        for (auto it = _nodes.begin(); it != _nodes.end(); ++it) {
+            if ((*it)->id() == id) {
+                _nodes.erase(it);
+                break;
+            }
+        }
+        if (_nodesMutex) {
+            xSemaphoreGive(_nodesMutex);
+        }
+    }
+
     void CanNodes::init() {
-        if (_started || config->_can == nullptr || _nodes.empty()) {
+        if (_nodesMutex == nullptr) {
+            _nodesMutex = xSemaphoreCreateMutex();
+        }
+        if (_started || config->_can == nullptr) {
             return;
         }
 
-        // Clock replies and status frames.  Both ranges are contiguous and node-indexed.
+        // Clock replies, status frames and admin replies.
         config->_can->subscribe(this, IdClockReplyBase, 0x7F0);
         config->_can->subscribe(this, IdNodeStatusBase, 0x7C0);
+        config->_can->subscribe(this, IdAdminReply, 0x7FF);
 
         xTaskCreatePinnedToCore(supervisorTask, "can_nodes", 3072, this, 4, nullptr, SUPPORT_TASK_CORE);
         _started = true;
     }
 
     void CanNodes::onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) {
+        if (id == IdAdminReply) {
+            if (len >= 7) {
+                uint64_t uuid = 0;
+                for (int i = 0; i < 6; ++i) {
+                    uuid |= uint64_t(data[1 + i]) << (8 * i);
+                }
+                _adminReplyUuid  = uuid;
+                _adminReplyId    = data[7 < len ? 7 : 0];
+                _adminReplyValid = true;
+            }
+            return;
+        }
         if (id >= IdClockReplyBase && id <= IdClockReplyLast) {
             auto n = find(uint8_t(id - IdClockReplyBase));
             if (n) {
@@ -228,6 +268,47 @@ namespace CAN {
         }
     }
 
+    bool CanNodes::adminExchange(AdminOp op, uint64_t uuid, uint8_t node_id, uint8_t& reply_id) {
+        if (config->_can == nullptr) {
+            return false;
+        }
+
+        uint8_t payload[8] = { 0 };
+        payload[0]         = uint8_t(op);
+        for (int i = 0; i < 6; ++i) {
+            payload[1 + i] = uint8_t((uuid >> (8 * i)) & 0xFF);
+        }
+        payload[7] = node_id;
+
+        _adminReplyValid = false;
+        if (!config->_can->send(IdAdminCommand, 8, payload)) {
+            return false;
+        }
+
+        // A node answers within a couple of report intervals if it is present at all.  Poll
+        // rather than block on a queue, because this only runs from the console/refresh path.
+        for (int waited = 0; waited < 60; ++waited) {
+            if (_adminReplyValid && _adminReplyUuid == uuid) {
+                reply_id = _adminReplyId;
+                return true;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+        return false;
+    }
+
+    bool CanNodes::probe(uint64_t uuid, uint8_t& current_id) {
+        return adminExchange(AdminOp::Probe, uuid, 0, current_id);
+    }
+
+    bool CanNodes::assign(uint64_t uuid, uint8_t node_id) {
+        uint8_t reply_id = 0;
+        if (!adminExchange(AdminOp::Assign, uuid, node_id, reply_id)) {
+            return false;
+        }
+        return reply_id == node_id;
+    }
+
     void CanNodes::supervisorTask(void* arg) {
         auto self = static_cast<CanNodes*>(arg);
 
@@ -240,8 +321,14 @@ namespace CAN {
                 config->_can->sendStamped(IdClockRequest, 0, nullptr, &self->_clockRequestSentUs);
             }
 
+            if (self->_nodesMutex) {
+                xSemaphoreTake(self->_nodesMutex, portMAX_DELAY);
+            }
             for (auto n : self->_nodes) {
                 n->tick(now);
+            }
+            if (self->_nodesMutex) {
+                xSemaphoreGive(self->_nodesMutex);
             }
 
             vTaskDelay(pdMS_TO_TICKS(SyncPeriodMs));
@@ -249,12 +336,20 @@ namespace CAN {
     }
 
     bool CanNodes::allOnline() const {
+        bool result = true;
+        if (_nodesMutex) {
+            xSemaphoreTake(_nodesMutex, portMAX_DELAY);
+        }
         for (auto n : _nodes) {
             if (!n->online()) {
-                return false;
+                result = false;
+                break;
             }
         }
-        return true;
+        if (_nodesMutex) {
+            xSemaphoreGive(_nodesMutex);
+        }
+        return result;
     }
 
     std::string CanNodes::statusString() const {

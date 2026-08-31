@@ -29,6 +29,7 @@
 #include "Kinematics/Compensated2D.h"  // compensated2D
 #include "CAN/CanActuator.h"           // CanActuator
 #include "CAN/CanNode.h"               // CanNodes
+#include "CAN/CanModule.h"             // CanModules
 #include "string_util.h"               // split_prefix
 #include "Logging.h"              // LogStream
 
@@ -686,6 +687,84 @@ static Error showCanStatus(const char* value, AuthenticationLevel auth_level, Ch
     }
     log_stream(out, config->_can->statusString());
     log_stream(out, CAN::CanNodes::instance().statusString());
+    return Error::Ok;
+}
+
+// $CANP=on|off  -- switch the bus 12V rail if a power_pin is configured.
+static Error setCanPower(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (config->_can == nullptr) {
+        log_string(out, "No CAN bus configured");
+        return Error::InvalidStatement;
+    }
+    if (!config->_can->hasPowerControl()) {
+        log_string(out, "No power_pin configured on the CAN bus");
+        return Error::InvalidStatement;
+    }
+    bool on = true;
+    if (value) {
+        std::string_view v(value);
+        on = !(v == "off" || v == "0" || v == "false");
+    }
+    config->_can->setPower(on);
+    log_stream(out, config->_can->statusString());
+    return Error::Ok;
+}
+
+// $CM  -- list configured CAN modules with their presence and load state.
+static Error listCanModules(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    for (auto m : CAN::CanModules::all()) {
+        log_stream(out,
+                   "Module " << m->label() << " node:" << m->nodeId() << (m->present() ? " present" : " absent")
+                             << (m->loaded() ? " loaded" : " unloaded") << (m->required() ? " required" : ""));
+    }
+    return Error::Ok;
+}
+
+// $CML=<label>  -- splice a module into the running configuration.
+static Error loadCanModule(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (!value) {
+        log_string(out, "Usage: $CML=<label>");
+        return Error::InvalidStatement;
+    }
+    auto m = CAN::CanModules::byLabel(value);
+    if (m == nullptr) {
+        log_error_to(out, "No CAN module labelled '" << value << "'");
+        return Error::InvalidValue;
+    }
+    return m->load() ? Error::Ok : Error::AnotherInterfaceBusy;
+}
+
+// $CMU=<label>  -- remove a module from the running configuration.
+static Error unloadCanModule(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (!value) {
+        log_string(out, "Usage: $CMU=<label>");
+        return Error::InvalidStatement;
+    }
+    auto m = CAN::CanModules::byLabel(value);
+    if (m == nullptr) {
+        log_error_to(out, "No CAN module labelled '" << value << "'");
+        return Error::InvalidValue;
+    }
+    return m->unload() ? Error::Ok : Error::AnotherInterfaceBusy;
+}
+
+// $CMS  -- probe the bus and update module presence without loading anything.
+static Error scanCanModules(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (config->_can == nullptr) {
+        log_string(out, "No CAN bus configured");
+        return Error::InvalidStatement;
+    }
+    log_stream(out, CAN::CanModules::scan());
+    return Error::Ok;
+}
+
+// $CMR  -- scan, then load present modules and unload absent ones.
+static Error refreshCanModules(const char* value, AuthenticationLevel auth_level, Channel& out) {
+    if (config->_can == nullptr) {
+        log_string(out, "No CAN bus configured");
+        return Error::InvalidStatement;
+    }
+    log_stream(out, CAN::CanModules::refresh());
     return Error::Ok;
 }
 
@@ -1477,6 +1556,12 @@ void make_user_commands() {
     new UserCommand("CA", "CanActuator/Run", runCanActuator, anyState);
     new UserCommand("CAL", "CanActuator/List", listCanActuators, anyState);
     new UserCommand("CAN", "Can/Status", showCanStatus, anyState);
+    new UserCommand("CANP", "Can/Power", setCanPower, anyState);
+    new UserCommand("CM", "CanModules/List", listCanModules, anyState);
+    new UserCommand("CML", "CanModules/Load", loadCanModule, anyState);
+    new UserCommand("CMU", "CanModules/Unload", unloadCanModule, anyState);
+    new UserCommand("CMS", "CanModules/Scan", scanCanModules, anyState);
+    new UserCommand("CMR", "CanModules/Refresh", refreshCanModules, anyState);
 
     new AsyncUserCommand("J", "Jog", doJog, notIdleOrJog);
     new AsyncUserCommand("G", "GCode/Modes", report_gcode, anyState);

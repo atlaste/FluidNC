@@ -41,6 +41,7 @@ namespace CAN {
         ~CanActuator();
 
         void init() override;
+        void deinit() override;
 
         void group(Configuration::HandlerBase& handler) override;
         void afterParse();
@@ -80,6 +81,7 @@ namespace CAN {
         std::string _label        = "";
         int32_t     _nodeId       = 0;
         int32_t     _actuatorIndex = 0;
+        std::string _moduleLabel  = "";
 
         // Default wait for a blocking command, in milliseconds.
         int32_t _defaultTimeoutMs = 10000;

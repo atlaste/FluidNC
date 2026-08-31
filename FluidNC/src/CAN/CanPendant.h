@@ -9,6 +9,7 @@
 #include "CanNode.h"
 
 #include <cstdint>
+#include <string>
 
 namespace CAN {
     /*
@@ -36,6 +37,7 @@ namespace CAN {
         CanPendant(const char* name) : ConfigurableModule(name) {}
 
         void init() override;
+        void deinit() override;
         void poll() override;
 
         void onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) override;
@@ -55,7 +57,8 @@ namespace CAN {
         static constexpr int MaxJogsInFlight = 2;
         static constexpr int NumScales       = 4;
 
-        int32_t _nodeId = 0;
+        int32_t     _nodeId      = 0;
+        std::string _moduleLabel = "";
 
         // Millimetres of travel per encoder detent, selected by the pendant's own switch.
         float _scales[NumScales] = { 0.001f, 0.01f, 0.1f, 1.0f };

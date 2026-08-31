@@ -107,6 +107,11 @@ namespace Kinematics {
         _system->init_position();
     }
 
+    void Kinematics::recomputeLimits() {
+        Assert(_system != nullptr, no_system);
+        _system->recomputeLimits();
+    }
+
     Kinematics::~Kinematics() {
         delete _system;
     }

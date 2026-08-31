@@ -74,6 +74,7 @@ idf_component_register(SRCS BTConfig.cpp
 							CAN/CanBus.cpp
 							CAN/CanClockSync.cpp
 							CAN/CanDriver.cpp
+							CAN/CanModule.cpp
 							CAN/CanNode.cpp
 							CAN/CanPendant.cpp
 							CAN/CanScheduler.cpp
@@ -94,6 +95,7 @@ idf_component_register(SRCS BTConfig.cpp
 							Listeners/RGBLed.cpp
 							Machine/Axes.cpp
 							Machine/Axis.cpp
+							Machine/AxisSet.cpp
 							Machine/EventPin.cpp
 							Machine/Fan.cpp
 							Machine/Homing.cpp

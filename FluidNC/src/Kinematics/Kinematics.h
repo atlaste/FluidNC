@@ -37,6 +37,10 @@ namespace Kinematics {
 
         void init_position();
 
+        // Recomputes soft-limit motor ranges from the current axis configuration WITHOUT
+        // zeroing machine position.  Used after a CanModule load/unload changes the axis set.
+        void recomputeLimits();
+
         bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position);
         void motors_to_cartesian(float* cartesian, float* motors, axis_t n_axis);
         bool transform_cartesian_to_motors(float* motors, float* cartesian);
@@ -82,6 +86,10 @@ namespace Kinematics {
         virtual bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) = 0;
         virtual void init()                                                                         = 0;
         virtual void init_position() = 0;  // used to set the machine position at init
+
+        // Recompute soft-limit motor ranges without touching machine position.  The default
+        // does nothing, which suits systems (e.g. ParallelDelta) that derive no such ranges.
+        virtual void recomputeLimits() {}
 
         virtual void constrain_jog(float* cartesian, plan_line_data_t* pl_data, float* position) {}
         virtual bool invalid_line(float* cartesian) { return false; }

@@ -12,6 +12,7 @@
 #include <freertos/task.h>
 
 #include <cstdint>
+#include <string>
 
 class InputPin;
 
@@ -45,7 +46,8 @@ namespace Extenders {
     class CanPinExtender : public PinExtenderDriver, public CAN::CanListener {
         static const int numberPins = 64;
 
-        int32_t _nodeId = 0;
+        int32_t     _nodeId      = 0;
+        std::string _moduleLabel = "";
 
         // Bitmap semantics: bit N is pin N, in the node's own electrical sense.  Inversion
         // from the :low pin option happens above us, in Pin.

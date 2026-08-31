@@ -8,6 +8,7 @@
 #include "Limit.h"
 #include "MachineConfig.h"  // config->
 #include <esp_attr.h>
+#include <cstring>  // strcmp
 
 // Pre-increment operator
 axis_t& IRAM_ATTR operator++(axis_t& axis) {
@@ -68,6 +69,10 @@ namespace Machine {
 
     Axis* Axes::_axis[MAX_N_AXIS] = { nullptr };
 
+    bool Axes::_axisOwned[MAX_N_AXIS] = { false };
+
+    int32_t Axes::_minCount = A_AXIS;  // three axes, matching the historical floor
+
     Axes::Axes() {}
 
     void Axes::init() {
@@ -90,14 +95,102 @@ namespace Machine {
             if (a) {
                 log_info("Axis " << axisName(axis) << " (" << limitsMinPosition(axis) << "," << limitsMaxPosition(axis) << ")");
                 a->init();
-            }
-            auto homing = a->_homing;
-            if (homing && !homing->_positiveDirection) {
-                set_bitnum(Homing::direction_mask, axis);
+                auto homing = a->_homing;
+                if (homing && !homing->_positiveDirection) {
+                    set_bitnum(Homing::direction_mask, axis);
+                }
             }
         }
 
+        // Everything present now is base configuration (or a boot-time gap placeholder), so
+        // Axes owns it.  Module axes are marked not-owned by spliceIn() later.
+        for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; ++axis) {
+            _axisOwned[axis] = _axis[axis] != nullptr;
+        }
+
         config_motors();
+    }
+
+    void Axes::rebuildMasks() {
+        motorMask              = 0;
+        homingMask             = 0;
+        Homing::direction_mask = 0;
+
+        for (axis_t axis = X_AXIS; axis < _numberAxis; ++axis) {
+            auto a = _axis[axis];
+            if (!a) {
+                continue;
+            }
+            for (motor_t motor = 0; motor < Axis::MAX_MOTORS_PER_AXIS; ++motor) {
+                auto m = a->_motors[motor];
+                if (m && m->_driver && strcmp(m->_driver->name(), "null_motor") != 0) {
+                    set_bits(motorMask, motor_mask(axis, motor));
+                }
+            }
+            if (a->_homing) {
+                if (a->_homing->_cycle >= 0) {
+                    set_bitnum(homingMask, axis);
+                }
+                if (!a->_homing->_positiveDirection) {
+                    set_bitnum(Homing::direction_mask, axis);
+                }
+            }
+        }
+    }
+
+    void Axes::reconcile() {
+        // Highest live index + 1, floored at _minCount for sender stability.
+        axis_t highest = X_AXIS;
+        for (axis_t axis = MAX_N_AXIS; axis > 0; --axis) {
+            if (_axis[axis - 1] != nullptr) {
+                highest = axis;
+                break;
+            }
+        }
+        axis_t wanted = highest;
+        if (wanted < axis_t(_minCount)) {
+            wanted = axis_t(_minCount);
+        }
+
+        // Fill gaps below the new count with owned placeholders; drop owned placeholders that
+        // fell above it.  Never delete a module axis (owned == false): its AxisSet owns it.
+        for (axis_t axis = X_AXIS; axis < wanted; ++axis) {
+            if (_axis[axis] == nullptr) {
+                _axis[axis]      = new Axis(axis);
+                _axisOwned[axis] = true;
+            }
+        }
+        for (axis_t axis = wanted; axis < MAX_N_AXIS; ++axis) {
+            if (_axis[axis] != nullptr && _axisOwned[axis]) {
+                delete _axis[axis];
+                _axis[axis]      = nullptr;
+                _axisOwned[axis] = false;
+            }
+        }
+
+        _numberAxis = wanted;
+        rebuildMasks();
+    }
+
+    void Axes::spliceIn(axis_t axis, Axis* a) {
+        Assert(axis < MAX_N_AXIS, "Axis index out of range");
+        // A placeholder may occupy the slot; the caller has already checked that no real axis
+        // conflicts, so replace an owned placeholder rather than refusing.
+        if (_axis[axis] != nullptr && _axisOwned[axis]) {
+            delete _axis[axis];
+            _axis[axis] = nullptr;
+        }
+        Assert(_axis[axis] == nullptr, "Axis %s is already occupied", axisName(axis));
+        _axis[axis]      = a;
+        _axisOwned[axis] = false;
+    }
+
+    void Axes::spliceOut(axis_t axis) {
+        Assert(axis < MAX_N_AXIS, "Axis index out of range");
+        // Only detach; the AxisSet that owns the object is responsible for its lifetime.
+        if (!_axisOwned[axis]) {
+            _axis[axis] = nullptr;
+        }
     }
 
     void IRAM_ATTR Axes::set_disable(axis_t axis, bool disable) {
@@ -193,6 +286,7 @@ namespace Machine {
         handler.item("shared_stepper_disable_pin", _sharedStepperDisable);
         handler.item("shared_stepper_reset_pin", _sharedStepperReset);
         handler.item("homing_runs", _homing_runs, 1, 5);
+        handler.item("min_count", _minCount, 1, MAX_N_AXIS);
 
         // During the initial configuration parsing phase, _numberAxis is 0 so
         // we try for all the axes.  Subsequently we use the number of axes
@@ -211,9 +305,9 @@ namespace Machine {
                 break;
             }
         }
-        // Senders might assume 3 axes in reports
-        if (_numberAxis < A_AXIS) {
-            _numberAxis = A_AXIS;
+        // Senders might assume a minimum number of axes in reports
+        if (_numberAxis < axis_t(_minCount)) {
+            _numberAxis = axis_t(_minCount);
         }
 
         for (axis_t axis = X_AXIS; axis < _numberAxis; ++axis) {
@@ -285,10 +379,13 @@ namespace Machine {
 
     Axes::~Axes() {
         for (axis_t axis = X_AXIS; axis < MAX_N_AXIS; ++axis) {
-            if (_axis[axis] != nullptr) {
+            // Module-owned axes belong to their CanModule's AxisSet; deleting them here would
+            // double-free.  Only delete entries Axes created itself.
+            if (_axis[axis] != nullptr && _axisOwned[axis]) {
                 delete _axis[axis];
-                _axis[axis] = nullptr;
             }
+            _axis[axis]      = nullptr;
+            _axisOwned[axis] = false;
         }
     }
 }

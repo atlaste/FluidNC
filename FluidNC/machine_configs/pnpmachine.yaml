@@ -30,7 +30,7 @@ meta: BTT TMC2240 v1.0 modules, PCA9535/9555 endstops, MB85RC04V I2C FRAM
 
 stepping:
   engine: I2S_STREAM
-  idle_ms: 250
+  idle_ms: 255
   pulse_us: 4
   dir_delay_us: 1
   disable_delay_us: 0
@@ -101,10 +101,10 @@ axes:
   # ------------------------------------------------------------------------------------------
   x:
     steps_per_mm: 80.000
-    max_rate_mm_per_min: 18000.000
+    max_rate_mm_per_min: 15000.000
     acceleration_mm_per_sec2: 3000.000
     max_travel_mm: 350.000
-    soft_limits: true
+    soft_limits: false
     homing:
       cycle: 1
       positive_direction: true
@@ -119,11 +119,11 @@ axes:
       hard_limits: false
       pulloff_mm: 5.000
       tmc_2240:
-        cs_pin: i2so.27
+        cs_pin: i2so.7
         spi_index: -1
-        step_pin: i2so.25
-        direction_pin: i2so.24
-        disable_pin: i2so.26
+        step_pin: i2so.5
+        direction_pin: i2so.4:low
+        disable_pin: i2so.6
         r_ref_kohms: 12.0
         run_amps: 1.200
         hold_amps: 0.600
@@ -133,10 +133,10 @@ axes:
 
   y:
     steps_per_mm: 80.000
-    max_rate_mm_per_min: 18000.000
+    max_rate_mm_per_min: 15000.000
     acceleration_mm_per_sec2: 3000.000
     max_travel_mm: 350.000
-    soft_limits: true
+    soft_limits: false
     homing:
       cycle: 2
       positive_direction: true
@@ -151,11 +151,11 @@ axes:
       hard_limits: false
       pulloff_mm: 5.000
       tmc_2240:
-        cs_pin: i2so.31
+        cs_pin: i2so.3
         spi_index: -1
-        step_pin: i2so.29
-        direction_pin: i2so.28
-        disable_pin: i2so.30
+        step_pin: i2so.1
+        direction_pin: i2so.0:low
+        disable_pin: i2so.2
         r_ref_kohms: 12.0
         run_amps: 1.200
         hold_amps: 0.600
@@ -182,7 +182,7 @@ axes:
     max_rate_mm_per_min: 900.000
     acceleration_mm_per_sec2: 100.000
     max_travel_mm: 310.000
-    soft_limits: true
+    soft_limits: false
     homing:
       cycle: 3
       positive_direction: false
@@ -193,8 +193,40 @@ axes:
       seek_scaler: 1.100
       feed_scaler: 1.100
 
-    motor0:
+    motor0: # Z rechtsachter
       limit_all_pin: pinext0.10:low
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.27
+        spi_index: -1
+        step_pin: i2so.25
+        direction_pin: i2so.24:low
+        disable_pin: i2so.26
+        r_ref_kohms: 12.0
+        run_amps: 1.2
+        hold_amps: 0.5
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+    motor1: # Z rechtsvoor -> inverted!
+      limit_all_pin: NO_PIN
+      hard_limits: false
+      pulloff_mm: 3.000
+      tmc_2240:
+        cs_pin: i2so.31
+        spi_index: -1
+        step_pin: i2so.29
+        direction_pin: i2so.28
+        disable_pin: i2so.30
+        r_ref_kohms: 12.0
+        run_amps: 1.2
+        hold_amps: 0.5
+        microsteps: 16
+        run_mode: StealthChop
+        homing_mode: StealthChop
+    motor2: # Z linksachter
+      limit_all_pin: NO_PIN
       hard_limits: false
       pulloff_mm: 3.000
       tmc_2240:
@@ -204,16 +236,12 @@ axes:
         direction_pin: i2so.8
         disable_pin: i2so.10
         r_ref_kohms: 12.0
-        run_amps: 0.800
-        hold_amps: 0.400
+        run_amps: 1.2
+        hold_amps: 0.5
         microsteps: 16
         run_mode: StealthChop
         homing_mode: StealthChop
-
-    motor1:
-      # A per-corner switch would go here, on pinext0.13.  Adding switches to motor1..motor3
-      # turns homing into a squaring cycle; leaving them off means motor0's switch stops all
-      # four together.
+    motor3: # Z linksachter -> inverted!
       limit_all_pin: NO_PIN
       hard_limits: false
       pulloff_mm: 3.000
@@ -221,45 +249,11 @@ axes:
         cs_pin: i2so.15
         spi_index: -1
         step_pin: i2so.13
-        direction_pin: i2so.12
+        direction_pin: i2so.12:low
         disable_pin: i2so.14
         r_ref_kohms: 12.0
-        run_amps: 0.800
-        hold_amps: 0.400
-        microsteps: 16
-        run_mode: StealthChop
-        homing_mode: StealthChop
-
-    motor2:
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 3.000
-      tmc_2240:
-        cs_pin: i2so.3
-        spi_index: -1
-        step_pin: i2so.1
-        direction_pin: i2so.0
-        disable_pin: i2so.2
-        r_ref_kohms: 12.0
-        run_amps: 0.800
-        hold_amps: 0.400
-        microsteps: 16
-        run_mode: StealthChop
-        homing_mode: StealthChop
-
-    motor3:
-      limit_all_pin: NO_PIN
-      hard_limits: false
-      pulloff_mm: 3.000
-      tmc_2240:
-        cs_pin: i2so.7
-        spi_index: -1
-        step_pin: i2so.5
-        direction_pin: i2so.4
-        disable_pin: i2so.6
-        r_ref_kohms: 12.0
-        run_amps: 0.800
-        hold_amps: 0.400
+        run_amps: 1.2
+        hold_amps: 0.5
         microsteps: 16
         run_mode: StealthChop
         homing_mode: StealthChop

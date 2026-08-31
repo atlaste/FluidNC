@@ -26,6 +26,7 @@ namespace Kinematics {
         void init() override;
         bool canHome(AxisMask axisMask) override;
         void init_position() override;
+        void recomputeLimits() override;
         bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) override;
         void motors_to_cartesian(float* cartesian, float* motors, axis_t n_axis) override;
         bool transform_cartesian_to_motors(float* cartesian, float* motors) override;

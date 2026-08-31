@@ -18,6 +18,7 @@
 #include "Machine/Axes.h"
 #include "Spindles/Spindle.h"
 #include "ToolChangers/atc.h"
+#include "CAN/CanModule.h"
 
 #include <mbedtls/sha256.h>
 #include <cstring>
@@ -102,6 +103,9 @@ bool StatePersistence::buildLayout(uint32_t deviceSize) {
 
     _layout.homingStatus = offset;
     offset               = align4(offset + sizeof(AxisMask));
+
+    _layout.moduleBitmap = offset;
+    offset               = align4(offset + sizeof(uint32_t));
 
     _layout.overrides = offset;
     offset            = align4(offset + 3 * sizeof(Percent));
@@ -202,6 +206,14 @@ void StatePersistence::savePositionState() {
     // Save homing status
     AxisMask homed = Machine::Homing::unhomed_axes();
     _fram->write(_layout.homingStatus, (uint8_t*)&homed, sizeof(homed));
+}
+
+void StatePersistence::saveModuleState() {
+    if (!usable()) {
+        return;
+    }
+    uint32_t bits = CAN::CanModules::loadedBitmap();
+    _fram->write(_layout.moduleBitmap, (uint8_t*)&bits, sizeof(bits));
 }
 
 void StatePersistence::saveParserState() {
@@ -307,6 +319,7 @@ void StatePersistence::saveAllSections() {
     }
 
     savePositionState();
+    saveModuleState();
     saveParserState();
     saveParameters();
     saveOverrides();
@@ -333,12 +346,29 @@ void StatePersistence::restorePositionState() {
     // Note: We can't directly set Homing::_unhomed_axes as it's private
     // We need to restore it through the axes
     for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
+        // A module axis that gets loaded later starts unhomed regardless of what was saved:
+        // the head may be a different one, or absent, so a stale homed flag would be unsafe.
+        // At boot only base axes are present, so this is normally a no-op, but it keeps a
+        // restore that happens to run after a load honest.
+        if (!Machine::Axes::_axisOwned[axis]) {
+            Machine::Homing::set_axis_unhomed(axis);
+            continue;
+        }
         if ((homed & (1 << axis)) == 0) {
             Machine::Homing::set_axis_homed(axis);
         } else {
             Machine::Homing::set_axis_unhomed(axis);
         }
     }
+}
+
+void StatePersistence::restoreModuleState() {
+    if (!usable()) {
+        return;
+    }
+    uint32_t bits = 0;
+    _fram->read(_layout.moduleBitmap, (uint8_t*)&bits, sizeof(bits));
+    CAN::CanModules::setPreviousLoadedBitmap(bits);
 }
 
 void StatePersistence::restoreParserState() {
@@ -481,6 +511,7 @@ void StatePersistence::restoreAllSections() {
     log_info("Restoring state");
 
     restorePositionState();
+    restoreModuleState();
     restoreParserState();
     restoreParameters();
     restoreOverrides();

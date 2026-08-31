@@ -9,6 +9,7 @@
 
 #include <esp_timer.h>
 #include <cstring>
+#include <algorithm>
 
 namespace CAN {
     // The RX task must outrank the protocol and polling tasks (priority 1) so that a button
@@ -23,6 +24,9 @@ namespace CAN {
         handler.item("tx_pin", _txPin);
         handler.item("rx_pin", _rxPin);
         handler.item("baud_kbit", _baudKbit);
+        handler.item("power_pin", _powerPin);
+        handler.item("power_settle_ms", _powerSettleMs, 0, 10000);
+        handler.item("power_on_boot", _powerOnBoot);
     }
 
     void CanBus::afterParse() {
@@ -46,7 +50,30 @@ namespace CAN {
         if (_started) {
             return;
         }
+        if (_powerPin.defined()) {
+            _powerPin.setAttr(Pin::Attr::Output);
+            // Bring the rail up (or leave it down) before the peripheral starts so the
+            // transceiver sees a stable supply.
+            _powered = false;
+            setPower(_powerOnBoot);
+        }
         startTasks(_txPin.getNative(Pin::Capabilities::Output), _rxPin.getNative(Pin::Capabilities::Input), _baudKbit);
+    }
+
+    void CanBus::setPower(bool on) {
+        if (!_powerPin.defined()) {
+            _powered = true;  // No control: the rail is whatever the wiring makes it.
+            return;
+        }
+        if (on == _powered) {
+            return;
+        }
+        _powerPin.synchronousWrite(on);
+        if (_powerSettleMs > 0) {
+            vTaskDelay(pdMS_TO_TICKS(_powerSettleMs));
+        }
+        _powered = on;
+        log_info("CAN bus power " << (on ? "on" : "off"));
     }
 
     void CanBus::initLegacy(int tx_pin, int rx_pin, int32_t baud_kbit) {
@@ -68,6 +95,10 @@ namespace CAN {
             return;
         }
 
+        if (_subMutex == nullptr) {
+            _subMutex = xSemaphoreCreateMutex();
+        }
+
         xTaskCreatePinnedToCore(txTask, "can_tx", 3072, this, TX_TASK_PRIORITY, &_txTaskH, SUPPORT_TASK_CORE);
         xTaskCreatePinnedToCore(rxTask, "can_rx", 4096, this, RX_TASK_PRIORITY, &_rxTaskH, SUPPORT_TASK_CORE);
 
@@ -76,7 +107,26 @@ namespace CAN {
 
     void CanBus::subscribe(CanListener* listener, uint32_t base, uint32_t mask) {
         Assert(listener != nullptr, "CAN subscription requires a listener");
+        if (_subMutex) {
+            xSemaphoreTake(_subMutex, portMAX_DELAY);
+        }
         _subscriptions.push_back({ listener, base & mask, mask });
+        if (_subMutex) {
+            xSemaphoreGive(_subMutex);
+        }
+    }
+
+    void CanBus::unsubscribe(CanListener* listener) {
+        if (_subMutex) {
+            xSemaphoreTake(_subMutex, portMAX_DELAY);
+        }
+        _subscriptions.erase(std::remove_if(_subscriptions.begin(),
+                                            _subscriptions.end(),
+                                            [listener](const Subscription& s) { return s.listener == listener; }),
+                             _subscriptions.end());
+        if (_subMutex) {
+            xSemaphoreGive(_subMutex);
+        }
     }
 
     bool CanBus::send(uint32_t id, uint8_t len, const uint8_t* data) {
@@ -146,6 +196,12 @@ namespace CAN {
         TxFrame frame;
         while (true) {
             if (xQueueReceive(self->_txQueue, &frame, pdMS_TO_TICKS(100)) == pdTRUE) {
+                // While the rail is down the transceiver cannot drive the bus; sending would
+                // only pile up error frames.  Drop the frame rather than block.
+                if (!self->_powered) {
+                    ++self->_txDropped;
+                    continue;
+                }
                 if (frame.stamp != nullptr) {
                     *frame.stamp = esp_timer_get_time();
                 }
@@ -174,15 +230,26 @@ namespace CAN {
     }
 
     void CanBus::dispatch(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) {
+        if (_subMutex) {
+            xSemaphoreTake(_subMutex, portMAX_DELAY);
+        }
         for (auto& sub : _subscriptions) {
             if ((id & sub.mask) == sub.base) {
                 sub.listener->onCanFrame(id, len, data, rx_time_us);
             }
         }
+        if (_subMutex) {
+            xSemaphoreGive(_subMutex);
+        }
     }
 
     void CanBus::checkBusHealth() {
         if (!_started) {
+            return;
+        }
+        // A deliberately unpowered rail looks exactly like a fault to the controller; do not
+        // fight it with recovery attempts.
+        if (!_powered) {
             return;
         }
         if (!_recovering && Driver::busOff()) {
@@ -209,6 +276,9 @@ namespace CAN {
         if (_recovering) {
             s += " RECOVERING";
         }
+        if (_powerPin.defined()) {
+            s += _powered ? " power:on" : " power:off";
+        }
         return s;
     }
 
@@ -221,6 +291,9 @@ namespace CAN {
         }
         if (_txQueue) {
             vQueueDelete(_txQueue);
+        }
+        if (_subMutex) {
+            vSemaphoreDelete(_subMutex);
         }
         Driver::deinit();
     }

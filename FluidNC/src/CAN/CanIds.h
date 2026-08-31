@@ -37,6 +37,21 @@ namespace CAN {
     static constexpr uint32_t IdODriveFirst = 0x020;
     static constexpr uint32_t IdODriveLast  = 0x07F;
 
+    // Module identity administration.  The master addresses nodes by their burned-in UUID
+    // before any node id has been assigned, so these are single broadcast identifiers rather
+    // than a per-node range.  Only used at bring-up and on $CM/Scan, so priority is low
+    // enough to sit above human I/O but below motion.
+    static constexpr uint32_t IdAdminCommand = 0x080;  // master -> all nodes
+    static constexpr uint32_t IdAdminReply   = 0x081;  // matching node -> master
+
+    // Admin opcodes, carried in byte 0 of an IdAdminCommand frame.  The UUID is a 48-bit
+    // little-endian value in bytes 1..6; byte 7 carries the node id for Assign.
+    enum class AdminOp : uint8_t {
+        Probe   = 0,  // "are you there?"  The node with this UUID replies with its state.
+        Assign  = 1,  // adopt the node id in byte 7 and reply to confirm.
+        Release = 2,  // forget the assigned node id and go back to unconfigured.
+    };
+
     // Pin extender: node -> master input bitmap, master -> node output bitmap.
     static constexpr uint32_t IdExtenderInputBase  = 0x100;  // + node_id
     static constexpr uint32_t IdExtenderOutputBase = 0x140;  // + node_id

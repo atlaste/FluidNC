@@ -10,6 +10,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include <freertos/semphr.h>
 
 #include <cstdint>
 #include <vector>
@@ -41,17 +42,28 @@ namespace CAN {
             volatile int64_t* stamp;
         };
 
-        Pin     _txPin;
-        Pin     _rxPin;
-        int32_t _baudKbit = 500;
+    Pin     _txPin;
+    Pin     _rxPin;
+    int32_t _baudKbit = 500;
 
-        std::vector<Subscription> _subscriptions;
+    // Optional MOSFET controlling the bus 12V rail, so the whole bus (and any head-mounted
+    // module) can be powered down for a tool change and back up afterwards.
+    Pin     _powerPin;
+    int32_t _powerSettleMs = 250;
+    bool    _powerOnBoot   = true;
+    bool    _powered       = true;
 
-        QueueHandle_t _txQueue     = nullptr;
-        TaskHandle_t  _rxTaskH     = nullptr;
-        TaskHandle_t  _txTaskH     = nullptr;
-        bool          _started     = false;
-        bool          _recovering  = false;
+    std::vector<Subscription> _subscriptions;
+
+    // Guards _subscriptions against the RX task while a CanModule splices listeners in or
+    // out.  Null until the tasks start, which is after all boot-time subscribe() calls.
+    SemaphoreHandle_t _subMutex = nullptr;
+
+    QueueHandle_t _txQueue     = nullptr;
+    TaskHandle_t  _rxTaskH     = nullptr;
+    TaskHandle_t  _txTaskH     = nullptr;
+    bool          _started     = false;
+    bool          _recovering  = false;
 
         uint32_t _rxCount   = 0;
         uint32_t _txCount   = 0;
@@ -71,6 +83,10 @@ namespace CAN {
         // Subscribes to every identifier for which (id & mask) == base.
         void subscribe(CanListener* listener, uint32_t base, uint32_t mask);
 
+        // Removes every subscription belonging to a listener.  Used by CanModule::unload()
+        // so the RX task stops dispatching into an unloaded module.
+        void unsubscribe(CanListener* listener);
+
         // Queues a frame on the TX task.  Safe from any task context; never blocks on the bus.
         bool send(uint32_t id, uint8_t len, const uint8_t* data);
 
@@ -83,6 +99,13 @@ namespace CAN {
 
         // Broadcasts the abort frame ahead of anything already queued.
         void abortAll();
+
+        // Switches the bus 12V rail via _powerPin and waits power_settle_ms.  While unpowered,
+        // TX is quiesced and bus-off recovery is suppressed, because the transceiver is dead.
+        // A no-op (always powered) when no power_pin is configured.
+        void setPower(bool on);
+        bool powered() const { return _powered; }
+        bool hasPowerControl() const { return _powerPin.defined(); }
 
         bool started() const { return _started; }
 

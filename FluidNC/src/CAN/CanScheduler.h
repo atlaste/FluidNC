@@ -48,6 +48,10 @@ namespace CAN {
         };
 
         static void bindAxis(axis_t axis, uint8_t node_id, uint8_t motor_index);
+
+        // Removes an axis binding, used when a CanModule that owns the axis is unloaded.
+        static void unbindAxis(axis_t axis);
+
         static bool hasAxes() { return _boundAxisMask != 0; }
 
         // Binds the motion-synchronised PWM output, used by a laser or any other tool whose

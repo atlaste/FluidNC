@@ -5,6 +5,7 @@
 
 #include "Extenders.h"
 #include "../CAN/CanIds.h"
+#include "../CAN/CanModule.h"
 #include "../Config.h"
 #include "../Logging.h"
 #include "../Machine/EventPin.h"
@@ -17,6 +18,7 @@
 namespace Extenders {
     void CanPinExtender::group(Configuration::HandlerBase& handler) {
         handler.item("node", _nodeId);
+        handler.item("module", _moduleLabel);
         handler.item("failsafe_inputs", _failsafeInputs);
         handler.item("alarm_on_loss", _alarmOnLoss);
 
@@ -26,12 +28,20 @@ namespace Extenders {
     }
 
     void CanPinExtender::afterParse() {
-        Assert(_nodeId >= 1 && _nodeId <= int32_t(CAN::MaxNodeId), "can_extender: node must be between 1 and %d", int(CAN::MaxNodeId));
+        if (_moduleLabel.empty()) {
+            Assert(_nodeId >= 1 && _nodeId <= int32_t(CAN::MaxNodeId), "can_extender: node must be between 1 and %d", int(CAN::MaxNodeId));
+        }
         Assert(config->_can != nullptr, "can_extender: no CAN bus configured; add a top level 'can:' section");
     }
 
     void CanPinExtender::init() {
         Assert(config->_can != nullptr, "can_extender: no CAN bus configured");
+
+        if (!_moduleLabel.empty()) {
+            int32_t n = CAN::CanModules::nodeForLabel(_moduleLabel);
+            Assert(n >= 1, "can_extender: unknown module '%s'", _moduleLabel.c_str());
+            _nodeId = n;
+        }
 
         _node   = CAN::CanNodes::instance().node(uint8_t(_nodeId));
         _inputs = failsafeState();

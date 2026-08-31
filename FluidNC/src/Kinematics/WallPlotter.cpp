@@ -35,20 +35,27 @@ namespace Kinematics {
         init_position();
     }
 
-    // Initialize the machine position
-    void WallPlotter::init_position() {
-        // Same as cartesian
+    // Same split as Cartesian: recompute soft-limit ranges without disturbing position.
+    void WallPlotter::recomputeLimits() {
         auto  n_axis = Axes::_numberAxis;
         float min_mpos[MAX_N_AXIS];
         float max_mpos[MAX_N_AXIS];
 
         for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
-            set_steps(axis, 0);  // Set to zeros
             min_mpos[axis] = limitsMinPosition(axis);
             max_mpos[axis] = limitsMaxPosition(axis);
         }
         transform_cartesian_to_motors(_min_motor_pos, min_mpos);
         transform_cartesian_to_motors(_max_motor_pos, max_mpos);
+    }
+
+    // Initialize the machine position
+    void WallPlotter::init_position() {
+        auto n_axis = Axes::_numberAxis;
+        for (axis_t axis = X_AXIS; axis < n_axis; axis++) {
+            set_steps(axis, 0);  // Set to zeros
+        }
+        recomputeLimits();
     }
 
     bool WallPlotter::canHome(AxisMask axisMask) {

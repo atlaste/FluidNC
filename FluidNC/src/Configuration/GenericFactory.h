@@ -40,12 +40,37 @@ namespace Configuration {
         std::vector<BuilderBase*> builders_;
         std::vector<BaseType*>    objects_;
 
+        // When non-null, newly parsed objects are appended here instead of to the global
+        // objects_ list.  This lets a CanModule parse a detached slice of the machine config
+        // (its own spindles, modules, ...) into vectors it owns, which load()/unload() later
+        // splice into and out of the global lists by pointer.
+        inline static std::vector<BaseType*>* capture_ = nullptr;
+
         inline static void registerBuilder(BuilderBase* builder) { instance().builders_.push_back(builder); }
 
     public:
         static std::vector<BaseType*>& objects() { return instance().objects_; }
 
-        static void add(BaseType* object) { objects().push_back(object); }
+        // Redirects factory parsing/iteration into a caller-owned vector for the lifetime of
+        // the Capture object, restoring the previous target on destruction.  RAII so that a
+        // thrown configuration error cannot leave the redirect dangling.
+        class Capture {
+            std::vector<BaseType*>* _prev;
+
+        public:
+            explicit Capture(std::vector<BaseType*>& dest) : _prev(capture_) { capture_ = &dest; }
+            Capture(const Capture&)            = delete;
+            Capture& operator=(const Capture&) = delete;
+            ~Capture() { capture_ = _prev; }
+        };
+
+        static void add(BaseType* object) { (capture_ ? *capture_ : objects()).push_back(object); }
+
+        // Removes an object from the global list by pointer.  Used by CanModule::unload().
+        static void remove(BaseType* object) {
+            auto& objs = objects();
+            objs.erase(std::remove(objs.begin(), objs.end(), object), objs.end());
+        }
 
         template <typename DerivedType>
         class InstanceBuilder : public BuilderBase {
@@ -121,7 +146,12 @@ namespace Configuration {
                     handler.enterFactory(name, *object);
                 }
             } else {
-                for (auto it : objects) {
+                // Generator, AfterParse and Validator passes must walk whichever list the
+                // objects were parsed into.  When a Capture is active (we are inside a
+                // CanModule's group()), that is the module's own vector; otherwise it is the
+                // global list.
+                auto& target = capture_ ? *capture_ : objects;
+                for (auto it : target) {
                     handler.enterSection(it->name(), it);
                 }
             }

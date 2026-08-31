@@ -1,0 +1,225 @@
+name: CAN loadable modules example
+board: Any ESP32 with a CAN transceiver
+meta: A base 3-axis machine that grows a rotary axis or a laser when a head is fitted
+
+# ---------------------------------------------------------------------------------------------
+# Loadable CAN modules
+# ---------------------------------------------------------------------------------------------
+#
+# The base machine below is plain XYZ.  Two optional heads live on the CAN bus: a rotary axis
+# and a laser.  Each is declared once, under a `can_module:` section, but is NOT active until it
+# is loaded -- either explicitly with $CML=<label>, or automatically by $CMR (refresh), which
+# probes the bus and loads whatever is physically present.
+#
+# Loading a module splices its axes, spindle and actuators into the running configuration and
+# runs a narrow re-init; unloading removes them again.  Nothing is deleted, so a head can be
+# fitted and removed as many times as you like.  Both operations require the machine to be Idle
+# with an empty queue, which is exactly the state a tool-change macro leaves it in.
+#
+# Typical tool-change macro fragment:
+#   $CANP=on        ; power the bus rail (see power_pin below)
+#   $CMR            ; scan and load/unload heads to match what is fitted
+#   ... verify with $CM ...
+#
+# The 12V rail of the bus is switched through a MOSFET on power_pin, so a head can be powered
+# down completely for a physical swap and back up afterwards.  While the rail is down the bus
+# transmitter is quiesced and bus-off recovery is suppressed, so a deliberate power-down does
+# not look like a fault.
+can:
+  tx_pin: gpio.5
+  rx_pin: gpio.4
+  baud_kbit: 500
+  power_pin: gpio.2
+  power_settle_ms: 250
+  power_on_boot: true
+
+stepping:
+  engine: RMT
+  idle_ms: 250
+  dir_delay_us: 1
+  pulse_us: 4
+
+axes:
+  shared_stepper_disable_pin: NO_PIN
+  homing_runs: 2
+
+  # A sender that caches the status field width sees a fixed 4-axis report whether or not the
+  # rotary head is loaded, because min_count pins the reported axis count to 4.  Leave it at 3
+  # (the default) if you do not care.
+  min_count: 4
+
+  x:
+    steps_per_mm: 80
+    max_rate_mm_per_min: 5000
+    acceleration_mm_per_sec2: 500
+    max_travel_mm: 500
+    homing:
+      cycle: 2
+      positive_direction: false
+    motor0:
+      limit_neg_pin: gpio.34:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.12
+        direction_pin: gpio.14
+        disable_pin: gpio.13
+
+  y:
+    steps_per_mm: 80
+    max_rate_mm_per_min: 5000
+    acceleration_mm_per_sec2: 500
+    max_travel_mm: 500
+    homing:
+      cycle: 2
+      positive_direction: false
+    motor0:
+      limit_neg_pin: gpio.35:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.26
+        direction_pin: gpio.15
+        disable_pin: gpio.13
+
+  z:
+    steps_per_mm: 400
+    max_rate_mm_per_min: 1000
+    acceleration_mm_per_sec2: 100
+    max_travel_mm: 100
+    homing:
+      cycle: 1
+      positive_direction: true
+    motor0:
+      limit_pos_pin: gpio.36:low
+      hard_limits: true
+      pulloff_mm: 2
+      standard_stepper:
+        step_pin: gpio.27
+        direction_pin: gpio.33
+        disable_pin: gpio.13
+
+# The mill's own spindle.  It stays active whether or not a head is fitted; loading the laser
+# module simply adds a second spindle and a higher tool number.
+pwm:
+  pwm_hz: 5000
+  output_pin: gpio.25
+  enable_pin: gpio.32
+  tool_num: 0
+  speed_map: 0=0% 1000=100%
+
+# ---------------------------------------------------------------------------------------------
+# Module: rotary trunnion on node 6
+# ---------------------------------------------------------------------------------------------
+#
+# uuid is the node's burned-in identifier (48 bits, hex; separators are ignored).  $CMS/$CMR
+# probe the bus for this UUID and, if the node answers with a different node id than declared
+# here, reassign it.  The axis limit switch stays on the master -- homing runs through the
+# normal motion path, so a switch across the bus would put bus latency inside the stopping
+# distance.
+can_module:
+  label: rotary
+  uuid: "A1:B2:C3:D4:E5:F6"
+  node: 6
+  required: false
+  axes:
+    a:
+      steps_per_mm: 44.4          # steps per degree
+      max_rate_mm_per_min: 3600
+      acceleration_mm_per_sec2: 100
+      max_travel_mm: 360
+      homing:
+        cycle: 3
+        positive_direction: false
+      motor0:
+        limit_neg_pin: gpio.39:low
+        hard_limits: true
+        pulloff_mm: 2
+        can_stepper:
+          module: rotary          # resolves to node 6; `node: 6` also works
+          motor: 0
+
+# ---------------------------------------------------------------------------------------------
+# Module: laser head on node 7
+# ---------------------------------------------------------------------------------------------
+#
+# The laser is a second spindle selected by tool number.  Its duty is scheduled with the same
+# timestamps as the axis steps, so the burn tracks corners, and it drops to zero the instant
+# motion stops.
+can_module:
+  label: laser
+  uuid: "00-11-22-33-44-55"
+  node: 7
+  required: false
+  can_pwm:
+    module: laser
+    channel: 0
+    max_duty: 1023
+    laser: true
+    tool_num: 10
+    speed_map: 0=0.000% 255=100.000%
+  # A dust/air solenoid on the same head, driven as an actuator:
+  #   $CA=laser_air,output,1
+  can_actuator:
+    label: laser_air
+    module: laser
+    index: 0
+    timeout_ms: 2000
+
+start:
+  must_home: true
+
+# ---------------------------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------------------------
+#   $CM              list modules with presence and load state
+#   $CML=<label>     load a module (must be Idle)
+#   $CMU=<label>     unload a module (must be Idle)
+#   $CMS             scan the bus and update presence, without loading
+#   $CMR             scan, then load present modules and unload absent ones
+#   $CAN             CAN bus and node status
+#   $CANP=on|off     switch the bus 12V rail (needs power_pin)
+#
+# ---------------------------------------------------------------------------------------------
+# Node firmware protocol (for the custom module firmware)
+# ---------------------------------------------------------------------------------------------
+#
+# All identifiers are 11-bit standard, ordered so the numerically lowest wins arbitration.
+#
+#   0x000            Abort broadcast.  Clear the scheduled-event queue, hold position.
+#   0x001            Clock request broadcast.  Reply on 0x002+node_id with a uint32 of the
+#                    node's free-running tick counter.  This is the Klipper-style time sync;
+#                    the master fits node_ticks against master microseconds.
+#   0x010+node_id    Scheduled event addressed to this node.  Byte 0 is opcode|motor<<4:
+#                      0 MoveTo    int32 cumulative step target, uint24 end time (node ticks)
+#                      1 SetPwm    uint16 duty, uint32 at-time
+#                      2 SetDigital uint8 pin, uint8 value, uint32 at-time
+#                      3 Reset     adopt supplied int32 as current position, no motion
+#                      4 Enable    uint8 enable/disable drive
+#   0x080            Admin command broadcast.  Byte 0 opcode, bytes 1..6 UUID (48-bit LE),
+#                    byte 7 node id:
+#                      0 Probe     the node whose UUID matches replies on 0x081
+#                      1 Assign    that node adopts the node id in byte 7 and replies
+#                      2 Release   forget the assigned id, become unconfigured
+#   0x081            Admin reply.  Byte 0 opcode echo, bytes 1..6 UUID, byte 7 current node id.
+#   0x100+node_id    Pin extender: node -> master input bitmap (8 bytes, bit N = pin N).
+#   0x140+node_id    Pin extender: master -> node output bitmap.
+#   0x180+node_id    Pendant: node -> master int16 delta, uint8 axis, uint8 scale, uint8 buttons.
+#   0x200+node_id    Actuator command; 0x240+node_id actuator completion (uint8 index, status).
+#   0x700+node_id    Node status / heartbeat: uint16 boot_id, uint32 fault_flags, uint8 flags.
+#                    A changed boot_id tells the master the node rebooted and lost its queue.
+#
+# ---------------------------------------------------------------------------------------------
+# Known limitations
+# ---------------------------------------------------------------------------------------------
+#
+# * $100 / $110 / $120 / $130 Grbl-style per-axis proxy settings exist only for axes present at
+#   boot.  A module axis loaded later has no proxy; use the YAML settings instead.  These are
+#   legacy anyway.
+# * A sender connected across a load sees the MPos field count change unless axes: min_count is
+#   set high enough to cover every loadable axis.
+# * Two loadable modules that claim the same axis letter, or the same tool number, are refused
+#   at load time with a logged error -- this is not caught at parse time.
+# * Node loss while loaded is alarm-only: ExecAlarm::CanNodeLost fires and the module stays
+#   loaded.  Nothing reshapes itself until you unload explicitly, so a transient bus dropout
+#   never silently changes the machine.

@@ -4,6 +4,7 @@
 #include "CanPendant.h"
 
 #include "CanIds.h"
+#include "CanModule.h"
 #include "../GCode.h"
 #include "../Logging.h"
 #include "../Machine/Axes.h"
@@ -17,6 +18,7 @@
 namespace CAN {
     void CanPendant::group(Configuration::HandlerBase& handler) {
         handler.item("node", _nodeId);
+        handler.item("module", _moduleLabel);
         handler.item("feed_rate_mm_per_min", _feedRate);
         handler.item("idle_reports", _idleReports);
         handler.item("scale0_mm", _scales[0]);
@@ -26,7 +28,9 @@ namespace CAN {
     }
 
     void CanPendant::afterParse() {
-        Assert(_nodeId >= 1 && _nodeId <= int32_t(MaxNodeId), "pendant: node must be between 1 and %d", int(MaxNodeId));
+        if (_moduleLabel.empty()) {
+            Assert(_nodeId >= 1 && _nodeId <= int32_t(MaxNodeId), "pendant: node must be between 1 and %d", int(MaxNodeId));
+        }
         Assert(config->_can != nullptr, "pendant: no CAN bus configured; add a top level 'can:' section");
         Assert(_feedRate > 0.0f, "pendant: feed_rate_mm_per_min must be positive");
     }
@@ -35,9 +39,21 @@ namespace CAN {
         if (config->_can == nullptr) {
             return;
         }
+        if (!_moduleLabel.empty()) {
+            int32_t n = CanModules::nodeForLabel(_moduleLabel);
+            Assert(n >= 1, "pendant: unknown module '%s'", _moduleLabel.c_str());
+            _nodeId = n;
+        }
         _node = CanNodes::instance().node(uint8_t(_nodeId));
         config->_can->subscribe(this, IdPendantBase + uint32_t(_nodeId), 0x7FF);
         log_info("CAN pendant on node " << _nodeId);
+    }
+
+    void CanPendant::deinit() {
+        if (config->_can != nullptr) {
+            config->_can->unsubscribe(this);
+        }
+        _node = nullptr;
     }
 
     void CanPendant::onCanFrame(uint32_t id, uint8_t len, const uint8_t* data, int64_t rx_time_us) {

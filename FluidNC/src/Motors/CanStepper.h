@@ -6,6 +6,7 @@
 #include "MotorDriver.h"
 
 #include <cstdint>
+#include <string>
 
 namespace CAN {
     class CanNode;
@@ -45,12 +46,14 @@ namespace MotorDrivers {
 
         void group(Configuration::HandlerBase& handler) override {
             handler.item("node", _nodeId);
+            handler.item("module", _moduleLabel);
             handler.item("motor", _motorIndex);
         }
 
     private:
-        int32_t _nodeId      = 0;
-        int32_t _motorIndex  = 0;
+        int32_t     _nodeId      = 0;
+        int32_t     _motorIndex  = 0;
+        std::string _moduleLabel = "";
 
         CAN::CanNode* _node = nullptr;
     };
