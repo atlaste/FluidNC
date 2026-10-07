@@ -4,7 +4,11 @@
 
 **FluidNC** is a CNC firmware optimized for the ESP32 controller. It is the next generation of firmware from the creators of Grbl_ESP32. It includes a web based UI and the flexibility to operate a wide variety of machine types. This includes the ability to control machines with multiple tool types such as laser plus spindle or a tool changer.  
 
+I started FluidNC along with Bart and Mitch some years ago by implementing the OO structures, the configurations and the pins. Nowadays, it has become a great firmware, used by thousands of people across the globe. 
+
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=XS48ZNCFL6V7G)
+
+For this work, it's important to realize: **THIS WILL NOT WORK WITH MOST FLUIDNC PCBS!**. In fact, I only know for sure that it works with the [ZoomWroom](https://www.zoomwroom.com/) boards that I sell. Optocouplers are normally slow by design by avoid noise; this code on the other hand needs fast optocouplers! This is not a simple resistor change.
 
 ## New in this fork
 
